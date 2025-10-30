@@ -308,45 +308,70 @@ bool Obrabotka::parseCondition(const QString& cond) {
 
     qDebug() << "Парсим условие:" << condition;
 
-    // Токенизация для сложных условий
-    QStringList tokens;
-    QString currentToken;
+    // Заменяем русские логические операторы на английские с пробелами
+    QString processedCondition = condition;
 
-    for (int i = 0; i < condition.length(); i++) {
-        QChar ch = condition[i];
+    // Заменяем русские операторы на английские с пробелами для правильной токенизации
+    processedCondition.replace(QRegularExpression("\\bии\\b"), " && ");
+    processedCondition.replace(QRegularExpression("\\bили\\b"), " || ");
+    processedCondition.replace(QRegularExpression("\\bи\\b"), " && ");
 
-        if (ch == '&' || ch == '|' || ch == '(' || ch == ')') {
-            if (!currentToken.isEmpty()) {
-                tokens.append(currentToken);
-                currentToken.clear();
-            }
-            if (ch == '&' && i + 1 < condition.length() && condition[i + 1] == '&') {
-                tokens.append("&&");
-                i++; // Пропускаем второй символ
-            } else if (ch == '|' && i + 1 < condition.length() && condition[i + 1] == '|') {
-                tokens.append("||");
-                i++; // Пропускаем второй символ
+    // Убираем лишние пробелы и нормализуем
+    processedCondition = processedCondition.simplified();
+
+    qDebug() << "Обработанное условие:" << processedCondition;
+
+    // Проверяем, есть ли логические операторы
+    if (processedCondition.contains("&&") || processedCondition.contains("||") ||
+        processedCondition.contains("(") || processedCondition.contains(")")) {
+        // Токенизация для сложных условий
+        QStringList tokens;
+        QString currentToken;
+
+        for (int i = 0; i < processedCondition.length(); i++) {
+            QChar ch = processedCondition[i];
+
+            if (ch == '&' || ch == '|' || ch == '(' || ch == ')') {
+                if (!currentToken.isEmpty()) {
+                    tokens.append(currentToken);
+                    currentToken.clear();
+                }
+                if (ch == '&' && i + 1 < processedCondition.length() && processedCondition[i + 1] == '&') {
+                    tokens.append("&&");
+                    i++; // Пропускаем второй символ
+                } else if (ch == '|' && i + 1 < processedCondition.length() && processedCondition[i + 1] == '|') {
+                    tokens.append("||");
+                    i++; // Пропускаем второй символ
+                } else {
+                    tokens.append(QString(ch));
+                }
             } else {
-                tokens.append(QString(ch));
+                currentToken.append(ch);
             }
-        } else {
-            currentToken.append(ch);
         }
-    }
 
-    if (!currentToken.isEmpty()) {
-        tokens.append(currentToken);
-    }
+        if (!currentToken.isEmpty()) {
+            tokens.append(currentToken);
+        }
 
-    if (tokens.contains("&&") || tokens.contains("||") || tokens.contains("(") || tokens.contains(")")) {
+        qDebug() << "Токены:" << tokens;
+
         return evaluateComplexCondition(tokens);
     } else {
-        return evaluateSimpleCondition(condition);
+        return evaluateSimpleCondition(processedCondition);
     }
 }
 
 bool Obrabotka::evaluateSimpleCondition(const QString& cond) {
     QString condition = cond;
+
+    // Сначала проверяем на логические значения
+    if (condition == "1" || condition.toLower() == "true" || condition.toLower() == "истина") {
+        return true;
+    }
+    if (condition == "0" || condition.toLower() == "false" || condition.toLower() == "ложь") {
+        return false;
+    }
 
     QVector<QString> operators = {">=", "<=", "!=", "==", ">", "<"};
     QString foundOp;
@@ -383,6 +408,8 @@ bool Obrabotka::evaluateSimpleCondition(const QString& cond) {
 }
 
 bool Obrabotka::evaluateComplexCondition(QStringList& tokens) {
+    qDebug() << "Вычисляем сложное условие с токенами:" << tokens;
+
     // Обработка скобок
     std::stack<int> bracketStack;
     for (int i = 0; i < tokens.size(); i++) {
@@ -412,6 +439,11 @@ bool Obrabotka::evaluateComplexCondition(QStringList& tokens) {
             }
             i = start;
         }
+    }
+
+    if (!bracketStack.empty()) {
+        qCritical() << "Ошибка: Непарная открывающая скобка";
+        return false;
     }
 
     // Вычисляем операции &&
@@ -445,13 +477,12 @@ bool Obrabotka::evaluateComplexCondition(QStringList& tokens) {
     }
 
     if (tokens.size() != 1) {
-        qCritical() << "Ошибка: Неверное сложное условие";
+        qCritical() << "Ошибка: Неверное сложное условие, оставшиеся токены:" << tokens;
         return false;
     }
 
     return tokens[0] == "1" || evaluateSimpleCondition(tokens[0]);
 }
-
 // счетчик
 
 void Obrabotka::schetchik(const QString& counterExpr, QVariantList loopBody) {
