@@ -1216,124 +1216,144 @@ void Obrabotka::saveDebugState() {
 }
 
 bool Obrabotka::hasMoreBlocks() {
-    return m_currentDebugBlock < m_currentAlgorithm.size() || !m_algorithmStack.isEmpty();
+    return m_currentDebugBlock < m_currentAlgorithm.size() || !m_algorithmStack.isEmpty() || !m_debugLoopStack.isEmpty();
 }
 
-void Obrabotka::sendCurrentState() {
+void Obrabotka::sendCurrentState(int highlightIndex) {
     QVariantMap currentState = convertToQmlVariantMap();
     emit debugging_peremennie(currentState);
-
-    // Выделяем предыдущий выполненный блок
-    int highlightIndex = (m_currentDebugBlock > 0) ? (m_currentDebugBlock - 1) : -1;
     emit highlightBlock(highlightIndex);
-
     emit debugHistoryChanged(m_currentHistoryIndex > 0, hasMoreBlocks());
 }
 
 void Obrabotka::executeDebugBlock(const QVariantList& block) {
-    if (block.size() < 2) {
+    if (block.isEmpty()) {
+        m_currentDebugBlock++;
         return;
     }
-
     QString type = block[0].toString();
-    QString content = block[1].toString();
-
-    qDebug() << "Отладка: выполняем блок" << m_currentDebugBlock << "типа:" << type;
-
     if (type == "ввод") {
-        vvod(content);
-        m_currentDebugBlock++;
+        vvod(block[1].toString());
     } else if (type == "вывод") {
-        vivodim_functionod(content);
-        m_currentDebugBlock++;
+        vivodim_functionod(block[1].toString());
     } else if (type == "действие") {
-        deistvie(content);
-        m_currentDebugBlock++;
-    } else if (type == "усл") {
-        QVariantList trueBranch = block.size() > 2 ? block[2].value<QVariantList>() : QVariantList();
-        QVariantList falseBranch = block.size() > 3 ? block[3].value<QVariantList>() : QVariantList();
-
-        // Сохраняем текущий алгоритм и позицию в стек
-        m_algorithmStack.push(qMakePair(m_currentAlgorithm, m_currentDebugBlock + 1));
-
-        // Переходим к выполнению соответствующей ветки
-        if (evaluateCondition(content)) {
-            qDebug() << "Условие ИСТИНА, переходим к true ветке";
-            m_currentAlgorithm = trueBranch;
-        } else {
-            qDebug() << "Условие ЛОЖЬ, переходим к false ветке";
-            m_currentAlgorithm = falseBranch;
-        }
-        m_currentDebugBlock = 0;
-    } else if (type == "счетчик") {
-        QVariantList loopBody = block.size() > 2 ? block[2].value<QVariantList>() : QVariantList();
-
-        // Сохраняем текущий алгоритм и позицию в стек
-        m_algorithmStack.push(qMakePair(m_currentAlgorithm, m_currentDebugBlock + 1));
-
-        // Переходим к выполнению тела цикла
-        m_currentAlgorithm = loopBody;
-        m_currentDebugBlock = 0;
-    } else if (type == "предусл") {
-        QVariantList loopBody = block.size() > 2 ? block[2].value<QVariantList>() : QVariantList();
-
-        // Сохраняем текущий алгоритм и позицию в стек
-        m_algorithmStack.push(qMakePair(m_currentAlgorithm, m_currentDebugBlock + 1));
-
-        // Переходим к выполнению тела цикла
-        m_currentAlgorithm = loopBody;
-        m_currentDebugBlock = 0;
-    } else if (type == "постусл") {
-        QVariantList loopBody = block.size() > 2 ? block[2].value<QVariantList>() : QVariantList();
-
-        // Сохраняем текущий алгоритм и позицию в стек
-        m_algorithmStack.push(qMakePair(m_currentAlgorithm, m_currentDebugBlock + 1));
-
-        // Переходим к выполнению тела цикла
-        m_currentAlgorithm = loopBody;
-        m_currentDebugBlock = 0;
-    } else {
-        m_currentDebugBlock++;
+        deistvie(block[1].toString());
     }
+    m_currentDebugBlock++;
 }
 
 void Obrabotka::debugStep() {
     if (!m_debugging) return;
+    clearError();
+    saveDebugState();
 
-    // Проверяем, есть ли еще блоки в текущем алгоритме
+    int blockToHighlight = m_currentDebugBlock;
+
+    // Part 1: Handle end-of-scope transitions
     if (m_currentDebugBlock >= m_currentAlgorithm.size()) {
-        // Проверяем, есть ли еще алгоритмы в стеке
-        if (!m_algorithmStack.isEmpty()) {
-            auto previous = m_algorithmStack.pop();
-            m_currentAlgorithm = previous.first;
-            m_currentDebugBlock = previous.second;
-            debugStep(); // Рекурсивно продолжаем выполнение
-            return;
-        } else {
-            // Отладка завершена
+        // Finished a loop body?
+        if (!m_debugLoopStack.isEmpty() && m_currentAlgorithm == m_debugLoopStack.top().body) {
+            DebugLoopInfo& loop = m_debugLoopStack.top();
+            blockToHighlight = loop.originalBlockIndex;
+            // For do-while, we check condition after the body
+            if (loop.type == "постусл") {
+                if (evaluateCondition(loop.condition)) {
+                    m_currentAlgorithm = loop.body;
+                    m_currentDebugBlock = 0;
+                } else {
+                    m_debugLoopStack.pop();
+                    auto p = m_algorithmStack.pop();
+                    m_currentAlgorithm = p.first;
+                    m_currentDebugBlock = p.second;
+                }
+            } else { // For for/while, we've finished a body and must return to the header
+                if (loop.type == "счетчик") {
+                    int currentVal = getValue(loop.counterVar).toInt() + loop.counterStep;
+                    setValue(loop.counterVar, currentVal, "int");
+                }
+                m_currentAlgorithm = m_algorithmStack.top().first;
+                m_currentDebugBlock = loop.originalBlockIndex;
+            }
+        }
+        // Finished a simple 'if' branch?
+        else if (!m_algorithmStack.isEmpty()) {
+            auto p = m_algorithmStack.pop();
+            m_currentAlgorithm = p.first;
+            m_currentDebugBlock = p.second;
+            blockToHighlight = m_currentDebugBlock;
+        }
+        // End of entire program
+        else {
             stopDebugging();
             emit debugFinished();
             return;
         }
     }
+    // Part 2: Process the current block
+    else {
+        QVariantList block = m_currentAlgorithm[m_currentDebugBlock].value<QVariantList>();
+        QString type = block.isEmpty() ? "" : block[0].toString();
 
-    // Сохраняем состояние ПЕРЕД выполнением блока
-    saveDebugState();
+        if (type == "усл") {
+            m_algorithmStack.push({m_currentAlgorithm, m_currentDebugBlock + 1});
+            if (evaluateCondition(block[1].toString())) {
+                m_currentAlgorithm = block[2].value<QVariantList>();
+            } else {
+                m_currentAlgorithm = block[3].value<QVariantList>();
+            }
+            m_currentDebugBlock = 0;
+        } else if (type == "счетчик" || type == "предусл" || type == "постусл") {
+            // Is this the first time we're seeing this block, or are we re-evaluating?
+            if (m_debugLoopStack.isEmpty() || m_debugLoopStack.top().originalBlockIndex != m_currentDebugBlock) {
+                // First time: set up the loop
+                DebugLoopInfo loopInfo;
+                loopInfo.type = type;
+                loopInfo.condition = block[1].toString();
+                loopInfo.body = block.size() > 2 ? block[2].value<QVariantList>() : QVariantList();
+                loopInfo.originalBlockIndex = m_currentDebugBlock;
+                m_debugLoopStack.push(loopInfo);
 
-    // Выполняем текущий блок
-    QVariant item = m_currentAlgorithm[m_currentDebugBlock];
-    if (!item.canConvert<QVariantList>()) {
-        m_currentDebugBlock++;
-        sendCurrentState();
-        return;
+                if (type == "счетчик") {
+                    int startVal;
+                    if (parseCounter(loopInfo.condition, m_debugLoopStack.top().counterVar, startVal, m_debugLoopStack.top().counterEnd, m_debugLoopStack.top().counterStep)) {
+                        setValue(m_debugLoopStack.top().counterVar, startVal, "int");
+                    } else {
+                        setError("Ошибка парсинга цикла for");
+                        m_debugLoopStack.pop();
+                        m_currentDebugBlock++;
+                    }
+                }
+                // For 'post-condition', we immediately enter the body.
+                else if (type == "постусл") {
+                    m_algorithmStack.push({m_currentAlgorithm, m_currentDebugBlock + 1});
+                    m_currentAlgorithm = loopInfo.body;
+                    m_currentDebugBlock = 0;
+                }
+                // For 'for' and 'while', the next step will re-evaluate this same block. The PC doesn't move.
+            } else { // Re-evaluating a loop header
+                DebugLoopInfo& loop = m_debugLoopStack.top();
+                bool conditionMet = false;
+                if (loop.type == "счетчик") {
+                    int currentVal = getValue(loop.counterVar).toInt();
+                    conditionMet = (loop.counterStep >= 0) ? (currentVal <= loop.counterEnd) : (currentVal >= loop.counterEnd);
+                } else { // 'предусл'
+                    conditionMet = evaluateCondition(loop.condition);
+                }
+
+                if (conditionMet) {
+                    m_algorithmStack.push({m_currentAlgorithm, m_currentDebugBlock + 1});
+                    m_currentAlgorithm = loop.body;
+                    m_currentDebugBlock = 0;
+                } else {
+                    m_debugLoopStack.pop();
+                    m_currentDebugBlock++;
+                }
+            }
+        } else {
+            executeDebugBlock(block);
+        }
     }
-
-    QVariantList block = item.value<QVariantList>();
-    executeDebugBlock(block);
-
-    // Отправляем обновленные данные
-    sendCurrentState();
-
+    sendCurrentState(blockToHighlight);
     qDebug() << "Отладка: текущий блок" << m_currentDebugBlock << ", размер алгоритма" << m_currentAlgorithm.size() << ", стек:" << m_algorithmStack.size();
 }
 

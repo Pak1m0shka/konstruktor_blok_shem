@@ -25,6 +25,19 @@ struct VariableInfo {
 
 Q_DECLARE_METATYPE(VariableInfo)
 
+// Структура для хранения информации о цикле в режиме отладки
+struct DebugLoopInfo {
+    QString type; // "счетчик", "предусл", "постусл"
+    QString condition;
+    QVariantList body;
+    int originalBlockIndex; // index in the parent algorithm
+
+    // For "счетчик"
+    QString counterVar;
+    int counterEnd;
+    int counterStep;
+};
+
 class Obrabotka : public QObject
 {
     Q_OBJECT
@@ -130,6 +143,9 @@ private:
     // Стек для вложенных алгоритмов
     QStack<QPair<QVariantList, int>> m_algorithmStack;
 
+    // Стек для отладки циклов
+    QStack<DebugLoopInfo> m_debugLoopStack;
+
     // Флаг ошибки
     bool m_hasError = false;
     QString m_errorMessage;
@@ -138,7 +154,7 @@ private:
     void executeDebugBlock(const QVariantList& block);
     void saveDebugState();
     bool hasMoreBlocks();
-    void sendCurrentState();
+    void sendCurrentState(int highlightIndex = -1);
     void setError(const QString& message);
     void clearError();
 };
