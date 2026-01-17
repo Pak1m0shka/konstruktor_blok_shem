@@ -4,6 +4,7 @@ import QtQuick.Window
 import QtQuick.Controls
 import myObrabotka
 import QtQuick.Dialogs
+import Qt.labs.platform 1.1
 
 Window {
     id: main
@@ -49,7 +50,7 @@ Window {
                     var name = keys[i];
                     var value = peremennie[name];
                     console.log("Добавляем переменную:", name, "=", value);
-                    variablesModel.append({ name: name, value: value });
+                    variablesModel.append({ name: name, value: String(value) });
                 }
             } else {
                 console.warn("peremennie не является объектом:", peremennie);
@@ -132,6 +133,7 @@ Window {
                 }
                 onClicked: {
                     if (main.debugMode) {
+                        console.log("Нажата кнопка 'Закончить отладку'");
                         myObrabotka.stopDebugging();
                     } else {
                         main.debugMode = true;
@@ -245,6 +247,7 @@ Window {
 
             ComboBox {
                 id: blockTypeSelector
+                enabled: !main.debugMode
                 Layout.preferredWidth: 250
                 Layout.preferredHeight: 50
                 model: ListModel {
@@ -352,8 +355,9 @@ Window {
             Button {
                 id: inputBtn
                 text: "Ввод"
+                enabled: !main.debugMode
                 onClicked: createBlock("ввод")
-                Shortcut { sequence: "F7"; onActivated: createBlock("ввод") }
+                Shortcut { sequence: "F7"; onActivated: if(enabled) createBlock("ввод") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 100
                 background: Rectangle {
@@ -393,8 +397,9 @@ Window {
             Button {
                 id: outputBtn
                 text: "Вывод"
+                enabled: !main.debugMode
                 onClicked: createBlock("вывод")
-                Shortcut { sequence: "F8"; onActivated: createBlock("вывод") }
+                Shortcut { sequence: "F8"; onActivated: if(enabled) createBlock("вывод") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 100
                 background: Rectangle {
@@ -433,8 +438,9 @@ Window {
             Button {
                 id: actionBtn
                 text: "Действие"
+                enabled: !main.debugMode
                 onClicked: createBlock("действие")
-                Shortcut { sequence: "F9"; onActivated: createBlock("действие") }
+                Shortcut { sequence: "F9"; onActivated: if(enabled) createBlock("действие") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
                 background: Rectangle {
@@ -454,8 +460,9 @@ Window {
             Button {
                 id: counterBtn
                 text: "Счетчик"
+                enabled: !main.debugMode
                 onClicked: createBlock("счетчик")
-                Shortcut { sequence: "F10"; onActivated: createBlock("счетчик") }
+                Shortcut { sequence: "F10"; onActivated: if(enabled) createBlock("счетчик") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
                 background: Rectangle {
@@ -497,8 +504,9 @@ Window {
             Button {
                 id: precondBtn
                 text: "Предусл"
+                enabled: !main.debugMode
                 onClicked: createBlock("предусл")
-                Shortcut { sequence: "F11"; onActivated: createBlock("предусл") }
+                Shortcut { sequence: "F11"; onActivated: if(enabled) createBlock("предусл") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
                 background: Rectangle {
@@ -538,8 +546,9 @@ Window {
             Button {
                 id: postcondBtn
                 text: "Постусл"
+                enabled: !main.debugMode
                 onClicked: createBlock("постусл")
-                Shortcut { sequence: "F12"; onActivated: createBlock("постусл") }
+                Shortcut { sequence: "F12"; onActivated: if(enabled) createBlock("постусл") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
                 background: Rectangle {
@@ -579,6 +588,7 @@ Window {
             Button {
                 id: condBtn
                 text: "Усл"
+                enabled: !main.debugMode
                 onClicked: createBlock("усл")
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 100
@@ -619,6 +629,7 @@ Window {
             Button {
                 id: startBtn
                 text: "Начало"
+                enabled: !main.debugMode
                 onClicked: createBlock("начало")
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
@@ -654,6 +665,7 @@ Window {
             Button {
                 id: endBtn
                 text: "Конец"
+                enabled: !main.debugMode
                 onClicked: createBlock("конец")
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
@@ -722,6 +734,7 @@ Window {
 
                     Button {
                         id: mainActivateBtn
+                        enabled: !main.debugMode
                         anchors.top: parent.top
                         anchors.right: parent.right
                         anchors.margins: 5
@@ -756,6 +769,7 @@ Window {
                     }
 
                     TapHandler {
+                        enabled: !main.debugMode
                         onTapped: {
                             if (main.activeContainer === container) {
                                 createBlock(main.selectedBlockType)
@@ -956,6 +970,7 @@ Window {
                             font.pixelSize: 18
                         }
                         onClicked: {
+                            console.log("Отладка: Нажата кнопка 'Закрыть'");
                             myObrabotka.stopDebugging();
                         }
                     }
@@ -978,6 +993,7 @@ Window {
                 TextArea {
                     id: otvet
                     text: "Вывод"
+                    readOnly: true
                     color: "#e0e0e0"
                     font.pixelSize: 18
                     background: Rectangle {
@@ -1065,7 +1081,7 @@ Window {
         }
 
         var newBlock = spisok.createObject(parentContainer, { "blockType": type, "uniqueId": main.blockIdCounter++ });
-        newBlock.z = referenceIndex + 2; // Move it above the reference block initially
+        newBlock.z = referenceIndex + 2; 
         for(i = referenceIndex + 1; i < parentContainer.children.length; ++i) {
              if(parentContainer.children[i] !== newBlock) {
                 parentContainer.children[i].z = i + 1;
@@ -1114,14 +1130,12 @@ Window {
             property int uniqueId: -1
 
             function highlightInSelfAndChildren(targetId) {
-                // Шаг 1: Проверить, является ли текущий блок целью
                 if (root.uniqueId === targetId) {
                     root.isDebugHighlighted = true;
                 } else {
                     root.isDebugHighlighted = false;
                 }
 
-                // Шаг 2: Рекурсивно вызвать эту же функцию для дочерних блоков в контейнерах
                 function highlightInContainer(cont) {
                     if (!cont) return;
                     for (var i = 0; i < cont.children.length; i++) {
@@ -1132,7 +1146,6 @@ Window {
                     }
                 }
 
-                // Проверяем все возможные контейнеры
                 highlightInContainer(leftContainer);
                 highlightInContainer(rightContainer);
                 highlightInContainer(centerContainer);
@@ -1295,6 +1308,7 @@ Window {
 
                     TextField {
                         id: inputField
+                        enabled: !main.debugMode
                         anchors.centerIn: parent
                         width: parent.width - 30
                         visible: !["начало", "конец", "счетчик", "усл", "предусл", "постусл"].includes(root.blockType)
@@ -1316,6 +1330,7 @@ Window {
 
                     TextField {
                         id: inputFieldDiamond
+                        enabled: !main.debugMode
                         visible: ["усл", "предусл", "постусл"].includes(root.blockType)
                         anchors.centerIn: parent
                         width: parent.width * 0.8
@@ -1355,6 +1370,7 @@ Window {
                                 }
                                 TextField {
                                     id: counterVarField
+                                    enabled: !main.debugMode
                                     width: 70
                                     placeholderText: "i"
                                     color: "black"
@@ -1382,6 +1398,7 @@ Window {
                                 }
                                 TextField {
                                     id: counterStepField
+                                    enabled: !main.debugMode
                                     width: 70
                                     placeholderText: "1"
                                     color: "black"
@@ -1414,6 +1431,7 @@ Window {
                                 }
                                 TextField {
                                     id: counterFromField
+                                    enabled: !main.debugMode
                                     width: 70
                                     placeholderText: "0"
                                     color: "black"
@@ -1441,6 +1459,7 @@ Window {
                                 }
                                 TextField {
                                     id: counterToField
+                                    enabled: !main.debugMode
                                     width: 70
                                     placeholderText: "10"
                                     color: "black"
@@ -1467,6 +1486,7 @@ Window {
 
                         Button {
                             id: addAboveButton
+                            enabled: !main.debugMode
                             width: 30
                             height: 30
                             background: Rectangle {
@@ -1505,6 +1525,7 @@ Window {
 
                         Button {
                             id: addBelowButton
+                            enabled: !main.debugMode
                             width: 30
                             height: 30
                             background: Rectangle {
@@ -1543,19 +1564,20 @@ Window {
                     }
 
                     TapHandler {
+                        enabled: !main.debugMode
                         acceptedButtons: Qt.RightButton
                         onTapped: {
+                            console.log("Блок удалён правым кликом. ID:", root.uniqueId);
                             root.destroy()
-                            console.log("Блок удалён правым кликом")
                         }
                     }
 
                     TapHandler {
+                        enabled: !main.debugMode
                         acceptedButtons: Qt.LeftButton
-                        enabled: !inputField.activeFocus && !inputFieldDiamond.activeFocus
                         onDoubleTapped: {
+                            console.log("Блок удалён двойным кликом. ID:", root.uniqueId);
                             root.destroy()
-                            console.log("Блок удалён двойным кликом")
                         }
                     }
                 }
@@ -1577,7 +1599,7 @@ Window {
                         Rectangle {
                             width: Math.max(400, centerContainerCounter.childrenRect.width + 40)
                             height: Math.max(160, centerContainerCounter.childrenRect.height + 50)
-                            border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? "#9c27b0" : "#388e3c")
+                            border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? "#9c27b0" : "#424242")
                             border.width: root.isDebugHighlighted ? 4 : 2
                             radius: 5
                             color: "transparent"
@@ -1592,6 +1614,7 @@ Window {
 
                             Button {
                                 id: counterActivateBtn
+                                enabled: !main.debugMode
                                 anchors.top: parent.top
                                 anchors.right: parent.right
                                 anchors.margins: 5
@@ -1626,6 +1649,7 @@ Window {
                             }
 
                             TapHandler {
+                                enabled: !main.debugMode
                                 onTapped: {
                                     if (main.activeContainer === centerContainerCounter) {
                                         createBlock(main.selectedBlockType)
@@ -1655,7 +1679,7 @@ Window {
                         Rectangle {
                             width: Math.max(400, centerContainer.childrenRect.width + 40)
                             height: Math.max(160, centerContainer.childrenRect.height + 50)
-                            border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? "#9c27b0" : "#388e3c")
+                            border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? "#9c27b0" : "#424242")
                             border.width: root.isDebugHighlighted ? 4 : 2
                             radius: 5
                             color: "transparent"
@@ -1670,6 +1694,7 @@ Window {
 
                             Button {
                                 id: cycleActivateBtn
+                                enabled: !main.debugMode
                                 anchors.top: parent.top
                                 anchors.right: parent.right
                                 anchors.margins: 5
@@ -1704,6 +1729,7 @@ Window {
                             }
 
                             TapHandler {
+                                enabled: !main.debugMode
                                 onTapped: {
                                     if (main.activeContainer === centerContainer) {
                                         createBlock(main.selectedBlockType)
@@ -1739,7 +1765,7 @@ Window {
                             Rectangle {
                                 width: Math.max(280, leftContainer.childrenRect.width + 40)
                                 height: Math.max(160, leftContainer.childrenRect.height + 50)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? "#9c27b0" : "#388e3c")
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? "#9c27b0" : "#424242")
                                 border.width: root.isDebugHighlighted ? 4 : 2
                                 radius: 5
                                 color: "transparent"
@@ -1753,6 +1779,7 @@ Window {
 
                                 Button {
                                     id: leftActivateBtn
+                                    enabled: !main.debugMode
                                     anchors.top: parent.top
                                     anchors.right: parent.right
                                     anchors.margins: 5
@@ -1785,6 +1812,7 @@ Window {
                                 }
 
                                 TapHandler {
+                                    enabled: !main.debugMode
                                     onTapped: {
                                         if (main.activeContainer === leftContainer) {
                                             createBlock(main.selectedBlockType)
@@ -1799,7 +1827,7 @@ Window {
                             Rectangle {
                                 width: Math.max(280, rightContainer.childrenRect.width + 40)
                                 height: Math.max(160, rightContainer.childrenRect.height + 50)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? "#9c27b0" : "#388e3c")
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? "#9c27b0" : "#424242")
                                 border.width: root.isDebugHighlighted ? 4 : 2
                                 radius: 5
                                 color: "transparent"
@@ -1813,6 +1841,7 @@ Window {
 
                                 Button {
                                     id: rightActivateBtn
+                                    enabled: !main.debugMode
                                     anchors.top: parent.top
                                     anchors.right: parent.right
                                     anchors.margins: 5
@@ -1845,6 +1874,7 @@ Window {
                                 }
 
                                 TapHandler {
+                                    enabled: !main.debugMode
                                     onTapped: {
                                         if (main.activeContainer === rightContainer) {
                                             createBlock(main.selectedBlockType)
@@ -1875,7 +1905,7 @@ Window {
                         Rectangle {
                             width: Math.max(400, centerContainerPost.childrenRect.width + 40)
                             height: Math.max(160, centerContainerPost.childrenRect.height + 50)
-                            border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? "#9c27b0" : "#388e3c")
+                            border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? "#9c27b0" : "#424242")
                             border.width: root.isDebugHighlighted ? 4 : 2
                             radius: 5
                             color: "transparent"
@@ -1890,6 +1920,7 @@ Window {
 
                             Button {
                                 id: postActivateBtn
+                                enabled: !main.debugMode
                                 anchors.top: parent.top
                                 anchors.right: parent.right
                                 anchors.margins: 5
@@ -1924,6 +1955,7 @@ Window {
                             }
 
                             TapHandler {
+                                enabled: !main.debugMode
                                 onTapped: {
                                     if (main.activeContainer === centerContainerPost) {
                                         createBlock(main.selectedBlockType)
@@ -1975,9 +2007,7 @@ Window {
         }
     }
 
-    onCurrentDebugBlockIdChanged: {
-        updateBlockHighlight()
-    }
+    onCurrentDebugBlockIdChanged: updateBlockHighlight()
 
     function loadAlgorithm(algorithmData, parentContainer) {
         parentContainer.destroyChildren() // Очищаем контейнер
@@ -2024,7 +2054,6 @@ Window {
     FileDialog {
         id: saveFileDialog
         title: "Сохранить алгоритм"
-        currentFolder: shortcuts.home
         nameFilters: [ "JSON files (*.json)", "All files (*)" ]
         onAccepted: {
             var path = saveFileDialog.file.toString().substring(Qt.platform.os === "windows" ? 8 : 7)
@@ -2038,7 +2067,6 @@ Window {
     FileDialog {
         id: openFileDialog
         title: "Открыть алгоритм"
-        currentFolder: shortcuts.home
         nameFilters: [ "JSON files (*.json)", "All files (*)" ]
         onAccepted: {
             var path = openFileDialog.file.toString().substring(Qt.platform.os === "windows" ? 8 : 7)
@@ -2046,72 +2074,147 @@ Window {
         }
     }
 
-    Dialog {
+    Popup {
         id: newAlgorithmDialog
-        title: "Новый алгоритм"
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        modal: true
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
         width: 300
         height: 150
-        contentItem: Text {
-            text: "Вы уверены, что хотите создать новый алгоритм? Все несохраненные данные будут утеряны."
-            wrapMode: Text.WordWrap
-        }
-        onAccepted: {
-            container.destroyChildren()
-            main.blockIdCounter = 0
-            console.log("Создан новый пустой алгоритм")
-        }
-    }
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        padding: 10
 
-    Dialog {
-        id: errorDialog
-        title: "Ошибка"
-        modal: true
-        standardButtons: Dialog.Ok
-        property alias text: errorText.text
-        contentItem: Text {
-            id: errorText
-            wrapMode: Text.WordWrap
-        }
-    }
-    Dialog {
-        id: helpDialog
-        title: "Справка"
-        modal: true
-        standardButtons: Dialog.Ok
-        width: 600
-        height: 400
-        contentItem: ScrollView {
-            clip: true
-            TextArea {
-                readOnly: true
+        ColumnLayout {
+            anchors.fill: parent
+            Text {
+                text: "Вы уверены, что хотите создать новый алгоритм? Все несохраненные данные будут утеряны."
                 wrapMode: Text.WordWrap
-                text: "Добро пожаловать в редактор алгоритмов!\n\n"
-                    + "Горячие клавиши:\n"
-                    + "F1: Запуск\n"
-                    + "F2: Сохранить\n"
-                    + "F3: Открыть\n"
-                    + "F4: Новый алгоритм\n"
-                    + "F5: Справка\n"
-                    + "F6: Отладка/Закончить отладку\n"
-                    + "F7: Ввод / Шаг назад (в режиме отладки)\n"
-                    + "F8: Вывод / Шаг вперёд (в режиме отладки)\n"
-                    + "F9: Действие\n"
-                    + "F10: Счетчик\n"
-                    + "F11: Предусловие\n"
-                    + "F12: Постусловие\n\n"
-                    + "Для создания блока выберите его тип в выпадающем списке и кликните в нужной области (основной или внутри другого блока).\n"
-                    + "Для удаления блока кликните по нему правой кнопкой мыши или дважды левой.\n"
-                    + "Для активации области для добавления блоков (например, ветки 'Да'/'Нет' в условии) кликните по кнопке 'A' в углу этой области."
+                Layout.fillWidth: true
+            }
+
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                Button {
+                    text: "Ok"
+                    onClicked: {
+                        container.destroyChildren()
+                        main.blockIdCounter = 0
+                        console.log("Создан новый пустой алгоритм")
+                        newAlgorithmDialog.close()
+                    }
+                }
+                Button {
+                    text: "Cancel"
+                    onClicked: newAlgorithmDialog.close()
+                }
             }
         }
     }
 
-    MessageDialog {
+    Popup {
+        id: errorDialog
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+        width: 300
+        height: 150
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        padding: 10
+        property alias text: errorText.text
+
+        ColumnLayout{
+            anchors.fill: parent
+             Text {
+                id: errorText
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            RowLayout{
+                 Layout.alignment: Qt.AlignHCenter
+                 Button {
+                    text: "Ok"
+                    onClicked: errorDialog.close()
+                }
+            }
+        }
+    }
+    Popup {
+        id: helpDialog
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+        width: 600
+        height: 400
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        padding: 10
+
+        ColumnLayout{
+            anchors.fill: parent
+            ScrollView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                TextArea {
+                    readOnly: true
+                    wrapMode: Text.WordWrap
+                    text: "Добро пожаловать в редактор алгоритмов!\n\n"
+                        + "Горячие клавиши:\n"
+                        + "F1: Запуск\n"
+                        + "F2: Сохранить\n"
+                        + "F3: Открыть\n"
+                        + "F4: Новый алгоритм\n"
+                        + "F5: Справка\n"
+                        + "F6: Отладка/Закончить отладку\n"
+                        + "F7: Ввод / Шаг назад (в режиме отладки)\n"
+                        + "F8: Вывод / Шаг вперёд (в режиме отладки)\n"
+                        + "F9: Действие\n"
+                        + "F10: Счетчик\n"
+                        + "F11: Предусловие\n"
+                        + "F12: Постусловие\n\n"
+                        + "Для создания блока выберите его тип в выпадающем списке и кликните в нужной области (основной или внутри другого блока).\n"
+                        + "Для удаления блока кликните по нему правой кнопкой мыши или дважды левой.\n"
+                        + "Для активации области для добавления блоков (например, ветки 'Да'/'Нет' в условии) кликните по кнопке 'A' в углу этой области."
+                }
+            }
+            RowLayout{
+                Layout.alignment: Qt.AlignHCenter
+                Button {
+                    text: "Ok"
+                    onClicked: helpDialog.close()
+                }
+            }
+        }
+    }
+
+    Popup {
         id: information_save
-        title: "Информация"
-        text: "Алгоритм успешно сохранен."
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+        width: 250
+        height: 100
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        padding: 10
+        property alias text: infoText.text
+         ColumnLayout{
+            anchors.fill: parent
+            Text {
+                id: infoText
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+            }
+            RowLayout{
+                Layout.alignment: Qt.AlignHCenter
+                Button {
+                    text: "Ok"
+                    onClicked: information_save.close()
+                }
+            }
+        }
     }
 
     Component {

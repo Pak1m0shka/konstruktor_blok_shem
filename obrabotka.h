@@ -2,41 +2,13 @@
 #define OBRABOTKA_H
 
 #include <QObject>
-#include <QVariant>
+#include <QVariantMap>
 #include <QVariantList>
-#include <QEventLoop>
 #include <QString>
 #include <QStack>
 #include <QMap>
-#include <QFile>
-#include <QJsonDocument>
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QDir>
-
-// Структура для хранения информации о переменной
-struct VariableInfo {
-    QVariant value;
-    QString type;
-
-    VariableInfo() : value(QVariant()), type("unknown") {}
-    VariableInfo(const QVariant& val, const QString& t) : value(val), type(t) {}
-};
-
-Q_DECLARE_METATYPE(VariableInfo)
-
-// Структура для хранения информации о цикле в режиме отладки
-struct DebugLoopInfo {
-    QString type; // "счетчик", "предусл", "постусл"
-    QString condition;
-    QVariantList body;
-    int originalBlockIndex; // index in the parent algorithm
-
-    // For "счетчик"
-    QString counterVar;
-    int counterEnd;
-    int counterStep;
-};
+#include <QEventLoop>
+#include <QVector>
 
 class Obrabotka : public QObject
 {
@@ -44,122 +16,110 @@ class Obrabotka : public QObject
 public:
     explicit Obrabotka(QObject *parent = nullptr);
 
-public slots:
-    int requestUserInput();
-    void myPriem(QVariantList algoritm);
-    void userInputReceived(const QString &input);
-    void startDebugging(QVariantList algorithm);
-    void debugStep();
-    void debugStepBack();
-    void stopDebugging();
-    bool saveAlgorithmToFile(const QVariantList& algorithm, const QString& filename);
-    QVariantList loadAlgorithmFromFile(const QString& filename);
+    Q_INVOKABLE void myPriem(QVariantList algoritm);
+    Q_INVOKABLE void userInputReceived(const QString &input);
+    Q_INVOKABLE void startDebugging(QVariantList algorithm);
+    Q_INVOKABLE void stopDebugging();
+    Q_INVOKABLE void debugStep();
+    Q_INVOKABLE void debugStepBack();
+    Q_INVOKABLE bool saveAlgorithmToFile(const QVariantList& algorithm, const QString& filename);
+    Q_INVOKABLE QVariantList loadAlgorithmFromFile(const QString& filename);
 
-signals:
-    void needUserInput();
-    void inputProcessed(const QString& result);
-    void vivod(QString otvet_cpp);
-    void debugging_peremennie(QVariantMap peremennie);
-    void highlightBlock(int blockId);
-    void debugHistoryChanged(bool canStepBack, bool canStepForward);
-    void debugFinished();
-    void errorOccurred(const QString& errorMessage);
-    void algorithmLoaded(QVariantList algorithm);
 
 private:
-    // Функции выполнения блоков
+    struct VariableInfo {
+        QVariant value;
+        QString type;
+        VariableInfo() = default;
+        VariableInfo(const QVariant& v, const QString& t) : value(v), type(t) {}
+    };
+
+    enum VariableType { Unknown, Integer, Double, String, Boolean };
+
+    QMap<QString, VariableInfo> peremennieMap;
+    QString vvod_peremennich_polsovatela;
+    QEventLoop m_loop;
+    bool m_waitingForInput = false;
+    QString m_receivedInput;
+
+    bool m_hasError = false;
+    QString m_errorMessage;
+
+    // Новая система отладки
+    bool m_debugging = false;
+    QVariantList m_currentAlgorithm;
+    QMap<int, QVariantMap> m_blockMap;
+    QMap<int, int> m_nextBlockIdMap;
+    int m_currentDebugBlockId = -1;
+    QVector<QVariantMap> m_algorithmStack;
+    QVector<int> m_debugLoopStack;
+    QStack<QVariantMap> m_debugHistory;
+    QStack<int> m_blockIdHistory;
+    int m_currentHistoryIndex = -1;
+    QMap<int, bool> m_loopInitialized;
+
+    void flattenAlgorithm(const QVariantList& algorithm, int& nextId);
+    void vipolnenie(QVariantList algorithm);
     void vvod(const QString& variableName);
     void vivodim_functionod(QString peremen);
-    void vipolnenie(QVariantList algoritm);
     void deistvie(QString vvod);
     void usl(QString usl, QVariantList trueBranch, QVariantList falseBranch);
     void schetchik(const QString& counterExpr, QVariantList loopBody);
-    bool parseCounter(const QString& expr, QString& varName, int& startVal, int& endVal, int& stepVal);
     void predusl(const QString& condition, QVariantList loopBody);
     void postusl(const QString& condition, QVariantList loopBody);
+    int requestUserInput();
+    void setError(const QString& message);
+    void clearError();
 
-    // Функции для выражений и условий
+    // Функции-помощники
+    VariableType determineType(const QVariant& value);
+    VariableType determineTypeFromString(const QString& value);
+    QString typeToString(VariableType type);
+    bool canConvertToNumber(const QString& str, double& result);
+    bool isInteger(double value);
     QVariant getValue(const QString& name);
     QString getType(const QString& name);
     void setValue(const QString& name, const QVariant& value, const QString& type = "");
     QVariant parseExpression(const QString& expr);
-    QVariant evaluateTokens(QStringList& tokens);
     QStringList tokenize(const QString& expr);
+    QVariant evaluateTokens(QStringList& tokens);
+    bool evaluateCondition(const QString& condition);
     bool parseCondition(const QString& cond);
     bool evaluateSimpleCondition(const QString& cond);
     bool evaluateComplexCondition(QStringList& tokens);
-    bool evaluateCondition(const QString& condition);
-
-    // Функции для работы с типами
-    enum VariableType { Integer, Double, String, Boolean, Unknown };
-    VariableType determineType(const QVariant& value);
-    QString typeToString(VariableType type);
-    VariableType determineTypeFromString(const QString& value);
-    bool canConvertToNumber(const QString& str, double& result);
-    bool isInteger(double value);
-
-    // Функции для операций с проверкой типов
+    bool parseCounter(const QString& expr, QString& varName, int& startVal, int& endVal, int& stepVal);
     QVariant addValues(const QVariant& left, const QVariant& right);
     QVariant subtractValues(const QVariant& left, const QVariant& right);
     QVariant multiplyValues(const QVariant& left, const QVariant& right);
     QVariant divideValues(const QVariant& left, const QVariant& right);
     QVariant moduloValues(const QVariant& left, const QVariant& right);
     bool compareValues(const QVariant& left, const QVariant& right, const QString& op);
-
-    // Функции для работы со строками
     QVariant stringLength(const QString& str);
     QVariant stringIndex(const QString& str, int index);
     QVariant stringSlice(const QString& str, int start, int end);
     QVariant parseStringOperation(const QString& expr);
 
-    // Функции для работы с состоянием
-    QVariantMap convertToQmlVariantMap() const;
-    void restoreStateFromVariantMap(const QVariantMap& state);
-
-    // Переменные для ввода
-    QEventLoop m_loop;
-    QString m_receivedInput;
-    bool m_waitingForInput = false;
-    QString vvod_peremennich_polsovatela;
-
-    // Хранилище переменных (название -> информация о переменной)
-    QMap<QString, VariableInfo> peremennieMap;
-
-    // Отладочные переменные
-    bool m_debugging = false;
-    int m_currentDebugBlockId = -1;
-
-    // История для шага назад
-    QStack<QVariantMap> m_debugHistory;
-    QStack<int> m_blockIdHistory;
-    int m_currentHistoryIndex = -1;
-
-    // Текущий алгоритм для отладки
-    QVariantList m_currentAlgorithm;
-
-    // Стек для вложенных алгоритмов
-    QStack<QPair<QVariantList, int>> m_algorithmStack;
-
-    // Стек для отладки циклов
-    QStack<DebugLoopInfo> m_debugLoopStack;
-
-    // Флаг ошибки
-    bool m_hasError = false;
-    QString m_errorMessage;
-
-    // Вспомогательные структуры для отладки
-    QMap<int, QVariantMap> m_blockMap; // Map: blockId -> blockData
-    QMap<int, int> m_nextBlockIdMap;   // Map: blockId -> next sequential blockId
-    QMap<int, bool> m_loopInitialized; // Map: loopBlockId -> isInitialized
-
-    // Вспомогательные функции для отладки
-    void flattenAlgorithm(const QVariantList& algorithm, int& nextId);
-    void executeDebugBlock(const QVariantMap& block);
+    // Функции для отладки
     void saveDebugState(int finishedBlockId);
     bool hasMoreBlocks();
     void sendCurrentState(int highlightId);
-    void setError(const QString& message);
-    void clearError();
+    void executeDebugBlock(const QVariantMap& block);
+
+    // Конвертация и восстановление состояния
+    QVariantMap convertToQmlVariantMap() const;
+    void restoreStateFromVariantMap(const QVariantMap& state);
+    void internal_cleanup();
+
+signals:
+    void vivod(const QString &otvet_cpp);
+    void needUserInput();
+    void inputProcessed(const QString &result);
+    void debugging_peremennie(QVariantMap peremennie);
+    void highlightBlock(int blockId);
+    void errorOccurred(const QString &errorMessage);
+    void debugHistoryChanged(bool canStepBack, bool canStepForward);
+    void debugFinished();
+    void algorithmLoaded(QVariantList algorithm);
 };
 
 #endif // OBRABOTKA_H
