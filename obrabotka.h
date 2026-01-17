@@ -60,7 +60,7 @@ signals:
     void inputProcessed(const QString& result);
     void vivod(QString otvet_cpp);
     void debugging_peremennie(QVariantMap peremennie);
-    void highlightBlock(int blockIndex);
+    void highlightBlock(int blockId);
     void debugHistoryChanged(bool canStepBack, bool canStepForward);
     void debugFinished();
     void errorOccurred(const QString& errorMessage);
@@ -127,15 +127,12 @@ private:
 
     // Отладочные переменные
     bool m_debugging = false;
-    int m_currentDebugBlock = -1;
+    int m_currentDebugBlockId = -1;
 
     // История для шага назад
     QStack<QVariantMap> m_debugHistory;
-    QStack<int> m_blockHistory;
-    QStack<QVariantList> m_algorithmHistory;
-    QStack<QStack<QPair<QVariantList, int>>> m_algorithmStackHistory;
+    QStack<int> m_blockIdHistory;
     int m_currentHistoryIndex = -1;
-    QStack<int> m_highlightHistory;
 
     // Текущий алгоритм для отладки
     QVariantList m_currentAlgorithm;
@@ -150,11 +147,17 @@ private:
     bool m_hasError = false;
     QString m_errorMessage;
 
+    // Вспомогательные структуры для отладки
+    QMap<int, QVariantMap> m_blockMap; // Map: blockId -> blockData
+    QMap<int, int> m_nextBlockIdMap;   // Map: blockId -> next sequential blockId
+    QMap<int, bool> m_loopInitialized; // Map: loopBlockId -> isInitialized
+
     // Вспомогательные функции для отладки
-    void executeDebugBlock(const QVariantList& block);
-    void saveDebugState();
+    void flattenAlgorithm(const QVariantList& algorithm, int& nextId);
+    void executeDebugBlock(const QVariantMap& block);
+    void saveDebugState(int finishedBlockId);
     bool hasMoreBlocks();
-    void sendCurrentState(int highlightIndex = -1);
+    void sendCurrentState(int highlightId);
     void setError(const QString& message);
     void clearError();
 };

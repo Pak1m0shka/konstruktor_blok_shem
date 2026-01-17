@@ -18,25 +18,26 @@ Window {
     property Item activeToggle: null
     property string selectedBlockType: "действие"
     property bool debugMode: false
-    property int currentDebugBlock: -1
+    property int currentDebugBlockId: -1
     property bool canStepBack: false
     property bool canStepForward: true
+    property int blockIdCounter: 0
 
     Obrabotka {
         id: myObrabotka
-        onNeedUserInput: {
+        onNeedUserInput: () => {
             console.log("QML: Получен запрос на ввод")
             otvet.text = otvet.text + "\n" + "QML: Получен запрос на ввод"
         }
-        onInputProcessed: {
+        onInputProcessed: (result) => {
             console.log("ответ вернулся")
         }
-        onVivod: {
+        onVivod: (otvet_cpp) => {
             console.log("ответ есть")
             console.log(otvet_cpp)
             otvet.text = otvet.text + "\n" + otvet_cpp
         }
-        onDebugging_peremennie: {
+        onDebugging_peremennie: (peremennie) => {
             console.log("Получены переменные от C++ для отображения")
             console.log("Данные (peremennie - QVariantMap):", peremennie)
 
@@ -55,27 +56,25 @@ Window {
             }
         }
 
-        onHighlightBlock: {
-            console.log("Получен сигнал highlightBlock с индексом:", blockIndex);
-            currentDebugBlock = blockIndex;
-            updateBlockHighlight();
+        onHighlightBlock: (blockId) => {
+            console.log("Получен сигнал highlightBlock с ID:", blockId);
+            currentDebugBlockId = blockId;
         }
 
-        onDebugHistoryChanged: {
+        onDebugHistoryChanged: (canStepBack, canStepForward) => {
             console.log("История отладки изменилась, можно шагать назад:", canStepBack, "можно шагать вперед:", canStepForward);
             main.canStepBack = canStepBack;
             main.canStepForward = canStepForward;
         }
 
-        onDebugFinished: {
+        onDebugFinished: () => {
             console.log("Отладка завершена");
             main.debugMode = false;
             variablesModel.clear();
-            updateBlockHighlight();
-            currentDebugBlock = -1;
+            currentDebugBlockId = -1;
         }
 
-        onAlgorithmLoaded: {
+        onAlgorithmLoaded: (algorithm) => {
             console.log("Получен сигнал algorithmLoaded, количество блоков:", algorithm.length)
             if (algorithm && algorithm.length > 0) {
                 loadAlgorithm(algorithm, container)
@@ -84,7 +83,7 @@ Window {
             }
         }
 
-        onErrorOccurred: {
+        onErrorOccurred: (errorMessage) => {
             console.log("Ошибка при загрузке:", errorMessage)
             errorDialog.text = errorMessage
             errorDialog.open()
@@ -111,7 +110,6 @@ Window {
                      onActivated: {
                          if (main.debugMode) {
                              myObrabotka.stopDebugging();
-                             main.debugMode = false;
                          } else {
                              main.debugMode = true;
                              console.log("Режим отладки включен");
@@ -135,7 +133,6 @@ Window {
                 onClicked: {
                     if (main.debugMode) {
                         myObrabotka.stopDebugging();
-                        main.debugMode = false;
                     } else {
                         main.debugMode = true;
                         console.log("Режим отладки включен");
@@ -960,11 +957,6 @@ Window {
                         }
                         onClicked: {
                             myObrabotka.stopDebugging();
-                            main.debugMode = false;
-                            console.log("Режим отладки выключен через кнопку закрытия");
-                            variablesModel.clear();
-                            currentDebugBlock = -1;
-                            updateBlockHighlight();
                         }
                     }
                 }
@@ -1047,9 +1039,11 @@ Window {
             return
         }
         var newBlock = spisok.createObject(main.activeContainer, {
-            "blockType": type
+            "blockType": type,
+            "uniqueId": main.blockIdCounter
         })
-        console.log("Создан блок типа:", type, "в контейнере:", main.activeContainer)
+        main.blockIdCounter++;
+        console.log("Создан блок типа:", type, "с ID:", newBlock.uniqueId, "в контейнере:", main.activeContainer)
     }
 
     function insertBlockAfter(referenceBlock, type) {
@@ -1058,8 +1052,6 @@ Window {
             console.warn("Не найден родительский контейнер для вставки");
             return;
         }
-        console.log("--- Начало вставки блока (метод отложенного перемещения) ---");
-        console.log("Ссылочный блок:", referenceBlock.blockType);
         var referenceIndex = -1;
         for (var i = 0; i < parentContainer.children.length; i++) {
             if (parentContainer.children[i] === referenceBlock) {
@@ -1071,45 +1063,15 @@ Window {
             console.error("Ссылочный блок не найден в родительском контейнере!");
             return;
         }
-        console.log("Индекс ссылочного блока:", referenceIndex);
-        var tempContainer = Qt.createQmlObject('import QtQuick 2.15; Item {}', main, "tempContainerForInsert");
-        console.log("Перемещение блоков после индекса", referenceIndex, "во временный контейнер...");
-        var blocksToMoveCount = parentContainer.children.length - 1;
-        for (var j = blocksToMoveCount; j > referenceIndex; j--) {
-            var blockToMove = parentContainer.children[j];
-            if (blockToMove) {
-                blockToMove.parent = tempContainer;
-                console.log("  -> Перемещен блок индекс", j, ":", blockToMove.blockType || "неизвестный");
-            }
+
+        var newBlock = spisok.createObject(parentContainer, { "blockType": type, "uniqueId": main.blockIdCounter++ });
+        newBlock.z = referenceIndex + 2; // Move it above the reference block initially
+        for(i = referenceIndex + 1; i < parentContainer.children.length; ++i) {
+             if(parentContainer.children[i] !== newBlock) {
+                parentContainer.children[i].z = i + 1;
+             }
         }
-        console.log("Создание нового блока типа:", type);
-        var newBlock = spisok.createObject(parentContainer, { blockType: type });
-        if (!newBlock) {
-            console.error("Ошибка при создании нового блока!");
-            var tempChildrenCount = tempContainer.children.length;
-            for (var tc = 0; tc < tempChildrenCount; tc++) {
-                 tempContainer.children[0].parent = parentContainer;
-            }
-            tempContainer.destroy();
-            return;
-        }
-        console.log("Новый блок создан:", newBlock.blockType);
-        console.log("Перемещение блоков обратно из временного контейнера...");
-        var tempChildrenCountFinal = tempContainer.children.length;
-        for (var k = 0; k < tempChildrenCountFinal; k++) {
-            var blockToRestore = tempContainer.children[0];
-            if (blockToRestore) {
-                blockToRestore.parent = parentContainer;
-                console.log("  -> Восстановлен блок:", blockToRestore.blockType || "неизвестный");
-            }
-        }
-        tempContainer.destroy();
-        console.log("Временный контейнер уничтожен.");
-        console.log("Финальный порядок в parentContainer:");
-        for(var logIdx = 0; logIdx < parentContainer.children.length; logIdx++) {
-            console.log("  Индекс", logIdx, ":", parentContainer.children[logIdx].blockType || "неизвестный");
-        }
-        console.log("--- Вставка блока завершена (метод отложенного перемещения) ---");
+        newBlock.z = referenceIndex + 1;
     }
 
     function insertBlockBefore(referenceBlock, type) {
@@ -1118,8 +1080,7 @@ Window {
             console.warn("Не найден родительский контейнер для вставки");
             return;
         }
-        console.log("--- Начало вставки блока ПЕРЕД (метод отложенного перемещения) ---");
-        console.log("Ссылочный блок:", referenceBlock.blockType);
+
         var referenceIndex = -1;
         for (var i = 0; i < parentContainer.children.length; i++) {
             if (parentContainer.children[i] === referenceBlock) {
@@ -1131,45 +1092,14 @@ Window {
             console.error("Ссылочный блок не найден в родительском контейнере!");
             return;
         }
-        console.log("Индекс ссылочного блока:", referenceIndex);
-        var tempContainer = Qt.createQmlObject('import QtQuick 2.15; Item {}', main, "tempContainerForInsert");
-        console.log("Перемещение блоков начиная с индекса", referenceIndex, "во временный контейнер...");
-        var blocksToMoveCount = parentContainer.children.length - 1;
-        for (var j = blocksToMoveCount; j >= referenceIndex; j--) {
-            var blockToMove = parentContainer.children[j];
-            if (blockToMove) {
-                blockToMove.parent = tempContainer;
-                console.log("  -> Перемещен блок индекс", j, ":", blockToMove.blockType || "неизвестный");
-            }
+
+        var newBlock = spisok.createObject(parentContainer, { "blockType": type, "uniqueId": main.blockIdCounter++ });
+        newBlock.z = referenceIndex;
+        for(i = referenceIndex; i < parentContainer.children.length; ++i) {
+             if(parentContainer.children[i] !== newBlock) {
+                parentContainer.children[i].z = i + 1;
+             }
         }
-        console.log("Создание нового блока типа:", type);
-        var newBlock = spisok.createObject(parentContainer, { blockType: type });
-        if (!newBlock) {
-            console.error("Ошибка при создании нового блока!");
-            var tempChildrenCount = tempContainer.children.length;
-            for (var tc = 0; tc < tempChildrenCount; tc++) {
-                 tempContainer.children[0].parent = parentContainer;
-            }
-            tempContainer.destroy();
-            return;
-        }
-        console.log("Новый блок создан:", newBlock.blockType);
-        console.log("Перемещение блоков обратно из временного контейнера...");
-        var tempChildrenCountFinal = tempContainer.children.length;
-        for (var k = 0; k < tempChildrenCountFinal; k++) {
-            var blockToRestore = tempContainer.children[0];
-            if (blockToRestore) {
-                blockToRestore.parent = parentContainer;
-                console.log("  -> Восстановлен блок:", blockToRestore.blockType || "неизвестный");
-            }
-        }
-        tempContainer.destroy();
-        console.log("Временный контейнер уничтожен.");
-        console.log("Финальный порядок в parentContainer:");
-        for(var logIdx = 0; logIdx < parentContainer.children.length; logIdx++) {
-            console.log("  Индекс", logIdx, ":", parentContainer.children[logIdx].blockType || "неизвестный");
-        }
-        console.log("--- Вставка блока ПЕРЕД завершена (метод отложенного перемещения) ---");
     }
 
     Component {
@@ -1181,14 +1111,33 @@ Window {
             implicitHeight: contentColumn.implicitHeight
             property string blockType: "действие"
             property bool isDebugHighlighted: false
-            property int blockIndex: {
-                if (!parent) return -1;
-                for (var i = 0; i < parent.children.length; i++) {
-                    if (parent.children[i] === root) {
-                        return i;
+            property int uniqueId: -1
+
+            function highlightInSelfAndChildren(targetId) {
+                // Шаг 1: Проверить, является ли текущий блок целью
+                if (root.uniqueId === targetId) {
+                    root.isDebugHighlighted = true;
+                } else {
+                    root.isDebugHighlighted = false;
+                }
+
+                // Шаг 2: Рекурсивно вызвать эту же функцию для дочерних блоков в контейнерах
+                function highlightInContainer(cont) {
+                    if (!cont) return;
+                    for (var i = 0; i < cont.children.length; i++) {
+                        var block = cont.children[i];
+                        if (block && typeof block.highlightInSelfAndChildren === 'function') {
+                            block.highlightInSelfAndChildren(targetId);
+                        }
                     }
                 }
-                return -1;
+
+                // Проверяем все возможные контейнеры
+                highlightInContainer(leftContainer);
+                highlightInContainer(rightContainer);
+                highlightInContainer(centerContainer);
+                highlightInContainer(centerContainerCounter);
+                highlightInContainer(centerContainerPost);
             }
 
             function getData() {
@@ -1197,15 +1146,8 @@ Window {
                     var items = []
                     for (var i = 0; i < cont.children.length; i++) {
                         var child = cont.children[i]
-                        if (typeof child.getData === "function") {
-                            var data = child.getData()
-                            if (data.type === "усл") {
-                                items.push([data.type, data.input, data.trueBranch || [], data.falseBranch || []])
-                            } else if (["счетчик", "предусл", "постусл"].includes(data.type)) {
-                                items.push([data.type, data.input, data.loopBody || []])
-                            } else {
-                                items.push([data.type, data.input])
-                            }
+                        if (child && typeof child.getData === "function") {
+                            items.push(child.getData())
                         }
                     }
                     return items
@@ -1214,40 +1156,46 @@ Window {
                 var result;
                 if (root.blockType === "усл") {
                     result = {
-                        type: root.blockType,
-                        input: inputFieldDiamond.text.trim(),
-                        trueBranch: processContainer(leftContainer),
-                        falseBranch: processContainer(rightContainer)
+                        "type": root.blockType,
+                        "uniqueId": root.uniqueId,
+                        "input": inputFieldDiamond.text.trim(),
+                        "trueBranch": processContainer(leftContainer),
+                        "falseBranch": processContainer(rightContainer)
                     };
                 } else if (root.blockType === "счетчик") {
                     result = {
-                        type: root.blockType,
-                        input: counterVarField.text.trim() + " = " +
+                        "type": root.blockType,
+                        "uniqueId": root.uniqueId,
+                        "input": counterVarField.text.trim() + " = " +
                                counterFromField.text.trim() + " to " +
                                counterToField.text.trim() + " step " +
                                counterStepField.text.trim(),
-                        loopBody: processContainer(centerContainerCounter)
+                        "loopBody": processContainer(centerContainerCounter)
                     };
                 } else if (root.blockType === "предусл") {
                     result = {
-                        type: root.blockType,
-                        input: inputFieldDiamond.text.trim(),
-                        loopBody: processContainer(centerContainer)
+                        "type": root.blockType,
+                        "uniqueId": root.uniqueId,
+                        "input": inputFieldDiamond.text.trim(),
+                        "loopBody": processContainer(centerContainer)
                     };
                 } else if (root.blockType === "постусл") {
                     result = {
-                        type: root.blockType,
-                        input: inputFieldDiamond.text.trim(),
-                        loopBody: processContainer(centerContainerPost)
+                        "type": root.blockType,
+                        "uniqueId": root.uniqueId,
+                        "input": inputFieldDiamond.text.trim(),
+                        "loopBody": processContainer(centerContainerPost)
                     };
                 } else {
                     result = {
-                        type: root.blockType,
-                        input: inputField.text.trim()
+                        "type": root.blockType,
+                        "uniqueId": root.uniqueId,
+                        "input": inputField.text.trim()
                     };
                 }
                 return result;
             }
+
 
             Column {
                 id: contentColumn
@@ -1328,7 +1276,7 @@ Window {
                             ctx.stroke()
                             if (["начало", "конец"].includes(root.blockType)) {
                                 ctx.fillStyle = "black"
-                                ctx.font = "bold 22px Arial"
+                                ctx.font = "bold 20px Arial"
                                 ctx.textAlign = "center"
                                 ctx.textBaseline = "middle"
                                 ctx.fillText(root.blockType === "начало" ? "Начало" : "Конец", cx, cy)
@@ -1336,17 +1284,12 @@ Window {
                         }
 
                         function getBlockColor(type) {
-                            return ({
-                                "ввод": "#ba68c8",
-                                "вывод": "#4db6ac",
-                                "действие": "#64b5f6",
-                                "усл": "#81c784",
-                                "счетчик": "#ef5350",
-                                "предусл": "#ffb74d",
-                                "постусл": "#ce93d8",
-                                "начало": "#64b5f6",
-                                "конец": "#ffb74d"
-                            })[type] || "#64b5f6"
+                            var colors = {
+                                "ввод": "#ba68c8", "вывод": "#4db6ac", "действие": "#64b5f6", "усл": "#81c784",
+                                "счетчик": "#ef5350", "предусл": "#ffb74d", "постусл": "#ce93d8",
+                                "начало": "#64b5f6", "конец": "#ffb74d"
+                            };
+                            return colors[type] || "#64b5f6";
                         }
                     }
 
@@ -2002,1547 +1945,210 @@ Window {
             var items = []
             for (var i = 0; i < cont.children.length; i++) {
                 var child = cont.children[i]
-                if (typeof child.getData === "function") {
-                    var data = child.getData()
-                    if (data.type === "усл") {
-                        items.push([data.type, data.input, data.trueBranch, data.falseBranch])
-                    } else if (["счетчик", "предусл", "постусл"].includes(data.type)) {
-                        items.push([data.type, data.input, data.loopBody])
-                    } else {
-                        items.push([data.type, data.input])
-                    }
+                if (child && typeof child.getData === "function") {
+                    items.push(child.getData())
                 }
             }
             return items
         }
         var data = processContainer(container)
-        console.log("📤 Структура алгоритма:")
-        data.forEach(item => {
-            console.log(`  [${item[0]}] ${item[1]}`)
-            if (item[0] === "усл") {
-                console.log("    Да:", item[2])
-                console.log("    Нет:", item[3])
-            } else if (["счетчик", "предусл", "постусл"].includes(item[0])) {
-                console.log("    Тело:", item[2])
-            }
-        })
+
+        console.log("📤 Отправка структуры алгоритма в C++:")
+        console.log(JSON.stringify(data, null, 2))
+
         if(a === 1){
-        myObrabotka.myPriem(data)
-        return data
+            myObrabotka.myPriem(data)
         } else if(a === 2){
             myObrabotka.startDebugging(data)
-            return data
         }
+        return data
     }
+
 
     function updateBlockHighlight() {
+        // Вызываем рекурсивную подсветку для всех блоков верхнего уровня
         for (var i = 0; i < container.children.length; i++) {
             var block = container.children[i];
-            if (block && block.hasOwnProperty("isDebugHighlighted")) {
-                block.isDebugHighlighted = (i === currentDebugBlock);
-
-                if (block.hasOwnProperty("centerContainerPost")) {
-                    updateNestedBlockHighlight(block.centerContainerPost, i);
-                }
-                if (block.hasOwnProperty("centerContainer")) {
-                    updateNestedBlockHighlight(block.centerContainer, i);
-                }
-                if (block.hasOwnProperty("centerContainerCounter")) {
-                    updateNestedBlockHighlight(block.centerContainerCounter, i);
-                }
-                if (block.hasOwnProperty("leftContainer")) {
-                    updateNestedBlockHighlight(block.leftContainer, i);
-                }
-                if (block.hasOwnProperty("rightContainer")) {
-                    updateNestedBlockHighlight(block.rightContainer, i);
-                }
+            if (block && typeof block.highlightInSelfAndChildren === 'function') {
+                block.highlightInSelfAndChildren(main.currentDebugBlockId);
             }
         }
     }
 
-    function updateNestedBlockHighlight(container, parentIndex) {
-        if (!container || !container.children) return;
-        for (var i = 0; i < container.children.length; i++) {
-            var block = container.children[i];
-            if (block && block.hasOwnProperty("isDebugHighlighted")) {
-                block.isDebugHighlighted = false;
-
-                // Рекурсивно обновляем вложенные контейнеры
-                if (block.hasOwnProperty("centerContainerPost")) {
-                    updateNestedBlockHighlight(block.centerContainerPost, i);
-                }
-                if (block.hasOwnProperty("centerContainer")) {
-                    updateNestedBlockHighlight(block.centerContainer, i);
-                }
-                if (block.hasOwnProperty("centerContainerCounter")) {
-                    updateNestedBlockHighlight(block.centerContainerCounter, i);
-                }
-                if (block.hasOwnProperty("leftContainer")) {
-                    updateNestedBlockHighlight(block.leftContainer, i);
-                }
-                if (block.hasOwnProperty("rightContainer")) {
-                    updateNestedBlockHighlight(block.rightContainer, i);
-                }
-            }
-        }
+    onCurrentDebugBlockIdChanged: {
+        updateBlockHighlight()
     }
 
-    onCurrentDebugBlockChanged: {
-        updateBlockHighlight();
-    }
+    function loadAlgorithm(algorithmData, parentContainer) {
+        parentContainer.destroyChildren() // Очищаем контейнер
 
-    onDebugModeChanged: {
-        if (!debugMode) {
-            currentDebugBlock = -1;
-            updateBlockHighlight();
-            canStepBack = false;
-            canStepForward = true;
-        }
-    }
+        function createBlocksRecursive(dataArray, container) {
+            for (var i = 0; i < dataArray.length; i++) {
+                var blockData = dataArray[i];
+                var newBlock = spisok.createObject(container, {
+                    "blockType": blockData.type,
+                    "uniqueId": blockData.uniqueId
+                });
 
-    Component {
-        id: miniBlockShapeItem
-        Item {
-            id: miniShapeItem
-            property alias blockType: miniShapeCanvas.blockType
-
-            Canvas {
-                id: miniShapeCanvas
-                anchors.fill: parent
-                property string blockType: "действие"
-
-                function getBlockColor(type) {
-                    return ({
-                        "ввод": "#ba68c8",
-                        "вывод": "#4db6ac",
-                        "действие": "#64b5f6",
-                        "усл": "#81c784",
-                        "счетчик": "#ef5350",
-                        "предусл": "#ffb74d",
-                        "постусл": "#ce93d8",
-                        "начало": "#64b5f6",
-                        "конец": "#ffb74d"
-                    })[type] || "#64b5f6"
+                // Присваиваем максимальный ID, чтобы новые блоки не конфликтовали
+                if (blockData.uniqueId >= main.blockIdCounter) {
+                    main.blockIdCounter = blockData.uniqueId + 1;
                 }
 
-                onPaint: {
-                    const ctx = getContext("2d");
-                    ctx.reset();
-                    const w = width, h = height, cx = w/2, cy = h/2, s = 2
-                    ctx.beginPath()
-                    ctx.fillStyle = getBlockColor(miniShapeCanvas.blockType)
-                    ctx.strokeStyle = "#e0e0e0"
-                    ctx.lineWidth = 1
-                    if (["ввод", "вывод"].includes(miniShapeCanvas.blockType)) {
-                        ctx.moveTo(s, 0);
-                        ctx.lineTo(w, 0);
-                        ctx.lineTo(w-s, h);
-                        ctx.lineTo(0, h);
-                    } else if (["усл", "предусл", "постусл"].includes(miniShapeCanvas.blockType)) {
-                        ctx.moveTo(cx, 2);
-                        ctx.lineTo(w-2, cy);
-                        ctx.lineTo(cx, h-2);
-                        ctx.lineTo(2, cy);
-                    } else if (miniShapeCanvas.blockType === "счетчик") {
-                        const hex = 3
-                        ctx.moveTo(hex, 0);
-                        ctx.lineTo(w-hex, 0);
-                        ctx.lineTo(w, h/2)
-                        ctx.lineTo(w-hex, h);
-                        ctx.lineTo(hex, h);
-                        ctx.lineTo(0, h/2);
-                    } else if (["начало", "конец"].includes(miniShapeCanvas.blockType)) {
-                        ctx.ellipse(1, 1, w-2, h-2);
-                    } else {
-                        ctx.rect(0, 0, w, h);
+                if (blockData.type === "усл") {
+                    newBlock.contentItem.findChild("inputFieldDiamond").text = blockData.input;
+                    createBlocksRecursive(blockData.trueBranch, newBlock.contentItem.findChild("leftContainer"));
+                    createBlocksRecursive(blockData.falseBranch, newBlock.contentItem.findChild("rightContainer"));
+                } else if (blockData.type === "счетчик") {
+                    var counterParts = blockData.input.match(/(\w+)\s*=\s*(.+)\s*to\s*(.+)\s*step\s*(.+)/);
+                    if(counterParts) {
+                        newBlock.contentItem.findChild("counterVarField").text = counterParts[1].trim();
+                        newBlock.contentItem.findChild("counterFromField").text = counterParts[2].trim();
+                        newBlock.contentItem.findChild("counterToField").text = counterParts[3].trim();
+                        newBlock.contentItem.findChild("counterStepField").text = counterParts[4].trim();
                     }
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.stroke();
-                    if (["начало", "конец"].includes(miniShapeCanvas.blockType)) {
-                        ctx.fillStyle = "black";
-                        ctx.font = "bold 9px Arial";
-                        ctx.textAlign = "center";
-                        ctx.textBaseline = "middle";
-                        ctx.fillText(miniShapeCanvas.blockType === "начало" ? "Н" : "К", cx, cy);
-                    }
+                    createBlocksRecursive(blockData.loopBody, newBlock.contentItem.findChild("centerContainerCounter"));
+                } else if (blockData.type === "предусл" || blockData.type === "постусл") {
+                    newBlock.contentItem.findChild("inputFieldDiamond").text = blockData.input;
+                    var loopContainer = newBlock.contentItem.findChild("centerContainer") || newBlock.contentItem.findChild("centerContainerPost");
+                    createBlocksRecursive(blockData.loopBody, loopContainer);
+                } else if (blockData.type !== "начало" && blockData.type !== "конец") {
+                    newBlock.contentItem.findChild("inputField").text = blockData.input;
                 }
-                onBlockTypeChanged: requestPaint()
             }
         }
+        createBlocksRecursive(algorithmData, parentContainer);
     }
 
-    // Диалог сохранения файла
-    Dialog {
+
+    FileDialog {
         id: saveFileDialog
         title: "Сохранить алгоритм"
-        width: 600
-        height: 200
-        modal: true
-        dim: true
-        closePolicy: Popup.CloseOnEscape
-        anchors.centerIn: Overlay.overlay
-
-        property color buttonColor: "#000080"
-        property color buttonHover: "#191970"
-        property color buttonPressed: "#4B0082"
-        property color borderColor: "#FFFFFF"
-
-        focus: true
-        onOpened: filePathField.forceActiveFocus()
-
-        header: Rectangle {
-            color: "#000000"
-            height: 40
-            radius: 5
-            border { color: saveFileDialog.borderColor; width: 1 }
-
-            Label {
-                text: saveFileDialog.title
-                color: "white"
-                font.bold: true
-                font.pixelSize: 14
-                anchors.centerIn: parent
-            }
-        }
-
-        background: Rectangle {
-            color: "#000000"
-            radius: 10
-            border { color: saveFileDialog.borderColor; width: 1 }
-        }
-
-        property string filePath: ""
-
-        contentItem: Column {
-            spacing: 15
-            width: parent.width
-
-            Row {
-                width: parent.width - 20
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 10
-
-                TextField {
-                    id: filePathField
-                    width: parent.width - browseButton.width - 10
-                    placeholderText: "Введите путь к файлу или выберите через обзор"
-                    text: saveFileDialog.filePath
-                    onTextChanged: saveFileDialog.filePath = text
-                    color: "#e0e0e0"
-                    placeholderTextColor: "#bdbdbd"
-                    font.pixelSize: 14
-                    background: Rectangle {
-                        anchors.fill: parent
-                        border.color: "#424242"
-                        border.width: 2
-                        radius: 5
-                        color: "#2d2d2d"
-                    }
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            saveButton.forceActiveFocus()
-                            event.accepted = true
-                        }
-                    }
-                }
-
-                Button {
-                    id: browseButton
-                    text: "Обзор"
-                    width: 100
-                    height: filePathField.height
-                    background: Rectangle {
-                        color: parent.pressed ? saveFileDialog.buttonPressed
-                               : parent.hovered ? saveFileDialog.buttonHover
-                               : saveFileDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : saveFileDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-                    contentItem: Text {
-                        text: browseButton.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    onClicked: fileSaveDialog.open()
-                }
-            }
-
-            Row {
-                spacing: 20
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                Button {
-                    id: saveButton
-                    text: "Сохранить"
-                    width: 120
-                    height: 35
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.right: cancelSaveButton
-
-                    background: Rectangle {
-                        color: parent.pressed ? saveFileDialog.buttonPressed
-                               : parent.hovered ? saveFileDialog.buttonHover
-                               : saveFileDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : saveFileDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-
-                    contentItem: Text {
-                        text: saveButton.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    onClicked: {
-                        if (filePathField.text.trim() === "") {
-                            errorDialog.text = "Введите путь к файлу"
-                            errorDialog.open()
-                            return
-                        }
-
-                        var algorithm = collectData(1)
-                        var success = myObrabotka.saveAlgorithmToFile(algorithm, filePathField.text)
-                        if (success) {
-                            information_save.open()
-                            saveFileDialog.close()
-                        } else {
-                            errorDialog.text = "Ошибка при сохранении файла"
-                            errorDialog.open()
-                        }
-                    }
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            clicked()
-                            event.accepted = true
-                        }
-                    }
-                }
-
-                Button {
-                    id: cancelSaveButton
-                    text: "Отмена"
-                    width: 120
-                    height: 35
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.left: saveButton
-
-                    background: Rectangle {
-                        color: parent.pressed ? saveFileDialog.buttonPressed
-                               : parent.hovered ? saveFileDialog.buttonHover
-                               : saveFileDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : saveFileDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-
-                    contentItem: Text {
-                        text: cancelSaveButton.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    onClicked: saveFileDialog.close()
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            clicked()
-                            event.accepted = true
-                        }
-                    }
-                }
-            }
-        }
-
-        FileDialog {
-            id: fileSaveDialog
-            title: "Сохранить файл"
-            fileMode: FileDialog.SaveFile
-            nameFilters: ["Текстовые файлы (*.txt)", "Все файлы (*)"]
-
-            onAccepted: {
-                filePathField.text = selectedFile
-            }
+        currentFolder: shortcuts.home
+        nameFilters: [ "JSON files (*.json)", "All files (*)" ]
+        onAccepted: {
+            var path = saveFileDialog.file.toString().substring(Qt.platform.os === "windows" ? 8 : 7)
+            var data = collectData(0)
+            myObrabotka.saveAlgorithmToFile(data, path)
+            information_save.text = "Алгоритм успешно сохранен"
+            information_save.open()
         }
     }
 
-    // Диалог открытия файла
-    Dialog {
+    FileDialog {
         id: openFileDialog
         title: "Открыть алгоритм"
-        width: 600
-        height: 200
-        modal: true
-        dim: true
-        closePolicy: Popup.CloseOnEscape
-        anchors.centerIn: Overlay.overlay
-
-        property color buttonColor: "#000080"
-        property color buttonHover: "#191970"
-        property color buttonPressed: "#4B0082"
-        property color borderColor: "#FFFFFF"
-
-        focus: true
-        onOpened: openFilePathField.forceActiveFocus()
-
-        header: Rectangle {
-            color: "#000000"
-            height: 40
-            radius: 5
-            border { color: openFileDialog.borderColor; width: 1 }
-
-            Label {
-                text: openFileDialog.title
-                color: "white"
-                font.bold: true
-                font.pixelSize: 14
-                anchors.centerIn: parent
-            }
-        }
-
-        background: Rectangle {
-            color: "#000000"
-            radius: 10
-            border { color: openFileDialog.borderColor; width: 1 }
-        }
-
-        property string filePath: ""
-
-        contentItem: Column {
-            spacing: 15
-            width: parent.width
-
-            Row {
-                width: parent.width - 20
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 10
-
-                TextField {
-                    id: openFilePathField
-                    width: parent.width - openBrowseButton.width - 10
-                    placeholderText: "Введите путь к файлу или выберите через обзор"
-                    text: openFileDialog.filePath
-                    onTextChanged: openFileDialog.filePath = text
-                    color: "#e0e0e0"
-                    placeholderTextColor: "#bdbdbd"
-                    font.pixelSize: 14
-                    background: Rectangle {
-                        anchors.fill: parent
-                        border.color: "#424242"
-                        border.width: 2
-                        radius: 5
-                        color: "#2d2d2d"
-                    }
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            openButton.forceActiveFocus()
-                            event.accepted = true
-                        }
-                    }
-                }
-
-                Button {
-                    id: openBrowseButton
-                    text: "Обзор"
-                    width: 100
-                    height: openFilePathField.height
-                    background: Rectangle {
-                        color: parent.pressed ? openFileDialog.buttonPressed
-                               : parent.hovered ? openFileDialog.buttonHover
-                               : openFileDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : openFileDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-                    contentItem: Text {
-                        text: openBrowseButton.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    onClicked: fileOpenDialog.open()
-                }
-            }
-
-            Row {
-                spacing: 20
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                Button {
-                    id: openButton
-                    text: "Открыть"
-                    width: 120
-                    height: 35
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.right: cancelOpenButton
-
-                    background: Rectangle {
-                        color: parent.pressed ? openFileDialog.buttonPressed
-                               : parent.hovered ? openFileDialog.buttonHover
-                               : openFileDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : openFileDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-
-                    contentItem: Text {
-                        text: openButton.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    onClicked: {
-                        if (openFilePathField.text.trim() === "") {
-                            errorDialog.text = "Введите путь к файлу"
-                            errorDialog.open()
-                            return
-                        }
-
-                        console.log("Пытаемся загрузить файл:", openFilePathField.text)
-                        var algorithm = myObrabotka.loadAlgorithmFromFile(openFilePathField.text)
-                        console.log("Загруженный алгоритм:", algorithm)
-
-                        if (algorithm && algorithm.length > 0) {
-                            loadAlgorithm(algorithm, container)
-                            openFileDialog.close()
-                            information_save.text = "Алгоритм успешно загружен"
-                            information_save.open()
-                        } else {
-                            errorDialog.text = "Не удалось загрузить файл. Файл поврежден или имеет неверный формат."
-                            errorDialog.open()
-                        }
-                    }
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            clicked()
-                            event.accepted = true
-                        }
-                    }
-                }
-
-                Button {
-                    id: cancelOpenButton
-                    text: "Отмена"
-                    width: 120
-                    height: 35
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.left: openButton
-
-                    background: Rectangle {
-                        color: parent.pressed ? openFileDialog.buttonPressed
-                               : parent.hovered ? openFileDialog.buttonHover
-                               : openFileDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : openFileDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-
-                    contentItem: Text {
-                        text: cancelOpenButton.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    onClicked: openFileDialog.close()
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            clicked()
-                            event.accepted = true
-                        }
-                    }
-                }
-            }
-        }
-
-        FileDialog {
-            id: fileOpenDialog
-            title: "Открыть файл"
-            fileMode: FileDialog.OpenFile
-            nameFilters: ["Текстовые файлы (*.txt)", "Все файлы (*)"]
-
-            onAccepted: {
-                openFilePathField.text = selectedFile
-            }
+        currentFolder: shortcuts.home
+        nameFilters: [ "JSON files (*.json)", "All files (*)" ]
+        onAccepted: {
+            var path = openFileDialog.file.toString().substring(Qt.platform.os === "windows" ? 8 : 7)
+            myObrabotka.loadAlgorithmFromFile(path)
         }
     }
 
-    // Диалог нового алгоритма
     Dialog {
         id: newAlgorithmDialog
         title: "Новый алгоритм"
-        width: 400
-        height: 180
+        standardButtons: Dialog.Ok | Dialog.Cancel
         modal: true
-        dim: true
-        closePolicy: Popup.CloseOnEscape
-        anchors.centerIn: Overlay.overlay
-
-        property color buttonColor: "#000080"
-        property color buttonHover: "#191970"
-        property color buttonPressed: "#4B0082"
-        property color borderColor: "#FFFFFF"
-
-        focus: true
-        onOpened: yesButtonNew.forceActiveFocus()
-
-        header: Rectangle {
-            color: "#000000"
-            height: 40
-            radius: 5
-            border { color: newAlgorithmDialog.borderColor; width: 1 }
-
-            Label {
-                text: newAlgorithmDialog.title
-                color: "white"
-                font.bold: true
-                font.pixelSize: 14
-                anchors.centerIn: parent
-            }
-        }
-
-        background: Rectangle {
-            color: "#000000"
-            radius: 10
-            border { color: newAlgorithmDialog.borderColor; width: 1 }
-        }
-
-        contentItem: Column {
-            spacing: 20
-            width: parent.width
-
-            Text {
-                width: parent.width
-                text: "Вы уверены, что хотите создать новый алгоритм? Все несохраненные данные будут потеряны."
-                wrapMode: Text.Wrap
-                color: "white"
-                font.bold: true
-                font.pixelSize: 14
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            Row {
-                spacing: 20
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                Button {
-                    id: yesButtonNew
-                    text: "Да"
-                    width: 100
-                    height: 35
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.right: noButtonNew
-
-                    background: Rectangle {
-                        color: parent.pressed ? newAlgorithmDialog.buttonPressed
-                               : parent.hovered ? newAlgorithmDialog.buttonHover
-                               : newAlgorithmDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : newAlgorithmDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-
-                    contentItem: Text {
-                        text: yesButtonNew.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    onClicked: {
-                        clearContainer(container)
-                        newAlgorithmDialog.close()
-                    }
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            clicked()
-                            event.accepted = true
-                        }
-                    }
-                }
-
-                Button {
-                    id: noButtonNew
-                    text: "Нет"
-                    width: 100
-                    height: 35
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.left: yesButtonNew
-
-                    background: Rectangle {
-                        color: parent.pressed ? newAlgorithmDialog.buttonPressed
-                               : parent.hovered ? newAlgorithmDialog.buttonHover
-                               : newAlgorithmDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : newAlgorithmDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-
-                    contentItem: Text {
-                        text: noButtonNew.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    onClicked: newAlgorithmDialog.close()
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            clicked()
-                            event.accepted = true
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Диалог справки
-    Dialog {
-        id: helpDialog
-        title: "Справка"
-        width: 500
-        height: 300
-        modal: true
-        dim: true
-        closePolicy: Popup.CloseOnEscape
-        anchors.centerIn: Overlay.overlay
-
-        property color buttonColor: "#000080"
-        property color buttonHover: "#191970"
-        property color buttonPressed: "#4B0082"
-        property color borderColor: "#FFFFFF"
-
-        focus: true
-        onOpened: okButtonHelp.forceActiveFocus()
-
-        header: Rectangle {
-            color: "#000000"
-            height: 40
-            radius: 5
-            border { color: helpDialog.borderColor; width: 1 }
-
-            Label {
-                text: helpDialog.title
-                color: "white"
-                font.bold: true
-                font.pixelSize: 14
-                anchors.centerIn: parent
-            }
-        }
-
-        background: Rectangle {
-            color: "#000000"
-            radius: 10
-            border { color: helpDialog.borderColor; width: 1 }
-        }
-
-        contentItem: Column {
-            spacing: 20
-            width: parent.width
-
-            ScrollView {
-                width: parent.width - 20
-                height: 200
-                anchors.horizontalCenter: parent.horizontalCenter
-                clip: true
-
-                TextArea {
-                    width: parent.width
-                    text: "Краткая справка по использованию:\n\n" +
-                          "F1 - Запуск алгоритма\n" +
-                          "F2 - Сохранить алгоритм\n" +
-                          "F3 - Открыть алгоритм\n" +
-                          "F4 - Новый алгоритм\n" +
-                          "F5 - Справка\n" +
-                          "F6 - Режим отладки\n\n" +
-                          "Для создания блоков используйте кнопки на панели инструментов или комбинации клавиш F7-F12.\n\n" +
-                          "Для удаления блока используйте правый клик или двойной левый клик."
-                    color: "white"
-                    font.pixelSize: 12
-                    wrapMode: Text.Wrap
-                    readOnly: true
-                    background: Rectangle {
-                        color: "transparent"
-                    }
-                }
-            }
-
-            Button {
-                id: okButtonHelp
-                text: "OK"
-                width: 100
-                height: 35
-                anchors.horizontalCenter: parent.horizontalCenter
-                focusPolicy: Qt.StrongFocus
-
-                background: Rectangle {
-                    color: parent.pressed ? helpDialog.buttonPressed
-                           : parent.hovered ? helpDialog.buttonHover
-                           : helpDialog.buttonColor
-                    border {
-                        color: parent.activeFocus ? "red" : helpDialog.borderColor
-                        width: 1
-                        }
-                    radius: 5
-                }
-
-                contentItem: Text {
-                    text: okButtonHelp.text
-                    color: "#FFFFFF"
-                    font.bold: true
-                    font.pixelSize: 14
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-
-                onClicked: helpDialog.close()
-
-                Keys.onPressed: {
-                    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                        clicked()
-                        event.accepted = true
-                    }
-                }
-            }
-        }
-    }
-
-    Dialog {
-        id: resizeDialog
-        title: "Изменить размер сетки"
         width: 300
-        height: 180
-        modal: true
-        dim: true
-        closePolicy: Popup.CloseOnEscape
-        anchors.centerIn: Overlay.overlay
-
-        property color buttonColor: "#000080"
-        property color buttonHover: "#191970"
-        property color buttonPressed: "#4B0082"
-        property color borderColor: "#FFFFFF"
-
-        focus: true
-        onOpened: {
-            sizeInput.forceActiveFocus()
-            sizeInput.selectAll()
+        height: 150
+        contentItem: Text {
+            text: "Вы уверены, что хотите создать новый алгоритм? Все несохраненные данные будут утеряны."
+            wrapMode: Text.WordWrap
         }
-
-        property int newRows: 0
-        property int newCols: 0
-
-        header: Rectangle {
-            color: "#000000"
-            height: 40
-            radius: 5
-            border { color: resizeDialog.borderColor; width: 1 }
-
-            Label {
-                text: resizeDialog.title
-                color: "white"
-                font.bold: true
-                font.pixelSize: 14
-                anchors.centerIn: parent
-            }
-        }
-
-        background: Rectangle {
-            color: "#000000"
-            radius: 10
-            border { color: resizeDialog.borderColor; width: 1 }
-        }
-
-        contentItem: Column {
-            spacing: 15
-            width: parent.width
-
-            TextField {
-                id: sizeInput
-                placeholderText: "Количество столбцов (1-90)"
-                font.pixelSize: 14
-                validator: IntValidator { bottom: 1; top: 90 }
-                inputMethodHints: Qt.ImhDigitsOnly
-                color: "#FFFFFF"
-                font.bold: true
-                width: parent.width - 20
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                background: Rectangle {
-                    color: parent.pressed ? resizeDialog.buttonPressed
-                           : parent.hovered ? resizeDialog.buttonHover
-                           : resizeDialog.buttonColor
-                    border {
-                        color: parent.activeFocus ? "red" : resizeDialog.borderColor
-                        width: 1
-                    }
-                    radius: 5
-                }
-
-                onTextChanged: {
-                    resizeDialog.newCols = parseInt(text) || 1
-                    resizeDialog.newRows = parseInt(text) || 1
-                    if (text !== "") {
-                        var num = parseInt(text);
-                        if (isNaN(num)) {
-                            text = "";
-                        } else if (num < 1) {
-                            text = "1";
-                        } else if (num > 90) {
-                            text = "90";
-                        }
-                    }
-                }
-
-                Keys.onPressed: {
-                    if (event.key === Qt.Key_Left) {
-                        yesButton5.forceActiveFocus()
-                        event.accepted = true
-                    }
-                    else if (event.key === Qt.Key_Right) {
-                        noButton5.forceActiveFocus()
-                        event.accepted = true
-                    }
-                    else if (event.key === Qt.Key_Tab) {
-                        noButton5.forceActiveFocus()
-                        event.accepted = true
-                    }
-                    else if (event.key === Qt.Key_Backtab) {
-                        yesButton5.forceActiveFocus()
-                        event.accepted = true
-                    }
-                    else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                        yesButton5.forceActiveFocus()
-                        event.accepted = true
-                    }
-                }
-
-                onActiveFocusChanged: if(activeFocus) selectAll()
-            }
-
-            Label {
-                text: "Текущий размер: 0x0"
-                color: "#FFFFFF"
-                font.bold: true
-                font.pixelSize: 14
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            Row {
-                spacing: 20
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                Button {
-                    id: yesButton5
-                    text: "Да"
-                    width: 90
-                    height: 35
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.right: noButton5
-
-                    background: Rectangle {
-                        color: parent.pressed ? resizeDialog.buttonPressed
-                               : parent.hovered ? resizeDialog.buttonHover
-                               : resizeDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : resizeDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-
-                    contentItem: Text {
-                        text: yesButton5.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    onClicked: {
-                        const size = parseInt(sizeInput.text)
-                        if (size >= 1 && size <= 1000) {
-                            resizeDialog.close()
-                        } else {
-                            errorDialog.text = "Некорректный размер!"
-                            errorDialog.open()
-                        }
-                    }
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            clicked()
-                        }
-                    }
-                }
-
-                Button {
-                    id: noButton5
-                    text: "Нет"
-                    width: 90
-                    height: 35
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.left: yesButton5
-
-                    background: Rectangle {
-                        color: parent.pressed ? resizeDialog.buttonPressed
-                               : parent.hovered ? resizeDialog.buttonHover
-                               : resizeDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : resizeDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-
-                    contentItem: Text {
-                        text: noButton5.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    onClicked: resizeDialog.close()
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            clicked()
-                        }
-                    }
-                }
-            }
+        onAccepted: {
+            container.destroyChildren()
+            main.blockIdCounter = 0
+            console.log("Создан новый пустой алгоритм")
         }
     }
 
     Dialog {
         id: errorDialog
-        property string text: ""
-        width: 300
-        height: 150
-        title:"ошибка"
+        title: "Ошибка"
         modal: true
-        dim: true
-        focus: true
-        closePolicy: Popup.CloseOnEscape
-        anchors.centerIn: Overlay.overlay
-        property color buttonColor: "#000080"
-        property color buttonHover: "#191970"
-        property color buttonPressed: "#4B0082"
-        property color borderColor: "#FFFFFF"
-
-        x: (parent.width - width) / 2
-        y: (parent.height - height) / 2
-
-        onOpened: {
-            yesButton4.forceActiveFocus()
+        standardButtons: Dialog.Ok
+        property alias text: errorText.text
+        contentItem: Text {
+            id: errorText
+            wrapMode: Text.WordWrap
         }
-        header: Rectangle {
-            color: "#000000"
-            height: 40
-            radius: 5
-            border { color: errorDialog.borderColor; width: 1 }
-
-            Label {
-                text: errorDialog.title
-                Layout.alignment: Qt.AlignHCenter
-                color: "white"
-                font.bold: true
-                font.pixelSize: 14
-                anchors.centerIn: parent
-            }
-        }
-
-        background: Rectangle {
-            color: "#000000"
-            radius: 10
-            border { color: errorDialog.borderColor; width: 1 }
-        }
-
-        property string resultText: ""
-        contentItem: ColumnLayout {
-                    spacing: 15
-                    width: parent.width
-                    height: parent.height
-
-                    ScrollView {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        clip: true
-                        Label {
-                              Layout.alignment: Qt.AlignHCenter
-                               anchors.fill: parent
-                               text: errorDialog.text
-                               wrapMode: Text.Wrap
-                               font.bold: true
-                               font.pixelSize: 16
-                               color: "white"
-                           }
-                    }
-
-                    Row {
-                        Layout.alignment: Qt.AlignHCenter
-                        spacing: 20
-
-                        Button {
-                            id: yesButton4
-                            text: "ок"
-                            font.bold: true
-                            font.pixelSize: 14
-                            width: 110
-                            height: 35
-                            focusPolicy: Qt.StrongFocus
-                            contentItem: Text {
-                                    text: yesButton4.text
-                                    color: "#FFFFFF"
-                                    font.bold: true
-                                    font.pixelSize: 14
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-
-                            background: Rectangle {
-                                color: yesButton4.hovered ? errorDialog.buttonHover
-                                       : errorDialog.buttonColor
-                                border {
-                                   color: yesButton4.activeFocus ? "red" : errorDialog.borderColor
-                                    width: 2
-                                }
-                                radius: 5
-                            }
-
-                            onClicked: errorDialog.close()
-
-                            Keys.onPressed: {
-                                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                                    clicked()
-                                    event.accepted = true
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-    Dialog{
-        id:information_save
-        width: 300
-        height: 150
-        title:"Попытка сохранения файла сделана!"
-        modal: true
-        dim: true
-        focus: true
-        closePolicy: Popup.CloseOnEscape
-        anchors.centerIn: Overlay.overlay
-        property color buttonColor: "#000080"
-        property color buttonHover: "#191970"
-        property color buttonPressed: "#4B0082"
-        property color borderColor: "#FFFFFF"
-
-        x: (parent.width - width) / 2
-        y: (parent.height - height) / 2
-
-        onOpened: {
-            yesButton2.forceActiveFocus()
-        }
-        header: Rectangle {
-            color: "#000000"
-            height: 40
-            radius: 5
-            border { color: information_save.borderColor; width: 1 }
-
-            Label {
-                text: information_save.title
-                Layout.alignment: Qt.AlignHCenter
-                color: "white"
-                font.bold: true
-                font.pixelSize: 14
-                anchors.centerIn: parent
-            }
-        }
-
-        background: Rectangle {
-            color: "#000000"
-            radius: 10
-            border { color: information_save.borderColor; width: 1 }
-        }
-
-        property string resultText: ""
-        contentItem: ColumnLayout {
-                    spacing: 15
-                    width: parent.width
-                    height: parent.height
-
-                    ScrollView {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        clip: true
-                        Label {
-                              Layout.alignment: Qt.AlignHCenter
-                               anchors.fill: parent
-                               text: "Проверьте наличие файла!"
-                               wrapMode: Text.Wrap
-                               font.bold: true
-                               font.pixelSize: 16
-                               color: "white"
-                           }
-                    }
-
-                    Row {
-                        Layout.alignment: Qt.AlignHCenter
-                        spacing: 20
-
-                        Button {
-                            id: yesButton2
-                            text: "ок"
-                            font.bold: true
-                            font.pixelSize: 14
-                            width: 110
-                            height: 35
-                            focusPolicy: Qt.StrongFocus
-                            contentItem: Text {
-                                    text: yesButton2.text
-                                    color: "#FFFFFF"
-                                    font.bold: true
-                                    font.pixelSize: 14
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-
-                            background: Rectangle {
-                                color: yesButton2.hovered ? information_save.buttonHover
-                                       : information_save.buttonColor
-                                border {
-                                   color: yesButton2.activeFocus ? "red" : information_save.borderColor
-                                    width: 2
-                                }
-                                radius: 5
-                            }
-
-                            onClicked: information_save.close()
-
-                            Keys.onPressed: {
-                                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                                    clicked()
-                                    event.accepted = true
-                                }
-                            }
-                        }
-                    }
-                }
     }
-
     Dialog {
-        id: confirmDialog
-        title: "Подтверждение"
-        width: 300
-        height: 140
+        id: helpDialog
+        title: "Справка"
         modal: true
-        dim: true
-        closePolicy: Popup.CloseOnEscape
-        anchors.centerIn: Overlay.overlay
-
-        property color buttonColor: "#000080"
-        property color buttonHover: "#191970"
-        property color buttonPressed: "#4B0082"
-        property color borderColor: "#FFFFFF"
-
-        focus: true
-        onOpened: yesButton.forceActiveFocus()
-
-        Keys.onPressed: {
-            switch(event.key) {
-            case Qt.Key_Left:
-                if (noButton.activeFocus) yesButton.forceActiveFocus()
-                event.accepted = true
-                break
-
-            case Qt.Key_Right:
-                if (yesButton.activeFocus) noButton.forceActiveFocus()
-                event.accepted = true
-                break
-
-            case Qt.Key_Tab:
-                            if (yesButton.activeFocus) noButton.forceActiveFocus()
-                            else yesButton.forceActiveFocus()
-                            event.accepted = true
-                            break
+        standardButtons: Dialog.Ok
+        width: 600
+        height: 400
+        contentItem: ScrollView {
+            clip: true
+            TextArea {
+                readOnly: true
+                wrapMode: Text.WordWrap
+                text: "Добро пожаловать в редактор алгоритмов!\n\n"
+                    + "Горячие клавиши:\n"
+                    + "F1: Запуск\n"
+                    + "F2: Сохранить\n"
+                    + "F3: Открыть\n"
+                    + "F4: Новый алгоритм\n"
+                    + "F5: Справка\n"
+                    + "F6: Отладка/Закончить отладку\n"
+                    + "F7: Ввод / Шаг назад (в режиме отладки)\n"
+                    + "F8: Вывод / Шаг вперёд (в режиме отладки)\n"
+                    + "F9: Действие\n"
+                    + "F10: Счетчик\n"
+                    + "F11: Предусловие\n"
+                    + "F12: Постусловие\n\n"
+                    + "Для создания блока выберите его тип в выпадающем списке и кликните в нужной области (основной или внутри другого блока).\n"
+                    + "Для удаления блока кликните по нему правой кнопкой мыши или дважды левой.\n"
+                    + "Для активации области для добавления блоков (например, ветки 'Да'/'Нет' в условии) кликните по кнопке 'A' в углу этой области."
             }
         }
-
-        header: Rectangle {
-            color: "#000000"
-            height: 40
-            radius: 5
-            border { color: confirmDialog.borderColor; width: 1 }
-
-            Label {
-                text: confirmDialog.title
-                color: "white"
-                font.bold: true
-                font.pixelSize: 14
-                anchors.centerIn: parent
-            }
-        }
-
-        background: Rectangle {
-            color: "#000000"
-            radius: 10
-            border { color: confirmDialog.borderColor; width: 1 }
-        }
-
-        property string message: ""
-        property var onConfirmed: function() {}
-
-        contentItem: Column {
-            spacing: 15
-            width: parent.width
-
-            Text {
-                width: parent.width
-                text: confirmDialog.message
-                wrapMode: Text.Wrap
-                color: "white"
-                font.bold: true
-                font.pixelSize: 14
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            Row {
-                spacing: 20
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                Button {
-                    id: yesButton
-                    text: "Да"
-                    width: 90
-                    height: 35
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.right: noButton
-
-                    background: Rectangle {
-                        color: parent.pressed ? confirmDialog.buttonPressed
-                               : parent.hovered ? confirmDialog.buttonHover
-                               : confirmDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : confirmDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-
-                    contentItem: Text {
-                        text: yesButton.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    onClicked: {
-                        if(typeof confirmDialog.onConfirmed === "function") {
-                            confirmDialog.onConfirmed()
-                        }
-                        confirmDialog.close()
-                    }
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            clicked()
-                            event.accepted = true
-                        }
-                    }
-
-                    onActiveFocusChanged: {
-                        if(activeFocus) forceActiveFocus()
-                    }
-                }
-
-                Button {
-                    id: noButton
-                    text: "Нет"
-                    width: 90
-                    height: 35
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.left: yesButton
-
-                    background: Rectangle {
-                        color: parent.pressed ? confirmDialog.buttonPressed
-                               : parent.hovered ? confirmDialog.buttonHover
-                               : confirmDialog.buttonColor
-                        border {
-                            color: parent.activeFocus ? "red" : confirmDialog.borderColor
-                            width: 1
-                        }
-                        radius: 5
-                    }
-
-                    contentItem: Text {
-                        text: noButton.text
-                        color: "#FFFFFF"
-                        font.bold: true
-                        font.pixelSize: 14
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    onClicked: confirmDialog.close()
-
-                    Keys.onPressed: {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                            clicked()
-                            event.accepted = true
-                        }
-                    }
-
-                    onActiveFocusChanged: {
-                        if(activeFocus) forceActiveFocus()
-                    }
-                }
-            }
-        }
-
-        Component.onCompleted: console.log("Dialog initialized")
-        onActiveFocusChanged: console.log("Dialog focus:", activeFocus)
     }
 
-    // Функция загрузки алгоритма в интерфейс
-    function loadAlgorithm(algorithm, targetContainer) {
-        clearContainer(targetContainer)
-
-        function processBlock(blockData, container) {
-            if (!blockData || blockData.length < 2) return
-
-            var type = blockData[0]
-            var content = blockData[1]
-
-            // Создаем блок
-            var newBlock = spisok.createObject(container, {"blockType": type})
-            if (!newBlock) return
-
-            // Заполняем содержимое
-            if (newBlock.inputField && type !== "счетчик" && type !== "предусл" && type !== "постусл") {
-                newBlock.inputField.text = content
-            } else if (newBlock.inputFieldDiamond && ["усл", "предусл", "постусл"].includes(type)) {
-                newBlock.inputFieldDiamond.text = content
-            } else if (newBlock.counterVarField && type === "счетчик") {
-                var parts = content.split(/=|to|step/).map(function(part) {
-                    return part.trim()
-                })
-                if (parts.length >= 4) {
-                    newBlock.counterVarField.text = parts[0]
-                    newBlock.counterFromField.text = parts[1]
-                    newBlock.counterToField.text = parts[2]
-                    newBlock.counterStepField.text = parts[3] || "1"
-                }
-            }
-
-            // Обрабатываем вложенные блоки
-            if (type === "усл" && blockData.length >= 4) {
-                var trueBranch = blockData[2]
-                var falseBranch = blockData[3]
-
-                if (trueBranch && trueBranch.length > 0 && newBlock.leftContainer) {
-                    trueBranch.forEach(function(nestedBlock) {
-                        processBlock(nestedBlock, newBlock.leftContainer)
-                    })
-                }
-
-                if (falseBranch && falseBranch.length > 0 && newBlock.rightContainer) {
-                    falseBranch.forEach(function(nestedBlock) {
-                        processBlock(nestedBlock, newBlock.rightContainer)
-                    })
-                }
-            } else if (type === "счетчик" && blockData.length >= 3) {
-                var loopBody = blockData[2]
-                if (loopBody && loopBody.length > 0 && newBlock.centerContainerCounter) {
-                    loopBody.forEach(function(nestedBlock) {
-                        processBlock(nestedBlock, newBlock.centerContainerCounter)
-                    })
-                }
-            } else if (type === "предусл" && blockData.length >= 3) {
-                var loopBody = blockData[2]
-                if (loopBody && loopBody.length > 0 && newBlock.centerContainer) {
-                    loopBody.forEach(function(nestedBlock) {
-                        processBlock(nestedBlock, newBlock.centerContainer)
-                    })
-                }
-            } else if (type === "постусл" && blockData.length >= 3) {
-                var loopBody = blockData[2]
-                if (loopBody && loopBody.length > 0 && newBlock.centerContainerPost) {
-                    loopBody.forEach(function(nestedBlock) {
-                        processBlock(nestedBlock, newBlock.centerContainerPost)
-                    })
-                }
-            }
-        }
-
-        algorithm.forEach(function(blockData) {
-            processBlock(blockData, targetContainer)
-        })
+    MessageDialog {
+        id: information_save
+        title: "Информация"
+        text: "Алгоритм успешно сохранен."
     }
 
-    function clearContainer(container) {
-        if (!container || !container.children) return
-
-        var children = []
-        for (var i = 0; i < container.children.length; i++) {
-            if (container.children[i] && container.children[i].blockType !== undefined) {
-                children.push(container.children[i])
+    Component {
+        id: miniBlockShapeItem
+        Canvas {
+            property string blockType: "действие"
+            antialiasing: true
+            onPaint: {
+                const ctx = getContext("2d");
+                ctx.reset();
+                const w = width, h = height, cx = w/2, cy = h/2, s = 5
+                ctx.beginPath()
+                ctx.fillStyle = getBlockColor(blockType)
+                ctx.strokeStyle = "#424242"
+                ctx.lineWidth = 1
+                if (["ввод", "вывод"].includes(blockType)) {
+                    ctx.moveTo(s, 0); ctx.lineTo(w, 0); ctx.lineTo(w-s, h); ctx.lineTo(0, h)
+                } else if (["усл", "предусл", "постусл"].includes(blockType)) {
+                    ctx.moveTo(cx, 0); ctx.lineTo(w, cy); ctx.lineTo(cx, h); ctx.lineTo(0, cy)
+                } else if (blockType === "счетчик") {
+                    const hex = 5; ctx.moveTo(hex, 0); ctx.lineTo(w-hex, 0); ctx.lineTo(w, h/2); ctx.lineTo(w-hex, h); ctx.lineTo(hex, h); ctx.lineTo(0, h/2)
+                } else if (["начало", "конец"].includes(blockType)) {
+                    ctx.ellipse(1, 1, w-2, h-2)
+                } else {
+                    ctx.rect(0, 0, w, h)
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke()
             }
-        }
-
-        for (var j = 0; j < children.length; j++) {
-            if (children[j] && children[j].destroy) {
-                children[j].destroy()
+            function getBlockColor(type) {
+                var colors = {
+                    "ввод": "#ba68c8", "вывод": "#4db6ac", "действие": "#64b5f6", "усл": "#81c784",
+                    "счетчик": "#ef5350", "предусл": "#ffb74d", "постусл": "#ce93d8",
+                    "начало": "#64b5f6", "конец": "#ffb74d"
+                };
+                return colors[type] || "#64b5f6";
             }
         }
     }
