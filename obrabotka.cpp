@@ -1043,8 +1043,61 @@ void Obrabotka::flattenAlgorithm(const QVariantList& algorithm, int& nextId) {
     }
 }
 
-void Obrabotka::startDebugging(QVariantList algorithm) {
-    internal_cleanup(); // Очищаем состояние без отправки сигнала debugFinished
+int Obrabotka::findNextBlockId(int currentId, bool& wasLoop) {
+    wasLoop = false;
+    if (!m_blockMap.contains(currentId)) return -1;
+
+    QVariantMap currentBlock = m_blockMap.value(currentId);
+    QString type = currentBlock["type"].toString();
+    QString content = currentBlock["input"].toString();
+    int nextSequentialId = m_nextBlockIdMap.value(currentId, -1);
+
+    if (type == "усл") {
+        return evaluateCondition(content)
+               ? (currentBlock["trueBranch"].value<QVariantList>().isEmpty() ? nextSequentialId : currentBlock["trueBranch"].value<QVariantList>().first().value<QVariantMap>()["uniqueId"].toInt())
+               : (currentBlock["falseBranch"].value<QVariantList>().isEmpty() ? nextSequentialId : currentBlock["falseBranch"].value<QVariantList>().first().value<QVariantMap>()["uniqueId"].toInt());
+    } else if (type == "счетчик") {
+        wasLoop = true;
+        QString varName;
+        int startVal, endVal, stepVal;
+        parseCounter(content, varName, startVal, endVal, stepVal);
+
+        if (!m_loopInitialized.contains(currentId)) {
+            setValue(varName, startVal, "int");
+            m_loopInitialized[currentId] = true;
+        } else {
+            setValue(varName, getValue(varName).toInt() + stepVal, "int");
+        }
+
+        if ((stepVal >= 0) ? (getValue(varName).toInt() <= endVal) : (getValue(varName).toInt() >= endVal)) {
+            const QVariantList& loopBody = currentBlock["loopBody"].value<QVariantList>();
+            return loopBody.isEmpty() ? currentId : loopBody.first().value<QVariantMap>()["uniqueId"].toInt();
+        } else {
+            m_loopInitialized.remove(currentId);
+            return nextSequentialId;
+        }
+    } else if (type == "предусл") {
+        wasLoop = true;
+        if (evaluateCondition(content)) {
+            const QVariantList& loopBody = currentBlock["loopBody"].value<QVariantList>();
+            return loopBody.isEmpty() ? currentId : loopBody.first().value<QVariantMap>()["uniqueId"].toInt();
+        } else {
+            return nextSequentialId;
+        }
+    } else if (type == "постусл") {
+        wasLoop = true;
+        // This logic is tricky for a silent run. We assume it executes the body once, then checks.
+        // A full silent run implementation for do-while is more complex than needed for now.
+        // We will just execute the body once.
+        const QVariantList& loopBody = currentBlock["loopBody"].value<QVariantList>();
+        return loopBody.isEmpty() ? currentId : loopBody.first().value<QVariantMap>()["uniqueId"].toInt();
+    } else {
+        return nextSequentialId;
+    }
+}
+
+void Obrabotka::startDebugging(QVariantList algorithm, int startBlockId) {
+    internal_cleanup();
     m_currentAlgorithm = algorithm;
     m_blockMap.clear();
     m_nextBlockIdMap.clear();
@@ -1052,14 +1105,43 @@ void Obrabotka::startDebugging(QVariantList algorithm) {
     flattenAlgorithm(m_currentAlgorithm, endOfMain);
 
     m_debugging = true;
-    saveDebugState(-1);
     int firstBlockId = m_currentAlgorithm.isEmpty() ? -1 : m_currentAlgorithm.first().value<QVariantMap>()["uniqueId"].toInt();
-    m_currentDebugBlockId = firstBlockId;
 
-    emit debugging_peremennie(QVariantMap());
-    emit highlightBlock(-1);
-    emit debugHistoryChanged(false, hasMoreBlocks());
-    qDebug() << ">>> НАЧАЛО ОТЛАДКИ (карта блоков:" << m_blockMap.size() << "шт.)";
+    // "Run to breakpoint" logic
+    if (startBlockId != -1 && m_blockMap.contains(startBlockId) && startBlockId != firstBlockId) {
+        qDebug() << "Бесшумный запуск до блока" << startBlockId;
+        int blockToRun = firstBlockId;
+        int runLimit = 10000; // Safety break for silent run
+        while(blockToRun != -1 && blockToRun != startBlockId && runLimit-- > 0) {
+            if (m_hasError) { stopDebugging(); return; }
+
+            QVariantMap block = m_blockMap.value(blockToRun);
+            QString type = block["type"].toString();
+
+            if (type != "усл" && type != "счетчик" && type != "предусл" && type != "постусл") {
+                executeDebugBlock(block);
+            }
+            
+            bool wasLoopUnused;
+            blockToRun = findNextBlockId(blockToRun, wasLoopUnused);
+        }
+        if (runLimit <= 0) {
+            setError("Превышен лимит итераций при подготовке к отладке. Возможен бесконечный цикл.");
+            stopDebugging();
+            return;
+        }
+    }
+
+    saveDebugState(-1);
+
+    if(startBlockId != -1 && m_blockMap.contains(startBlockId)) {
+        m_currentDebugBlockId = startBlockId;
+    } else {
+        m_currentDebugBlockId = firstBlockId;
+    }
+
+    sendCurrentState(-1); // Показываем состояние *перед* выполнением стартового блока
+    qDebug() << ">>> НАЧАЛО ОТЛАДКИ (карта блоков:" << m_blockMap.size() << "шт.). Стартовый блок:" << m_currentDebugBlockId;
 }
 
 void Obrabotka::debugStep() {
@@ -1071,61 +1153,31 @@ void Obrabotka::debugStep() {
     }
     clearError();
     int idOfBlockToExecute = m_currentDebugBlockId;
+    
     QVariantMap currentBlock = m_blockMap.value(idOfBlockToExecute);
     QString type = currentBlock["type"].toString();
-    QString content = currentBlock["input"].toString();
-    int nextSequentialId = m_nextBlockIdMap.value(idOfBlockToExecute, -1);
 
     if (type != "усл" && type != "счетчик" && type != "предусл" && type != "постусл") {
          executeDebugBlock(currentBlock);
     }
-    int nextBlockId = -1;
-    if (type == "усл") {
-        nextBlockId = evaluateCondition(content)
-                        ? (currentBlock["trueBranch"].value<QVariantList>().isEmpty() ? nextSequentialId : currentBlock["trueBranch"].value<QVariantList>().first().value<QVariantMap>()["uniqueId"].toInt())
-                        : (currentBlock["falseBranch"].value<QVariantList>().isEmpty() ? nextSequentialId : currentBlock["falseBranch"].value<QVariantList>().first().value<QVariantMap>()["uniqueId"].toInt());
-    } else if (type == "счетчик") {
-        QString varName;
-        int startVal, endVal, stepVal;
-        parseCounter(content, varName, startVal, endVal, stepVal);
-        if (!m_loopInitialized.contains(idOfBlockToExecute)) {
-             setValue(varName, startVal, "int");
-             m_loopInitialized[idOfBlockToExecute] = true;
-        } else {
-            setValue(varName, getValue(varName).toInt() + stepVal, "int");
-        }
-        if ((stepVal >= 0) ? (getValue(varName).toInt() <= endVal) : (getValue(varName).toInt() >= endVal)) {
-            const QVariantList& loopBody = currentBlock["loopBody"].value<QVariantList>();
-            nextBlockId = loopBody.isEmpty() ? idOfBlockToExecute : loopBody.first().value<QVariantMap>()["uniqueId"].toInt();
-        } else {
-            nextBlockId = nextSequentialId;
-            m_loopInitialized.remove(idOfBlockToExecute);
-        }
-    } else if (type == "предусл") {
-        if (evaluateCondition(content)) {
-            const QVariantList& loopBody = currentBlock["loopBody"].value<QVariantList>();
-            nextBlockId = loopBody.isEmpty() ? idOfBlockToExecute : loopBody.first().value<QVariantMap>()["uniqueId"].toInt();
-        } else {
-            nextBlockId = nextSequentialId;
-        }
-    } else if (type == "постусл") {
-        int prevBlockId = m_blockIdHistory.top();
-        bool isLooping = (prevBlockId != -1 && m_nextBlockIdMap.value(prevBlockId, -1) == idOfBlockToExecute);
-        if (!isLooping) {
-             const QVariantList& loopBody = currentBlock["loopBody"].value<QVariantList>();
-             nextBlockId = loopBody.isEmpty() ? idOfBlockToExecute : loopBody.first().value<QVariantMap>()["uniqueId"].toInt();
-        } else {
-            if (evaluateCondition(content)) {
+    
+    bool wasLoop = false;
+    int nextBlockId = findNextBlockId(idOfBlockToExecute, wasLoop);
+    
+    // For post-condition loops, the logic is different on the first entry vs. subsequent entries.
+    // The findNextBlockId is simplified for the silent run, but needs to be more robust here.
+    if (type == "постусл" && !wasLoop) {
+        bool isLoopingBack = (m_blockIdHistory.size() > 1 && m_nextBlockIdMap.value(m_blockIdHistory.top(), -1) == idOfBlockToExecute);
+        if (isLoopingBack) {
+            if (evaluateCondition(currentBlock["input"].toString())) {
                 const QVariantList& loopBody = currentBlock["loopBody"].value<QVariantList>();
                 nextBlockId = loopBody.isEmpty() ? idOfBlockToExecute : loopBody.first().value<QVariantMap>()["uniqueId"].toInt();
             } else {
-                nextBlockId = nextSequentialId;
+                nextBlockId = m_nextBlockIdMap.value(idOfBlockToExecute, -1);
             }
         }
     }
-    else {
-        nextBlockId = nextSequentialId;
-    }
+
 
     if (m_hasError) {
         stopDebugging();
@@ -1137,17 +1189,20 @@ void Obrabotka::debugStep() {
 }
 
 void Obrabotka::debugStepBack() {
-    if (m_currentHistoryIndex < 1) return;
+    if (m_debugHistory.size() < 2) return;
 
     m_debugHistory.pop();
-    int undoneBlockId = m_blockIdHistory.pop();
-    m_currentHistoryIndex--;
+    int undoneBlockId = m_blockIdHistory.top();
+    m_blockIdHistory.pop();
 
     restoreStateFromVariantMap(m_debugHistory.top());
     int blockIdToShow = m_blockIdHistory.top();
 
     m_currentDebugBlockId = undoneBlockId;
+
     m_loopInitialized.clear();
+
+    m_currentHistoryIndex--;
     sendCurrentState(blockIdToShow);
 }
 

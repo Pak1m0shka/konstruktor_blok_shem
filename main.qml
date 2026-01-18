@@ -23,6 +23,7 @@ Window {
     property bool canStepBack: false
     property bool canStepForward: true
     property int blockIdCounter: 0
+    property int debugStartBlockId: -1
 
     Obrabotka {
         id: myObrabotka
@@ -77,6 +78,7 @@ Window {
 
         onAlgorithmLoaded: (algorithm) => {
             console.log("Получен сигнал algorithmLoaded, количество блоков:", algorithm.length)
+            main.debugStartBlockId = -1
             if (algorithm && algorithm.length > 0) {
                 loadAlgorithm(algorithm, container)
                 information_save.text = "Алгоритм успешно загружен"
@@ -1128,6 +1130,7 @@ Window {
             property string blockType: "действие"
             property bool isDebugHighlighted: false
             property int uniqueId: -1
+            property bool isDebugStart: main.debugStartBlockId === root.uniqueId
 
             function highlightInSelfAndChildren(targetId) {
                 if (root.uniqueId === targetId) {
@@ -1210,637 +1213,752 @@ Window {
             }
 
 
-            Column {
-                id: contentColumn
+            Row {
+                id: contentRow
                 width: Math.max(parent.width, childrenRect.width)
-                spacing: 10
+                spacing: 5
+                anchors.horizontalCenter: parent.horizontalCenter
 
-                // === ФИГУРА БЛОКА (ОСНОВНАЯ ЧАСТЬ) ===
-                Item {
-                    id: shapeItem
-                    width: Math.max(350, parent.width)
-                    height: getDefaultHeight()
-                    anchors.horizontalCenter: parent.horizontalCenter
-
-                    function getDefaultHeight() {
-                        switch (root.blockType) {
-                            case "начало":
-                            case "конец":
-                                return 80;
-                            case "предусл":
-                            case "постусл":
-                            case "усл":
-                                return 120;
-                            case "счетчик":
-                                return 120;
-                            default:
-                                return 70;
-                        }
+                Button {
+                    id: setDebugStartButton
+                    enabled: !main.debugMode && !["начало", "конец"].includes(root.blockType)
+                    width: 30
+                    height: 30
+                    anchors.verticalCenter: parent.verticalCenter
+                    background: Rectangle {
+                        color: root.isDebugStart ? "#FF69B4" : "#bdbdbd"
+                        border.color: "#9e9e9e"
+                        border.width: 1
+                        radius: 15
                     }
-
-                    Rectangle {
-                        id: debugHighlight
-                        anchors.fill: parent
-                        border.color: "yellow"
-                        border.width: 4
-                        radius: 5
-                        color: "transparent"
-                        visible: root.isDebugHighlighted
-                        z: 1
-                    }
-
-                    Canvas {
-                        anchors.fill: parent
-                        antialiasing: true
-                        z: 0
-                        onPaint: {
-                            const ctx = getContext("2d");
-                            ctx.reset();
-                            const w = width, h = height, cx = w/2, cy = h/2, s = 20
-                            ctx.beginPath()
-                            ctx.fillStyle = getBlockColor(root.blockType)
-                            ctx.strokeStyle = root.isDebugHighlighted ? "yellow" : "#e0e0e0"
-                            ctx.lineWidth = root.isDebugHighlighted ? 3 : 2
-                            if (["ввод", "вывод"].includes(root.blockType)) {
-                                ctx.moveTo(s, 0);
-                                ctx.lineTo(w, 0);
-                                ctx.lineTo(w-s, h);
-                                ctx.lineTo(0, h)
-                            } else if (["усл", "предусл", "постусл"].includes(root.blockType)) {
-                                ctx.moveTo(cx, 5);
-                                ctx.lineTo(w-5, cy);
-                                ctx.lineTo(cx, h-5);
-                                ctx.lineTo(5, cy)
-                            } else if (root.blockType === "счетчик") {
-                                const hex = 20
-                                ctx.moveTo(hex, 0);
-                                ctx.lineTo(w-hex, 0);
-                                ctx.lineTo(w, h/2)
-                                ctx.lineTo(w-hex, h);
-                                ctx.lineTo(hex, h);
-                                ctx.lineTo(0, h/2)
-                            } else if (["начало", "конец"].includes(root.blockType)) {
-                                ctx.ellipse(5, 5, w-10, h-10)
-                            } else {
-                                ctx.rect(0, 0, w, h)
-                            }
-                            ctx.closePath();
-                            ctx.fill();
-                            ctx.stroke()
-                            if (["начало", "конец"].includes(root.blockType)) {
-                                ctx.fillStyle = "black"
-                                ctx.font = "bold 20px Arial"
-                                ctx.textAlign = "center"
-                                ctx.textBaseline = "middle"
-                                ctx.fillText(root.blockType === "начало" ? "Начало" : "Конец", cx, cy)
-                            }
-                        }
-
-                        function getBlockColor(type) {
-                            var colors = {
-                                "ввод": "#ba68c8", "вывод": "#4db6ac", "действие": "#64b5f6", "усл": "#81c784",
-                                "счетчик": "#ef5350", "предусл": "#ffb74d", "постусл": "#ce93d8",
-                                "начало": "#64b5f6", "конец": "#ffb74d"
-                            };
-                            return colors[type] || "#64b5f6";
-                        }
-                    }
-
-                    TextField {
-                        id: inputField
-                        enabled: !main.debugMode
-                        anchors.centerIn: parent
-                        width: parent.width - 30
-                        visible: !["начало", "конец", "счетчик", "усл", "предусл", "постусл"].includes(root.blockType)
-                        placeholderText: ({
-                            "ввод": "Введите переменные для ввода...",
-                            "вывод": "Введите данные для вывода...",
-                            "действие": "Введите действие...",
-                        })[root.blockType] || "Введите данные..."
+                    contentItem: Text {
+                        text: "О"
                         color: "black"
-                        placeholderTextColor: "#757575"
-                        selectByMouse: true
-                        font.pixelSize: 26
                         font.bold: true
-                        background: Rectangle {
-                            color: "transparent";
-                            border.width: 0
-                        }
-                    }
-
-                    TextField {
-                        id: inputFieldDiamond
-                        enabled: !main.debugMode
-                        visible: ["усл", "предусл", "постусл"].includes(root.blockType)
-                        anchors.centerIn: parent
-                        width: parent.width * 0.8
-                        height: parent.height * 0.7
+                        font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
-                        placeholderText: "Введите условие..."
-                        color: "black"
-                        placeholderTextColor: "#757575"
-                        selectByMouse: true
-                        font.pixelSize: 26
-                        font.bold: true
-                        background: Rectangle {
-                            color: "transparent";
-                            border.width: 0
+                    }
+                    onClicked: {
+                        if (root.isDebugStart) {
+                            main.debugStartBlockId = -1;
+                        } else {
+                            main.debugStartBlockId = root.uniqueId;
+                        }
+                        console.log("Установлен стартовый блок отладки: " + main.debugStartBlockId);
+                    }
+                }
+
+                Column {
+                    id: contentColumn
+                    width: Math.max(350, childrenRect.width)
+                    spacing: 10
+
+                    // === ФИГУРА БЛОКА (ОСНОВНАЯ ЧАСТЬ) ===
+                    Item {
+                        id: shapeItem
+                        width: Math.max(350, parent.width)
+                        height: getDefaultHeight()
+                        anchors.horizontalCenter: parent.horizontalCenter
+
+                        function getDefaultHeight() {
+                            switch (root.blockType) {
+                                case "начало":
+                                case "конец":
+                                    return 80;
+                                case "предусл":
+                                case "постусл":
+                                case "усл":
+                                    return 120;
+                                case "счетчик":
+                                    return 120;
+                                default:
+                                    return 70;
+                            }
+                        }
+
+                        Rectangle {
+                            id: debugHighlight
+                            anchors.fill: parent
+                            border.color: "yellow"
+                            border.width: 4
+                            radius: 5
+                            color: "transparent"
+                            visible: root.isDebugHighlighted
+                            z: 1
+                        }
+
+                        Canvas {
+                            anchors.fill: parent
+                            antialiasing: true
+                            z: 0
+                            onPaint: {
+                                const ctx = getContext("2d");
+                                ctx.reset();
+                                const w = width, h = height, cx = w/2, cy = h/2, s = 20
+                                ctx.beginPath()
+                                ctx.fillStyle = getBlockColor(root.blockType)
+                                ctx.strokeStyle = root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : "#e0e0e0")
+                                ctx.lineWidth = root.isDebugHighlighted ? 3 : (root.isDebugStart ? 4 : 2)
+                                if (["ввод", "вывод"].includes(root.blockType)) {
+                                    ctx.moveTo(s, 0);
+                                    ctx.lineTo(w, 0);
+                                    ctx.lineTo(w-s, h);
+                                    ctx.lineTo(0, h)
+                                } else if (["усл", "предусл", "постусл"].includes(root.blockType)) {
+                                    ctx.moveTo(cx, 5);
+                                    ctx.lineTo(w-5, cy);
+                                    ctx.lineTo(cx, h-5);
+                                    ctx.lineTo(5, cy)
+                                } else if (root.blockType === "счетчик") {
+                                    const hex = 20
+                                    ctx.moveTo(hex, 0);
+                                    ctx.lineTo(w-hex, 0);
+                                    ctx.lineTo(w, h/2)
+                                    ctx.lineTo(w-hex, h);
+                                    ctx.lineTo(hex, h);
+                                    ctx.lineTo(0, h/2)
+                                } else if (["начало", "конец"].includes(root.blockType)) {
+                                    ctx.ellipse(5, 5, w-10, h-10)
+                                } else {
+                                    ctx.rect(0, 0, w, h)
+                                }
+                                ctx.closePath();
+                                ctx.fill();
+                                ctx.stroke()
+                                if (["начало", "конец"].includes(root.blockType)) {
+                                    ctx.fillStyle = "black"
+                                    ctx.font = "bold 20px Arial"
+                                    ctx.textAlign = "center"
+                                    ctx.textBaseline = "middle"
+                                    ctx.fillText(root.blockType === "начало" ? "Начало" : "Конец", cx, cy)
+                                }
+                            }
+
+                            function getBlockColor(type) {
+                                var colors = {
+                                    "ввод": "#ba68c8", "вывод": "#4db6ac", "действие": "#64b5f6", "усл": "#81c784",
+                                    "счетчик": "#ef5350", "предусл": "#ffb74d", "постусл": "#ce93d8",
+                                    "начало": "#64b5f6", "конец": "#ffb74d"
+                                };
+                                return colors[type] || "#64b5f6";
+                            }
+                        }
+
+                        TextField {
+                            id: inputField
+                            enabled: !main.debugMode
+                            anchors.centerIn: parent
+                            width: parent.width - 30
+                            visible: !["начало", "конец", "счетчик", "усл", "предусл", "постусл"].includes(root.blockType)
+                            placeholderText: ({
+                                "ввод": "Введите переменные для ввода...",
+                                "вывод": "Введите данные для вывода...",
+                                "действие": "Введите действие...",
+                            })[root.blockType] || "Введите данные..."
+                            color: "black"
+                            placeholderTextColor: "#757575"
+                            selectByMouse: true
+                            font.pixelSize: 26
+                            font.bold: true
+                            background: Rectangle {
+                                color: "transparent";
+                                border.width: 0
+                            }
+                        }
+
+                        TextField {
+                            id: inputFieldDiamond
+                            enabled: !main.debugMode
+                            visible: ["усл", "предусл", "постусл"].includes(root.blockType)
+                            anchors.centerIn: parent
+                            width: parent.width * 0.8
+                            height: parent.height * 0.7
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            placeholderText: "Введите условие..."
+                            color: "black"
+                            placeholderTextColor: "#757575"
+                            selectByMouse: true
+                            font.pixelSize: 26
+                            font.bold: true
+                            background: Rectangle {
+                                color: "transparent";
+                                border.width: 0
+                            }
+                        }
+
+                        Column {
+                            id: counterFieldsRow
+                            anchors.centerIn: parent
+                            spacing: 10
+                            visible: root.blockType === "счетчик"
+
+                            Row {
+                                spacing: 20
+                                anchors.horizontalCenter: parent.horizontalCenter
+
+                                Row {
+                                    spacing: 8
+                                    Text {
+                                        text: "Переменная:"
+                                        color: "black"
+                                        font.pixelSize: 26
+                                        font.bold: true
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    TextField {
+                                        id: counterVarField
+                                        enabled: !main.debugMode
+                                        width: 70
+                                        placeholderText: "i"
+                                        color: "black"
+                                        placeholderTextColor: "#9e9e9e"
+                                        selectByMouse: true
+                                        font.pixelSize: 26
+                                        font.bold: true
+                                        background: Rectangle {
+                                            color: "transparent"
+                                            border.color: "black"
+                                            border.width: 1
+                                            radius: 2
+                                        }
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    Text {
+                                        text: "Шаг:"
+                                        color: "black"
+                                        font.pixelSize: 26
+                                        font.bold: true
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    TextField {
+                                        id: counterStepField
+                                        enabled: !main.debugMode
+                                        width: 70
+                                        placeholderText: "1"
+                                        color: "black"
+                                        placeholderTextColor: "#9e9e9e"
+                                        selectByMouse: true
+                                        font.pixelSize: 26
+                                        font.bold: true
+                                        background: Rectangle {
+                                            color: "transparent"
+                                            border.color: "black"
+                                            border.width: 1
+                                            radius: 2
+                                        }
+                                    }
+                                }
+                            }
+
+                            Row {
+                                spacing: 20
+                                anchors.horizontalCenter: parent.horizontalCenter
+
+                                Row {
+                                    spacing: 8
+                                    Text {
+                                        text: "От:"
+                                        color: "black"
+                                        font.pixelSize: 26
+                                        font.bold: true
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    TextField {
+                                        id: counterFromField
+                                        enabled: !main.debugMode
+                                        width: 70
+                                        placeholderText: "0"
+                                        color: "black"
+                                        placeholderTextColor: "#9e9e9e"
+                                        selectByMouse: true
+                                        font.pixelSize: 26
+                                        font.bold: true
+                                        background: Rectangle {
+                                            color: "transparent"
+                                            border.color: "black"
+                                            border.width: 1
+                                            radius: 2
+                                        }
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    Text {
+                                        text: "До:"
+                                        color: "black"
+                                        font.pixelSize: 26
+                                        font.bold: true
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    TextField {
+                                        id: counterToField
+                                        enabled: !main.debugMode
+                                        width: 70
+                                        placeholderText: "10"
+                                        color: "black"
+                                        placeholderTextColor: "#9e9e9e"
+                                        selectByMouse: true
+                                        font.pixelSize: 26
+                                        font.bold: true
+                                        background: Rectangle {
+                                            color: "transparent"
+                                            border.color: "black"
+                                            border.width: 1
+                                            radius: 2
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Column {
+                            anchors.left: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.leftMargin: 5
+                            spacing: 2
+
+                            Button {
+                                id: addAboveButton
+                                enabled: !main.debugMode
+                                width: 30
+                                height: 30
+                                background: Rectangle {
+                                    color: "#bdbdbd"
+                                    border.color: "#9e9e9e"
+                                    border.width: 1
+                                    radius: 3
+                                    Canvas {
+                                        anchors.fill: parent
+                                        anchors.margins: 3
+                                        onPaint: {
+                                            var ctx = getContext("2d");
+                                            ctx.reset();
+                                            ctx.fillStyle = "black";
+                                            var w = width;
+                                            var h = height;
+                                            var stemWidth = w * 0.2;
+                                            var headHeight = h * 0.3;
+                                            var headWidth = w * 0.4;
+                                            ctx.fillRect(w/2 - stemWidth/2, headHeight, stemWidth, h - headHeight);
+                                            ctx.beginPath();
+                                            ctx.moveTo(w/2 - headWidth/2, headHeight);
+                                            ctx.lineTo(w/2 + headWidth/2, headHeight);
+                                            ctx.lineTo(w/2, 0);
+                                            ctx.closePath();
+                                            ctx.fill();
+                                        }
+                                    }
+                                }
+                                contentItem: Item {}
+                                onClicked: {
+                                    console.log("Кнопка 'Добавить выше' нажата для блока типа:", root.blockType);
+                                    main.insertBlockBefore(root, main.selectedBlockType);
+                                }
+                            }
+
+                            Button {
+                                id: addBelowButton
+                                enabled: !main.debugMode
+                                width: 30
+                                height: 30
+                                background: Rectangle {
+                                    color: "#bdbdbd"
+                                    border.color: "#9e9e9e"
+                                    border.width: 1
+                                    radius: 3
+                                    Canvas {
+                                        anchors.fill: parent
+                                        anchors.margins: 3
+                                        onPaint: {
+                                            var ctx = getContext("2d");
+                                            ctx.reset();
+                                            ctx.fillStyle = "black";
+                                            var w = width;
+                                            var h = height;
+                                            var stemWidth = w * 0.2;
+                                            var headHeight = h * 0.3;
+                                            var headWidth = w * 0.4;
+                                            ctx.fillRect(w/2 - stemWidth/2, 0, stemWidth, h - headHeight);
+                                            ctx.beginPath();
+                                            ctx.moveTo(w/2 - headWidth/2, h - headHeight);
+                                            ctx.lineTo(w/2 + headWidth/2, h - headHeight);
+                                            ctx.lineTo(w/2, h);
+                                            ctx.closePath();
+                                            ctx.fill();
+                                        }
+                                    }
+                                }
+                                contentItem: Item {}
+                                onClicked: {
+                                    console.log("Кнопка 'Добавить ниже' нажата для блока типа:", root.blockType);
+                                    main.insertBlockAfter(root, main.selectedBlockType);
+                                }
+                            }
+                        }
+
+                        TapHandler {
+                            enabled: !main.debugMode
+                            acceptedButtons: Qt.RightButton
+                            onTapped: {
+                                console.log("Блок удалён правым кликом. ID:", root.uniqueId);
+                                root.destroy()
+                            }
+                        }
+
+                        TapHandler {
+                            enabled: !main.debugMode
+                            acceptedButtons: Qt.LeftButton
+                            onDoubleTapped: {
+                                console.log("Блок удалён двойным кликом. ID:", root.uniqueId);
+                                root.destroy()
+                            }
                         }
                     }
 
-                    Column {
-                        id: counterFieldsRow
-                        anchors.centerIn: parent
-                        spacing: 10
+                    // === ОБЛАСТЬ ДЛЯ СЧЕТЧИКА (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
+                    Item {
+                        id: counterContainer
+                        width: Math.max(parent.width, childrenRect.width)
+                        height: visible ? counterContent.height + 10 : 0
                         visible: root.blockType === "счетчик"
-
-                        Row {
-                            spacing: 20
-                            anchors.horizontalCenter: parent.horizontalCenter
-
-                            Row {
-                                spacing: 8
-                                Text {
-                                    text: "Переменная:"
-                                    color: "black"
-                                    font.pixelSize: 26
-                                    font.bold: true
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                                TextField {
-                                    id: counterVarField
-                                    enabled: !main.debugMode
-                                    width: 70
-                                    placeholderText: "i"
-                                    color: "black"
-                                    placeholderTextColor: "#9e9e9e"
-                                    selectByMouse: true
-                                    font.pixelSize: 26
-                                    font.bold: true
-                                    background: Rectangle {
-                                        color: "transparent"
-                                        border.color: "black"
-                                        border.width: 1
-                                        radius: 2
-                                    }
-                                }
-                            }
-
-                            Row {
-                                spacing: 8
-                                Text {
-                                    text: "Шаг:"
-                                    color: "black"
-                                    font.pixelSize: 26
-                                    font.bold: true
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                                TextField {
-                                    id: counterStepField
-                                    enabled: !main.debugMode
-                                    width: 70
-                                    placeholderText: "1"
-                                    color: "black"
-                                    placeholderTextColor: "#9e9e9e"
-                                    selectByMouse: true
-                                    font.pixelSize: 26
-                                    font.bold: true
-                                    background: Rectangle {
-                                        color: "transparent"
-                                        border.color: "black"
-                                        border.width: 1
-                                        radius: 2
-                                    }
-                                }
-                            }
-                        }
-
-                        Row {
-                            spacing: 20
-                            anchors.horizontalCenter: parent.horizontalCenter
-
-                            Row {
-                                spacing: 8
-                                Text {
-                                    text: "От:"
-                                    color: "black"
-                                    font.pixelSize: 26
-                                    font.bold: true
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                                TextField {
-                                    id: counterFromField
-                                    enabled: !main.debugMode
-                                    width: 70
-                                    placeholderText: "0"
-                                    color: "black"
-                                    placeholderTextColor: "#9e9e9e"
-                                    selectByMouse: true
-                                    font.pixelSize: 26
-                                    font.bold: true
-                                    background: Rectangle {
-                                        color: "transparent"
-                                        border.color: "black"
-                                        border.width: 1
-                                        radius: 2
-                                    }
-                                }
-                            }
-
-                            Row {
-                                spacing: 8
-                                Text {
-                                    text: "До:"
-                                    color: "black"
-                                    font.pixelSize: 26
-                                    font.bold: true
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                                TextField {
-                                    id: counterToField
-                                    enabled: !main.debugMode
-                                    width: 70
-                                    placeholderText: "10"
-                                    color: "black"
-                                    placeholderTextColor: "#9e9e9e"
-                                    selectByMouse: true
-                                    font.pixelSize: 26
-                                    font.bold: true
-                                    background: Rectangle {
-                                        color: "transparent"
-                                        border.color: "black"
-                                        border.width: 1
-                                        radius: 2
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Column {
-                        anchors.left: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.leftMargin: 5
-                        spacing: 2
-
-                        Button {
-                            id: addAboveButton
-                            enabled: !main.debugMode
-                            width: 30
-                            height: 30
-                            background: Rectangle {
-                                color: "#bdbdbd"
-                                border.color: "#9e9e9e"
-                                border.width: 1
-                                radius: 3
-                                Canvas {
-                                    anchors.fill: parent
-                                    anchors.margins: 3
-                                    onPaint: {
-                                        var ctx = getContext("2d");
-                                        ctx.reset();
-                                        ctx.fillStyle = "black";
-                                        var w = width;
-                                        var h = height;
-                                        var stemWidth = w * 0.2;
-                                        var headHeight = h * 0.3;
-                                        var headWidth = w * 0.4;
-                                        ctx.fillRect(w/2 - stemWidth/2, headHeight, stemWidth, h - headHeight);
-                                        ctx.beginPath();
-                                        ctx.moveTo(w/2 - headWidth/2, headHeight);
-                                        ctx.lineTo(w/2 + headWidth/2, headHeight);
-                                        ctx.lineTo(w/2, 0);
-                                        ctx.closePath();
-                                        ctx.fill();
-                                    }
-                                }
-                            }
-                            contentItem: Item {}
-                            onClicked: {
-                                console.log("Кнопка 'Добавить выше' нажата для блока типа:", root.blockType);
-                                main.insertBlockBefore(root, main.selectedBlockType);
-                            }
-                        }
-
-                        Button {
-                            id: addBelowButton
-                            enabled: !main.debugMode
-                            width: 30
-                            height: 30
-                            background: Rectangle {
-                                color: "#bdbdbd"
-                                border.color: "#9e9e9e"
-                                border.width: 1
-                                radius: 3
-                                Canvas {
-                                    anchors.fill: parent
-                                    anchors.margins: 3
-                                    onPaint: {
-                                        var ctx = getContext("2d");
-                                        ctx.reset();
-                                        ctx.fillStyle = "black";
-                                        var w = width;
-                                        var h = height;
-                                        var stemWidth = w * 0.2;
-                                        var headHeight = h * 0.3;
-                                        var headWidth = w * 0.4;
-                                        ctx.fillRect(w/2 - stemWidth/2, 0, stemWidth, h - headHeight);
-                                        ctx.beginPath();
-                                        ctx.moveTo(w/2 - headWidth/2, h - headHeight);
-                                        ctx.lineTo(w/2 + headWidth/2, h - headHeight);
-                                        ctx.lineTo(w/2, h);
-                                        ctx.closePath();
-                                        ctx.fill();
-                                    }
-                                }
-                            }
-                            contentItem: Item {}
-                            onClicked: {
-                                console.log("Кнопка 'Добавить ниже' нажата для блока типа:", root.blockType);
-                                main.insertBlockAfter(root, main.selectedBlockType);
-                            }
-                        }
-                    }
-
-                    TapHandler {
-                        enabled: !main.debugMode
-                        acceptedButtons: Qt.RightButton
-                        onTapped: {
-                            console.log("Блок удалён правым кликом. ID:", root.uniqueId);
-                            root.destroy()
-                        }
-                    }
-
-                    TapHandler {
-                        enabled: !main.debugMode
-                        acceptedButtons: Qt.LeftButton
-                        onDoubleTapped: {
-                            console.log("Блок удалён двойным кликом. ID:", root.uniqueId);
-                            root.destroy()
-                        }
-                    }
-                }
-
-                // === ОБЛАСТЬ ДЛЯ СЧЕТЧИКА (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
-                Item {
-                    id: counterContainer
-                    width: Math.max(parent.width, childrenRect.width)
-                    height: visible ? counterContent.height + 10 : 0
-                    visible: root.blockType === "счетчик"
-                    anchors.horizontalCenter: parent.horizontalCenter
-
-                    Column {
-                        id: counterContent
-                        width: Math.max(400, parent.width)
                         anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: 10
 
-                        Rectangle {
-                            width: Math.max(400, centerContainerCounter.childrenRect.width + 40)
-                            height: Math.max(160, centerContainerCounter.childrenRect.height + 50)
-                            border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? "#9c27b0" : "#424242")
-                            border.width: root.isDebugHighlighted ? 4 : 2
-                            radius: 5
-                            color: "transparent"
+                        Column {
+                            id: counterContent
+                            width: Math.max(400, parent.width)
                             anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 10
 
-                            Column {
-                                id: centerContainerCounter
-                                width: Math.max(350, childrenRect.width)
-                                anchors.centerIn: parent
-                                spacing: 10
-                            }
+                            Rectangle {
+                                width: Math.max(400, centerContainerCounter.childrenRect.width + 40)
+                                height: Math.max(160, centerContainerCounter.childrenRect.height + 50)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? "#9c27b0" : "#424242")
+                                border.width: root.isDebugHighlighted ? 4 : 2
+                                radius: 5
+                                color: "transparent"
+                                anchors.horizontalCenter: parent.horizontalCenter
 
-                            Button {
-                                id: counterActivateBtn
-                                enabled: !main.debugMode
-                                anchors.top: parent.top
-                                anchors.right: parent.right
-                                anchors.margins: 5
-                                width: 35
-                                height: 35
-                                text: "A"
-                                background: Rectangle {
-                                    color: main.activeContainer === centerContainerCounter ? "#9c27b0" : "#424242"
-                                    radius: width / 2
-                                    border.color: "white"
-                                    border.width: 1
+                                Column {
+                                    id: centerContainerCounter
+                                    width: Math.max(350, childrenRect.width)
+                                    anchors.centerIn: parent
+                                    spacing: 10
                                 }
-                                contentItem: Text {
-                                    text: parent.text
-                                    color: "white"
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                    font.pixelSize: 18
-                                    font.bold: true
+
+                                Button {
+                                    id: counterActivateBtn
+                                    enabled: !main.debugMode
+                                    anchors.top: parent.top
+                                    anchors.right: parent.right
+                                    anchors.margins: 5
+                                    width: 35
+                                    height: 35
+                                    text: "A"
+                                    background: Rectangle {
+                                        color: main.activeContainer === centerContainerCounter ? "#9c27b0" : "#424242"
+                                        radius: width / 2
+                                        border.color: "white"
+                                        border.width: 1
+                                    }
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: "white"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: 18
+                                        font.bold: true
+                                    }
+                                    scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
+                                    Behavior on scale { NumberAnimation { duration: 100 } }
+                                    onClicked: {
+                                        if (main.activeContainer === centerContainerCounter) {
+                                            main.activeContainer = null
+                                            console.log("Область тела счетчика деактивирована")
+                                        } else {
+                                            main.activeContainer = centerContainerCounter
+                                            console.log("Область тела счетчика активирована")
+                                        }
+                                    }
                                 }
-                                scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                                Behavior on scale { NumberAnimation { duration: 100 } }
-                                onClicked: {
-                                    if (main.activeContainer === centerContainerCounter) {
-                                        main.activeContainer = null
-                                        console.log("Область тела счетчика деактивирована")
-                                    } else {
+
+                                TapHandler {
+                                    enabled: !main.debugMode
+                                    onTapped: {
+                                        if (main.activeContainer === centerContainerCounter) {
+                                            createBlock(main.selectedBlockType)
+                                            console.log("Создан блок типа:", main.selectedBlockType, "в теле счетчика")
+                                        }
                                         main.activeContainer = centerContainerCounter
-                                        console.log("Область тела счетчика активирована")
                                     }
-                                }
-                            }
-
-                            TapHandler {
-                                enabled: !main.debugMode
-                                onTapped: {
-                                    if (main.activeContainer === centerContainerCounter) {
-                                        createBlock(main.selectedBlockType)
-                                        console.log("Создан блок типа:", main.selectedBlockType, "в теле счетчика")
-                                    }
-                                    main.activeContainer = centerContainerCounter
                                 }
                             }
                         }
                     }
-                }
 
-                // === ОБЛАСТЬ ДЛЯ ПРЕДУСЛОВИЯ (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
-                Item {
-                    id: cycleWrapper
-                    width: Math.max(parent.width, childrenRect.width)
-                    height: visible ? cycleContentDefault.height + 10 : 0
-                    visible: root.blockType === "предусл"
-                    anchors.horizontalCenter: parent.horizontalCenter
-
-                    Column {
-                        id: cycleContentDefault
-                        width: Math.max(400, parent.width)
+                    // === ОБЛАСТЬ ДЛЯ ПРЕДУСЛОВИЯ (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
+                    Item {
+                        id: cycleWrapper
+                        width: Math.max(parent.width, childrenRect.width)
+                        height: visible ? cycleContentDefault.height + 10 : 0
+                        visible: root.blockType === "предусл"
                         anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: 10
 
-                        Rectangle {
-                            width: Math.max(400, centerContainer.childrenRect.width + 40)
-                            height: Math.max(160, centerContainer.childrenRect.height + 50)
-                            border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? "#9c27b0" : "#424242")
-                            border.width: root.isDebugHighlighted ? 4 : 2
-                            radius: 5
-                            color: "transparent"
+                        Column {
+                            id: cycleContentDefault
+                            width: Math.max(400, parent.width)
                             anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 10
 
-                            Column {
-                                id: centerContainer
-                                width: Math.max(350, childrenRect.width)
-                                anchors.centerIn: parent
-                                spacing: 10
-                            }
+                            Rectangle {
+                                width: Math.max(400, centerContainer.childrenRect.width + 40)
+                                height: Math.max(160, centerContainer.childrenRect.height + 50)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? "#9c27b0" : "#424242")
+                                border.width: root.isDebugHighlighted ? 4 : 2
+                                radius: 5
+                                color: "transparent"
+                                anchors.horizontalCenter: parent.horizontalCenter
 
-                            Button {
-                                id: cycleActivateBtn
-                                enabled: !main.debugMode
-                                anchors.top: parent.top
-                                anchors.right: parent.right
-                                anchors.margins: 5
-                                width: 35
-                                height: 35
-                                text: "A"
-                                background: Rectangle {
-                                    color: main.activeContainer === centerContainer ? "#9c27b0" : "#424242"
-                                    radius: width / 2
-                                    border.color: "white"
-                                    border.width: 1
+                                Column {
+                                    id: centerContainer
+                                    width: Math.max(350, childrenRect.width)
+                                    anchors.centerIn: parent
+                                    spacing: 10
                                 }
-                                contentItem: Text {
-                                    text: parent.text
-                                    color: "white"
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                    font.pixelSize: 18
-                                    font.bold: true
+
+                                Button {
+                                    id: cycleActivateBtn
+                                    enabled: !main.debugMode
+                                    anchors.top: parent.top
+                                    anchors.right: parent.right
+                                    anchors.margins: 5
+                                    width: 35
+                                    height: 35
+                                    text: "A"
+                                    background: Rectangle {
+                                        color: main.activeContainer === centerContainer ? "#9c27b0" : "#424242"
+                                        radius: width / 2
+                                        border.color: "white"
+                                        border.width: 1
+                                    }
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: "white"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: 18
+                                        font.bold: true
+                                    }
+                                    scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
+                                    Behavior on scale { NumberAnimation { duration: 100 } }
+                                    onClicked: {
+                                        if (main.activeContainer === centerContainer) {
+                                            main.activeContainer = null
+                                            console.log("Область цикла деактивирована")
+                                        } else {
+                                            main.activeContainer = centerContainer
+                                            console.log("Область цикла активирована")
+                                        }
+                                    }
                                 }
-                                scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                                Behavior on scale { NumberAnimation { duration: 100 } }
-                                onClicked: {
-                                    if (main.activeContainer === centerContainer) {
-                                        main.activeContainer = null
-                                        console.log("Область цикла деактивирована")
-                                    } else {
+
+                                TapHandler {
+                                    enabled: !main.debugMode
+                                    onTapped: {
+                                        if (main.activeContainer === centerContainer) {
+                                            createBlock(main.selectedBlockType)
+                                            console.log("Создан блок типа:", main.selectedBlockType, "в цикле")
+                                        }
                                         main.activeContainer = centerContainer
-                                        console.log("Область цикла активирована")
                                     }
-                                }
-                            }
-
-                            TapHandler {
-                                enabled: !main.debugMode
-                                onTapped: {
-                                    if (main.activeContainer === centerContainer) {
-                                        createBlock(main.selectedBlockType)
-                                        console.log("Создан блок типа:", main.selectedBlockType, "в цикле")
-                                    }
-                                    main.activeContainer = centerContainer
                                 }
                             }
                         }
                     }
-                }
 
-                // === ОБЛАСТЬ ДЛЯ УСЛОВИЯ (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
-                Item {
-                    id: conditionWrapper
-                    width: Math.max(parent.width, childrenRect.width)
-                    height: visible ? conditionContent.height + 10 : 0
-                    visible: root.blockType === "усл"
-                    anchors.horizontalCenter: parent.horizontalCenter
-
-                    Column {
-                        id: conditionContent
-                        width: Math.max(600, parent.width)
+                    // === ОБЛАСТЬ ДЛЯ УСЛОВИЯ (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
+                    Item {
+                        id: conditionWrapper
+                        width: Math.max(parent.width, childrenRect.width)
+                        height: visible ? conditionContent.height + 10 : 0
+                        visible: root.blockType === "усл"
                         anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: 10
 
-                        Row {
-                            width: Math.max(600, childrenRect.width)
-                            spacing: 20
+                        Column {
+                            id: conditionContent
+                            width: Math.max(600, parent.width)
                             anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 10
 
-                            // Левая ветка (истина)
-                            Rectangle {
-                                width: Math.max(280, leftContainer.childrenRect.width + 40)
-                                height: Math.max(160, leftContainer.childrenRect.height + 50)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? "#9c27b0" : "#424242")
-                                border.width: root.isDebugHighlighted ? 4 : 2
-                                radius: 5
-                                color: "transparent"
+                            Row {
+                                width: Math.max(600, childrenRect.width)
+                                spacing: 20
+                                anchors.horizontalCenter: parent.horizontalCenter
 
-                                Column {
-                                    id: leftContainer
-                                    width: Math.max(250, childrenRect.width)
-                                    anchors.centerIn: parent
-                                    spacing: 10
-                                }
+                                // Левая ветка (истина)
+                                Rectangle {
+                                    width: Math.max(280, leftContainer.childrenRect.width + 40)
+                                    height: Math.max(160, leftContainer.childrenRect.height + 50)
+                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? "#9c27b0" : "#424242")
+                                    border.width: root.isDebugHighlighted ? 4 : 2
+                                    radius: 5
+                                    color: "transparent"
 
-                                Button {
-                                    id: leftActivateBtn
-                                    enabled: !main.debugMode
-                                    anchors.top: parent.top
-                                    anchors.right: parent.right
-                                    anchors.margins: 5
-                                    width: 35
-                                    height: 35
-                                    text: "A"
-                                    background: Rectangle {
-                                        color: main.activeContainer === leftContainer ? "#9c27b0" : "#424242"
-                                        radius: width / 2
-                                        border.color: "white"
-                                        border.width: 1
+                                    Column {
+                                        id: leftContainer
+                                        width: Math.max(250, childrenRect.width)
+                                        anchors.centerIn: parent
+                                        spacing: 10
                                     }
-                                    contentItem: Text {
-                                        text: parent.text
-                                        color: "white"
-                                        horizontalAlignment: Text.AlignHCenter
-                                        verticalAlignment: Text.AlignVCenter
-                                        font.pixelSize: 18
-                                        font.bold: true
+
+                                    Button {
+                                        id: leftActivateBtn
+                                        enabled: !main.debugMode
+                                        anchors.top: parent.top
+                                        anchors.right: parent.right
+                                        anchors.margins: 5
+                                        width: 35
+                                        height: 35
+                                        text: "A"
+                                        background: Rectangle {
+                                            color: main.activeContainer === leftContainer ? "#9c27b0" : "#424242"
+                                            radius: width / 2
+                                            border.color: "white"
+                                            border.width: 1
+                                        }
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "white"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            font.pixelSize: 18
+                                            font.bold: true
+                                        }
+                                        onClicked: {
+                                            if (main.activeContainer === leftContainer) {
+                                                main.activeContainer = null
+                                                console.log("Левая ветка условия деактивирована")
+                                            } else {
+                                                main.activeContainer = leftContainer
+                                                console.log("Левая ветка условия активирована")
+                                            }
+                                        }
                                     }
-                                    onClicked: {
-                                        if (main.activeContainer === leftContainer) {
-                                            main.activeContainer = null
-                                            console.log("Левая ветка условия деактивирована")
-                                        } else {
+
+                                    TapHandler {
+                                        enabled: !main.debugMode
+                                        onTapped: {
+                                            if (main.activeContainer === leftContainer) {
+                                                createBlock(main.selectedBlockType)
+                                                console.log("Создан блок типа:", main.selectedBlockType, "в левой ветке условия")
+                                            }
                                             main.activeContainer = leftContainer
-                                            console.log("Левая ветка условия активирована")
                                         }
                                     }
                                 }
 
-                                TapHandler {
-                                    enabled: !main.debugMode
-                                    onTapped: {
-                                        if (main.activeContainer === leftContainer) {
-                                            createBlock(main.selectedBlockType)
-                                            console.log("Создан блок типа:", main.selectedBlockType, "в левой ветке условия")
+                                // Правая ветка (ложь)
+                                Rectangle {
+                                    width: Math.max(280, rightContainer.childrenRect.width + 40)
+                                    height: Math.max(160, rightContainer.childrenRect.height + 50)
+                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? "#9c27b0" : "#424242")
+                                    border.width: root.isDebugHighlighted ? 4 : 2
+                                    radius: 5
+                                    color: "transparent"
+
+                                    Column {
+                                        id: rightContainer
+                                        width: Math.max(250, childrenRect.width)
+                                        anchors.centerIn: parent
+                                        spacing: 10
+                                    }
+
+                                    Button {
+                                        id: rightActivateBtn
+                                        enabled: !main.debugMode
+                                        anchors.top: parent.top
+                                        anchors.right: parent.right
+                                        anchors.margins: 5
+                                        width: 35
+                                        height: 35
+                                        text: "A"
+                                        background: Rectangle {
+                                            color: main.activeContainer === rightContainer ? "#9c27b0" : "#424242"
+                                            radius: width / 2
+                                            border.color: "white"
+                                            border.width: 1
                                         }
-                                        main.activeContainer = leftContainer
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "white"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            font.pixelSize: 18
+                                            font.bold: true
+                                        }
+                                        onClicked: {
+                                            if (main.activeContainer === rightContainer) {
+                                                main.activeContainer = null
+                                                console.log("Правая ветка условия деактивирована")
+                                            } else {
+                                                main.activeContainer = rightContainer
+                                                console.log("Правая ветка условия активирована")
+                                            }
+                                        }
+                                    }
+
+                                    TapHandler {
+                                        enabled: !main.debugMode
+                                        onTapped: {
+                                            if (main.activeContainer === rightContainer) {
+                                                createBlock(main.selectedBlockType)
+                                                console.log("Создан блок типа:", main.selectedBlockType, "в правой ветке условия")
+                                            }
+                                            main.activeContainer = rightContainer
+                                        }
                                     }
                                 }
                             }
+                        }
+                    }
 
-                            // Правая ветка (ложь)
+                    // === ОБЛАСТЬ ДЛЯ ПОСТУСЛОВИЯ (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
+                    Item {
+                        id: postConditionWrapper
+                        width: Math.max(parent.width, childrenRect.width)
+                        height: visible ? postConditionContent.height + 10 : 0
+                        visible: root.blockType === "постусл"
+                        anchors.horizontalCenter: parent.horizontalCenter
+
+                        Column {
+                            id: postConditionContent
+                            width: Math.max(400, parent.width)
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 10
+
                             Rectangle {
-                                width: Math.max(280, rightContainer.childrenRect.width + 40)
-                                height: Math.max(160, rightContainer.childrenRect.height + 50)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? "#9c27b0" : "#424242")
+                                width: Math.max(400, centerContainerPost.childrenRect.width + 40)
+                                height: Math.max(160, centerContainerPost.childrenRect.height + 50)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? "#9c27b0" : "#424242")
                                 border.width: root.isDebugHighlighted ? 4 : 2
                                 radius: 5
                                 color: "transparent"
+                                anchors.horizontalCenter: parent.horizontalCenter
 
                                 Column {
-                                    id: rightContainer
-                                    width: Math.max(250, childrenRect.width)
+                                    id: centerContainerPost
+                                    width: Math.max(350, childrenRect.width)
                                     anchors.centerIn: parent
                                     spacing: 10
                                 }
 
                                 Button {
-                                    id: rightActivateBtn
+                                    id: postActivateBtn
                                     enabled: !main.debugMode
                                     anchors.top: parent.top
                                     anchors.right: parent.right
@@ -1849,7 +1967,7 @@ Window {
                                     height: 35
                                     text: "A"
                                     background: Rectangle {
-                                        color: main.activeContainer === rightContainer ? "#9c27b0" : "#424242"
+                                        color: main.activeContainer === centerContainerPost ? "#9c27b0" : "#424242"
                                         radius: width / 2
                                         border.color: "white"
                                         border.width: 1
@@ -1862,13 +1980,15 @@ Window {
                                         font.pixelSize: 18
                                         font.bold: true
                                     }
+                                    scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
+                                    Behavior on scale { NumberAnimation { duration: 100 } }
                                     onClicked: {
-                                        if (main.activeContainer === rightContainer) {
+                                        if (main.activeContainer === centerContainerPost) {
                                             main.activeContainer = null
-                                            console.log("Правая ветка условия деактивирована")
+                                            console.log("Область постусловия деактивирована")
                                         } else {
-                                            main.activeContainer = rightContainer
-                                            console.log("Правая ветка условия активирована")
+                                            main.activeContainer = centerContainerPost
+                                            console.log("Область постусловия активирована")
                                         }
                                     }
                                 }
@@ -1876,92 +1996,12 @@ Window {
                                 TapHandler {
                                     enabled: !main.debugMode
                                     onTapped: {
-                                        if (main.activeContainer === rightContainer) {
+                                        if (main.activeContainer === centerContainerPost) {
                                             createBlock(main.selectedBlockType)
-                                            console.log("Создан блок типа:", main.selectedBlockType, "в правой ветке условия")
+                                            console.log("Создан блок типа:", main.selectedBlockType, "в постусловии")
                                         }
-                                        main.activeContainer = rightContainer
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // === ОБЛАСТЬ ДЛЯ ПОСТУСЛОВИЯ (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
-                Item {
-                    id: postConditionWrapper
-                    width: Math.max(parent.width, childrenRect.width)
-                    height: visible ? postConditionContent.height + 10 : 0
-                    visible: root.blockType === "постусл"
-                    anchors.horizontalCenter: parent.horizontalCenter
-
-                    Column {
-                        id: postConditionContent
-                        width: Math.max(400, parent.width)
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: 10
-
-                        Rectangle {
-                            width: Math.max(400, centerContainerPost.childrenRect.width + 40)
-                            height: Math.max(160, centerContainerPost.childrenRect.height + 50)
-                            border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? "#9c27b0" : "#424242")
-                            border.width: root.isDebugHighlighted ? 4 : 2
-                            radius: 5
-                            color: "transparent"
-                            anchors.horizontalCenter: parent.horizontalCenter
-
-                            Column {
-                                id: centerContainerPost
-                                width: Math.max(350, childrenRect.width)
-                                anchors.centerIn: parent
-                                spacing: 10
-                            }
-
-                            Button {
-                                id: postActivateBtn
-                                enabled: !main.debugMode
-                                anchors.top: parent.top
-                                anchors.right: parent.right
-                                anchors.margins: 5
-                                width: 35
-                                height: 35
-                                text: "A"
-                                background: Rectangle {
-                                    color: main.activeContainer === centerContainerPost ? "#9c27b0" : "#424242"
-                                    radius: width / 2
-                                    border.color: "white"
-                                    border.width: 1
-                                }
-                                contentItem: Text {
-                                    text: parent.text
-                                    color: "white"
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                    font.pixelSize: 18
-                                    font.bold: true
-                                }
-                                scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                                Behavior on scale { NumberAnimation { duration: 100 } }
-                                onClicked: {
-                                    if (main.activeContainer === centerContainerPost) {
-                                        main.activeContainer = null
-                                        console.log("Область постусловия деактивирована")
-                                    } else {
                                         main.activeContainer = centerContainerPost
-                                        console.log("Область постусловия активирована")
                                     }
-                                }
-                            }
-
-                            TapHandler {
-                                enabled: !main.debugMode
-                                onTapped: {
-                                    if (main.activeContainer === centerContainerPost) {
-                                        createBlock(main.selectedBlockType)
-                                        console.log("Создан блок типа:", main.selectedBlockType, "в постусловии")
-                                    }
-                                    main.activeContainer = centerContainerPost
                                 }
                             }
                         }
@@ -1991,7 +2031,7 @@ Window {
         if(a === 1){
             myObrabotka.myPriem(data)
         } else if(a === 2){
-            myObrabotka.startDebugging(data)
+            myObrabotka.startDebugging(data, main.debugStartBlockId)
         }
         return data
     }
@@ -2100,6 +2140,7 @@ Window {
                     onClicked: {
                         container.destroyChildren()
                         main.blockIdCounter = 0
+                        main.debugStartBlockId = -1
                         console.log("Создан новый пустой алгоритм")
                         newAlgorithmDialog.close()
                     }

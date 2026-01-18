@@ -18,7 +18,7 @@ public:
 
     Q_INVOKABLE void myPriem(QVariantList algoritm);
     Q_INVOKABLE void userInputReceived(const QString &input);
-    Q_INVOKABLE void startDebugging(QVariantList algorithm);
+    Q_INVOKABLE void startDebugging(QVariantList algorithm, int startBlockId = -1);
     Q_INVOKABLE void stopDebugging();
     Q_INVOKABLE void debugStep();
     Q_INVOKABLE void debugStepBack();
@@ -104,6 +104,8 @@ private:
     bool hasMoreBlocks();
     void sendCurrentState(int highlightId);
     void executeDebugBlock(const QVariantMap& block);
+    int findNextBlockId(int currentId, bool& wasLoop);
+
 
     // Конвертация и восстановление состояния
     QVariantMap convertToQmlVariantMap() const;
