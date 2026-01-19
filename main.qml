@@ -14,7 +14,18 @@ Window {
     minimumHeight: 600
     visible: true
     title: qsTr("Построй алгоритм по задаче")
-    color: "#121212"
+
+    // Свойства темы
+    property bool isDarkTheme: true
+    property color backgroundColor: isDarkTheme ? "#121212" : "#f5f7fa"
+    property color panelColor: isDarkTheme ? "#1e1e1e" : "#ffffff"
+    property color textColor: isDarkTheme ? "#e0e0e0" : "#333333"
+    property color borderColor: isDarkTheme ? "#424242" : "#e0e0e0"
+    property color buttonColor: isDarkTheme ? "#424242" : "#e0e0e0"
+    property color hoverColor: isDarkTheme ? "#616161" : "#d0d0d0"
+    property color pressedColor: isDarkTheme ? "#757575" : "#bdbdbd"
+
+    color: backgroundColor
     property Item activeContainer: container
     property Item activeToggle: null
     property string selectedBlockType: "действие"
@@ -106,8 +117,45 @@ Window {
             Layout.fillWidth: true
             spacing: 5
 
+            // Кнопка переключения темы
             Button {
+                id: themeButton
+                text: main.isDarkTheme ? "☀️" : "🌙"
+                hoverEnabled: true
+                Layout.preferredHeight: 50
+                Layout.preferredWidth: 60
+
+                background: Rectangle {
+                    color: "transparent" // Убрали фоновый цвет
+                    border.color: themeButton.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2 // Добавили обводку
+                    radius: 8
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
+                }
+
+                contentItem: Text {
+                    text: parent.text
+                    color: main.textColor
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: 20
+                }
+
+                onClicked: {
+                    main.isDarkTheme = !main.isDarkTheme
+                }
+            }
+
+            Button {
+                id: debugButton
                 text: main.debugMode ? "Закончить отладку" : "Отладка"
+                hoverEnabled: true
                 Shortcut {
                      sequence: "F6"
                      onActivated: {
@@ -122,17 +170,30 @@ Window {
                 }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 180
+
                 background: Rectangle {
-                    color: main.debugMode ? "#9c27b0" : "#ab47bc"
-                    radius: 5
+                    id: debugBg
+                    color: {
+                        if (debugButton.down) return Qt.darker("#9c27b0", 1.2)
+                        else if (debugButton.hovered) return Qt.lighter("#9c27b0", 1.1)
+                        else return main.debugMode ? "#9c27b0" : "#ab47bc"
+                    }
+                    radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
                 }
+
                 contentItem: Text {
                     text: parent.text
                     color: "white"
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 16
+                    font.bold: true
                 }
+
                 onClicked: {
                     if (main.debugMode) {
                         console.log("Нажата кнопка 'Закончить отладку'");
@@ -146,97 +207,171 @@ Window {
             }
 
             Button {
+                id: runButton
                 text: "Запуск"
+                hoverEnabled: true
                 onClicked: collectData(1)
                 Shortcut { sequence: "F1"; onActivated: collectData(1) }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 150
+
                 background: Rectangle {
-                    color: "#4caf50"
-                    radius: 5
+                    id: runBg
+                    color: {
+                        if (runButton.down) return Qt.darker("#4caf50", 1.2)
+                        else if (runButton.hovered) return Qt.lighter("#4caf50", 1.1)
+                        else return "#4caf50"
+                    }
+                    radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
                 }
+
                 contentItem: Text {
                     text: parent.text
-                    color: "black"
+                    color: "white"
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 16
+                    font.bold: true
                 }
             }
 
             Button {
+                id: saveButton
                 text: "Сохранить"
+                hoverEnabled: true
                 Shortcut { sequence: "F2"; onActivated: saveFileDialog.open() }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 150
+
                 background: Rectangle {
-                    color: "#42a5f5"
-                    radius: 5
+                    id: saveBg
+                    color: {
+                        if (saveButton.down) return Qt.darker("#42a5f5", 1.2)
+                        else if (saveButton.hovered) return Qt.lighter("#42a5f5", 1.1)
+                        else return "#42a5f5"
+                    }
+                    radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
                 }
+
                 contentItem: Text {
                     text: parent.text
-                    color: "black"
+                    color: "white"
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 16
+                    font.bold: true
                 }
+
                 onClicked: saveFileDialog.open()
             }
 
             Button {
+                id: openButton
                 text: "Открыть"
+                hoverEnabled: true
                 Shortcut { sequence: "F3"; onActivated: openFileDialog.open() }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 150
+
                 background: Rectangle {
-                    color: "#42a5f5"
-                    radius: 5
+                    id: openBg
+                    color: {
+                        if (openButton.down) return Qt.darker("#42a5f5", 1.2)
+                        else if (openButton.hovered) return Qt.lighter("#42a5f5", 1.1)
+                        else return "#42a5f5"
+                    }
+                    radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
                 }
+
                 contentItem: Text {
                     text: parent.text
-                    color: "black"
+                    color: "white"
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 16
+                    font.bold: true
                 }
+
                 onClicked: openFileDialog.open()
             }
 
             Button {
+                id: newAlgButton
                 text: "Новый алгоритм"
+                hoverEnabled: true
                 Shortcut { sequence: "F4"; onActivated: newAlgorithmDialog.open() }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 180
+
                 background: Rectangle {
-                    color: "#42a5f5"
-                    radius: 5
+                    id: newAlgBg
+                    color: {
+                        if (newAlgButton.down) return Qt.darker("#42a5f5", 1.2)
+                        else if (newAlgButton.hovered) return Qt.lighter("#42a5f5", 1.1)
+                        else return "#42a5f5"
+                    }
+                    radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
                 }
+
                 contentItem: Text {
                     text: parent.text
-                    color: "black"
+                    color: "white"
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 16
+                    font.bold: true
                 }
+
                 onClicked: newAlgorithmDialog.open()
             }
 
             Button {
+                id: helpButton
                 text: "Справка"
+                hoverEnabled: true
                 Shortcut { sequence: "F5"; onActivated: helpDialog.open() }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 150
+
                 background: Rectangle {
-                    color: "#ab47bc"
-                    radius: 5
+                    id: helpBg
+                    color: {
+                        if (helpButton.down) return Qt.darker("#ab47bc", 1.2)
+                        else if (helpButton.hovered) return Qt.lighter("#ab47bc", 1.1)
+                        else return "#ab47bc"
+                    }
+                    radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
                 }
+
                 contentItem: Text {
                     text: parent.text
-                    color: "black"
+                    color: "white"
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 16
+                    font.bold: true
                 }
+
                 onClicked: helpDialog.open()
             }
         }
@@ -272,10 +407,15 @@ Window {
                 }
                 currentIndex: 2
                 background: Rectangle {
-                    color: "#bdbdbd"
-                    border.color: "#9e9e9e"
-                    border.width: 1
-                    radius: 5
+                    id: comboBg
+                    color: main.isDarkTheme ? "#2d2d2d" : "#ffffff"
+                    border.color: blockTypeSelector.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2
+                    radius: 8
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
                 }
                 contentItem: Row {
                     leftPadding: 10
@@ -305,17 +445,25 @@ Window {
                             }
                             return "";
                         }
-                        color: "black"
+                        color: main.textColor
                         verticalAlignment: Text.AlignVCenter
                         font.pixelSize: 18
+                        font.bold: true
                     }
                 }
                 delegate: ItemDelegate {
+                    id: delegateItem
                     width: parent.width
                     height: 45
+                    hoverEnabled: true
                     highlighted: ListView.isCurrentItem
                     background: Rectangle {
-                        color: highlighted ? "#e0e0e0" : "#bdbdbd"
+                        color: delegateItem.highlighted ? (main.isDarkTheme ? "#424242" : "#e3f2fd") :
+                                (delegateItem.hovered ? (main.isDarkTheme ? "#2d2d2d" : "#f5f5f5") :
+                                (main.isDarkTheme ? "#2d2d2d" : "#ffffff"))
+                        Behavior on color {
+                            ColorAnimation { duration: 150 }
+                        }
                     }
                     contentItem: Row {
                         spacing: 5
@@ -330,7 +478,7 @@ Window {
                         }
                         Text {
                             text: model.displayName
-                            color: "black"
+                            color: main.textColor
                             verticalAlignment: Text.AlignVCenter
                             leftPadding: 5
                             font.pixelSize: 18
@@ -344,7 +492,7 @@ Window {
                     height: 8
                     onPaint: {
                         var ctx = getContext("2d")
-                        ctx.fillStyle = "black"
+                        ctx.fillStyle = main.textColor
                         ctx.moveTo(0, 0)
                         ctx.lineTo(width, 0)
                         ctx.lineTo(width / 2, height)
@@ -354,18 +502,34 @@ Window {
                 }
             }
 
+            // Кнопки с фигурами блоков
             Button {
                 id: inputBtn
                 text: "Ввод"
                 enabled: !main.debugMode
+                hoverEnabled: true
                 onClicked: createBlock("ввод")
                 Shortcut { sequence: "F7"; onActivated: if(enabled) createBlock("ввод") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 100
+
                 background: Rectangle {
-                    color: "transparent"
+                    id: inputBtnBg
+                    color: "transparent" // Убрали фоновый цвет
+                    border.color: inputBtn.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2
+                    radius: 8
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
+
                     Canvas {
                         anchors.fill: parent
+                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -380,15 +544,16 @@ Window {
                             ctx.closePath()
                             ctx.fillStyle = "#ba68c8"
                             ctx.fill()
-                            ctx.strokeStyle = "#e0e0e0"
+                            ctx.strokeStyle = inputBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
                     }
                 }
+
                 contentItem: Text {
                     text: "Ввод"
-                    color: "black"
+                    color: main.textColor
                     font.bold: true
                     font.pixelSize: 18
                     horizontalAlignment: Text.AlignHCenter
@@ -400,14 +565,29 @@ Window {
                 id: outputBtn
                 text: "Вывод"
                 enabled: !main.debugMode
+                hoverEnabled: true
                 onClicked: createBlock("вывод")
                 Shortcut { sequence: "F8"; onActivated: if(enabled) createBlock("вывод") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 100
+
                 background: Rectangle {
-                    color: "transparent"
+                    id: outputBtnBg
+                    color: "transparent" // Убрали фоновый цвет
+                    border.color: outputBtn.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2
+                    radius: 8
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
+
                     Canvas {
                         anchors.fill: parent
+                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -422,14 +602,15 @@ Window {
                             ctx.closePath()
                             ctx.fillStyle = "#4db6ac"
                             ctx.fill()
-                            ctx.strokeStyle = "#e0e0e0"
+                            ctx.strokeStyle = outputBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.stroke()
                         }
                     }
                 }
+
                 contentItem: Text {
                     text: "Вывод"
-                    color: "black"
+                    color: main.textColor
                     font.bold: true
                     font.pixelSize: 18
                     horizontalAlignment: Text.AlignHCenter
@@ -441,17 +622,45 @@ Window {
                 id: actionBtn
                 text: "Действие"
                 enabled: !main.debugMode
+                hoverEnabled: true
                 onClicked: createBlock("действие")
                 Shortcut { sequence: "F9"; onActivated: if(enabled) createBlock("действие") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
+
                 background: Rectangle {
-                    color: "#64b5f6"
-                    radius: 5
+                    id: actionBtnBg
+                    color: "transparent" // Убрали фоновый цвет
+                    border.color: actionBtn.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2
+                    radius: 8
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
+
+                    Canvas {
+                        anchors.fill: parent
+                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
+                        antialiasing: true
+                        onPaint: {
+                            var ctx = getContext("2d")
+                            ctx.reset()
+                            ctx.fillStyle = "#64b5f6"
+                            ctx.fillRect(0, 0, width, height)
+                            ctx.strokeStyle = actionBtn.hovered ? "#e0e0e0" : "#e0e0e0"
+                            ctx.lineWidth = 2
+                            ctx.strokeRect(0, 0, width, height)
+                        }
+                    }
                 }
+
                 contentItem: Text {
                     text: "Действие"
-                    color: "black"
+                    color: main.textColor
                     font.bold: true
                     font.pixelSize: 18
                     horizontalAlignment: Text.AlignHCenter
@@ -463,14 +672,29 @@ Window {
                 id: counterBtn
                 text: "Счетчик"
                 enabled: !main.debugMode
+                hoverEnabled: true
                 onClicked: createBlock("счетчик")
                 Shortcut { sequence: "F10"; onActivated: if(enabled) createBlock("счетчик") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
+
                 background: Rectangle {
-                    color: "transparent"
+                    id: counterBtnBg
+                    color: "transparent" // Убрали фоновый цвет
+                    border.color: counterBtn.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2
+                    radius: 8
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
+
                     Canvas {
                         anchors.fill: parent
+                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -487,15 +711,16 @@ Window {
                             ctx.closePath()
                             ctx.fillStyle = "#ef5350"
                             ctx.fill()
-                            ctx.strokeStyle = "#e0e0e0"
+                            ctx.strokeStyle = counterBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
                     }
                 }
+
                 contentItem: Text {
                     text: "Счетчик"
-                    color: "black"
+                    color: main.textColor
                     font.bold: true
                     font.pixelSize: 18
                     horizontalAlignment: Text.AlignHCenter
@@ -507,14 +732,29 @@ Window {
                 id: precondBtn
                 text: "Предусл"
                 enabled: !main.debugMode
+                hoverEnabled: true
                 onClicked: createBlock("предусл")
                 Shortcut { sequence: "F11"; onActivated: if(enabled) createBlock("предусл") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
+
                 background: Rectangle {
-                    color: "transparent"
+                    id: precondBtnBg
+                    color: "transparent" // Убрали фоновый цвет
+                    border.color: precondBtn.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2
+                    radius: 8
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
+
                     Canvas {
                         anchors.fill: parent
+                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -529,15 +769,16 @@ Window {
                             ctx.closePath()
                             ctx.fillStyle = "#ffb74d"
                             ctx.fill()
-                            ctx.strokeStyle = "#e0e0e0"
+                            ctx.strokeStyle = precondBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
                     }
                 }
+
                 contentItem: Text {
                     text: "Предусл"
-                    color: "black"
+                    color: main.textColor
                     font.bold: true
                     font.pixelSize: 18
                     horizontalAlignment: Text.AlignHCenter
@@ -549,14 +790,29 @@ Window {
                 id: postcondBtn
                 text: "Постусл"
                 enabled: !main.debugMode
+                hoverEnabled: true
                 onClicked: createBlock("постусл")
                 Shortcut { sequence: "F12"; onActivated: if(enabled) createBlock("постусл") }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
+
                 background: Rectangle {
-                    color: "transparent"
+                    id: postcondBtnBg
+                    color: "transparent" // Убрали фоновый цвет
+                    border.color: postcondBtn.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2
+                    radius: 8
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
+
                     Canvas {
                         anchors.fill: parent
+                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -571,15 +827,16 @@ Window {
                             ctx.closePath()
                             ctx.fillStyle = "#ce93d8"
                             ctx.fill()
-                            ctx.strokeStyle = "#e0e0e0"
+                            ctx.strokeStyle = postcondBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
                     }
                 }
+
                 contentItem: Text {
                     text: "Постусл"
-                    color: "black"
+                    color: main.textColor
                     font.bold: true
                     font.pixelSize: 18
                     horizontalAlignment: Text.AlignHCenter
@@ -591,13 +848,28 @@ Window {
                 id: condBtn
                 text: "Усл"
                 enabled: !main.debugMode
+                hoverEnabled: true
                 onClicked: createBlock("усл")
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 100
+
                 background: Rectangle {
-                    color: "transparent"
+                    id: condBtnBg
+                    color: "transparent" // Убрали фоновый цвет
+                    border.color: condBtn.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2
+                    radius: 8
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
+
                     Canvas {
                         anchors.fill: parent
+                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -612,15 +884,16 @@ Window {
                             ctx.closePath()
                             ctx.fillStyle = "#81c784"
                             ctx.fill()
-                            ctx.strokeStyle = "#e0e0e0"
+                            ctx.strokeStyle = condBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
                     }
                 }
+
                 contentItem: Text {
                     text: "Усл"
-                    color: "black"
+                    color: main.textColor
                     font.bold: true
                     font.pixelSize: 18
                     horizontalAlignment: Text.AlignHCenter
@@ -632,13 +905,28 @@ Window {
                 id: startBtn
                 text: "Начало"
                 enabled: !main.debugMode
+                hoverEnabled: true
                 onClicked: createBlock("начало")
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
+
                 background: Rectangle {
-                    color: "transparent"
+                    id: startBtnBg
+                    color: "transparent" // Убрали фоновый цвет
+                    border.color: startBtn.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2
+                    radius: 25
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
+
                     Canvas {
                         anchors.fill: parent
+                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -650,10 +938,9 @@ Window {
                             ctx.closePath()
                             ctx.fillStyle = "#64b5f6"
                             ctx.fill()
-                            ctx.strokeStyle = "#e0e0e0"
-
+                            ctx.strokeStyle = startBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.stroke()
-                            ctx.fillStyle = "black"
+                            ctx.fillStyle = main.textColor
                             ctx.font = "bold 20px Arial"
                             ctx.textAlign = "center"
                             ctx.textBaseline = "middle"
@@ -661,6 +948,7 @@ Window {
                         }
                     }
                 }
+
                 contentItem: Item {}
             }
 
@@ -668,13 +956,28 @@ Window {
                 id: endBtn
                 text: "Конец"
                 enabled: !main.debugMode
+                hoverEnabled: true
                 onClicked: createBlock("конец")
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 120
+
                 background: Rectangle {
-                    color: "transparent"
+                    id: endBtnBg
+                    color: "transparent" // Убрали фоновый цвет
+                    border.color: endBtn.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2
+                    radius: 25
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
+
                     Canvas {
                         anchors.fill: parent
+                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -686,10 +989,9 @@ Window {
                             ctx.closePath()
                             ctx.fillStyle = "#ffb74d"
                             ctx.fill()
-                            ctx.strokeStyle = "#e0e0e0"
-
+                            ctx.strokeStyle = endBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.stroke()
-                            ctx.fillStyle = "black"
+                            ctx.fillStyle = main.textColor
                             ctx.font = "bold 20px Arial"
                             ctx.textAlign = "center"
                             ctx.textBaseline = "middle"
@@ -697,6 +999,7 @@ Window {
                         }
                     }
                 }
+
                 contentItem: Item {}
             }
         }
@@ -712,10 +1015,14 @@ Window {
                 id: algorithmArea
                 width: main.debugMode ? (parent.width - debugPanel.width - parent.spacing) : parent.width
                 height: parent.height
-                border.color: main.activeContainer === container ? "#9c27b0" : "#424242"
+                border.color: main.activeContainer === container ? "#9c27b0" : main.borderColor
                 border.width: 2
                 radius: 5
-                color: "#1e1e1e"
+                color: main.panelColor
+
+                Behavior on border.color {
+                    ColorAnimation { duration: 300 }
+                }
 
                 Flickable {
                     id: prokrutka
@@ -737,18 +1044,28 @@ Window {
                     Button {
                         id: mainActivateBtn
                         enabled: !main.debugMode
+                        hoverEnabled: true
                         anchors.top: parent.top
                         anchors.right: parent.right
                         anchors.margins: 5
                         width: 35
                         height: 35
                         text: "A"
+
                         background: Rectangle {
-                            color: main.activeContainer === container ? "#9c27b0" : "#424242"
+                            id: mainActivateBg
+                            color: {
+                                if (mainActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                else if (mainActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
+                                else return main.activeContainer === container ? "#9c27b0" : main.buttonColor
+                            }
                             radius: width / 2
-                            border.color: "white"
-                            border.width: 1
+
+                            Behavior on color {
+                                ColorAnimation { duration: 150 }
+                            }
                         }
+
                         contentItem: Text {
                             text: parent.text
                             color: "white"
@@ -757,6 +1074,7 @@ Window {
                             font.pixelSize: 18
                             font.bold: true
                         }
+
                         scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
                         Behavior on scale { NumberAnimation { duration: 100 } }
                         onClicked: {
@@ -794,7 +1112,7 @@ Window {
                 border.color: "#9c27b0"
                 border.width: 2
                 radius: 5
-                color: "#2d2d2d"
+                color: main.isDarkTheme ? "#2d2d2d" : "#ffffff"
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -803,7 +1121,7 @@ Window {
 
                     Text {
                         text: "Панель отладки"
-                        color: "#e0e0e0"
+                        color: main.textColor
                         font.pixelSize: 20
                         font.bold: true
                         Layout.alignment: Qt.AlignHCenter
@@ -814,8 +1132,10 @@ Window {
                         spacing: 10
 
                         Button {
+                            id: backButton
                             text: "Назад"
                             enabled: main.debugMode && main.canStepBack
+                            hoverEnabled: true
                             Shortcut {
                                 sequence: "F7"
                                 enabled: main.debugMode && main.canStepBack
@@ -828,17 +1148,30 @@ Window {
                             }
                             Layout.preferredHeight: 45
                             Layout.preferredWidth: 120
+
                             background: Rectangle {
-                                color: parent.enabled ? "#616161" : "#424242"
-                                radius: 5
+                                id: backButtonBg
+                                color: {
+                                    if (backButton.down) return Qt.darker("#616161", 1.2)
+                                    else if (backButton.hovered) return Qt.lighter("#616161", 1.1)
+                                    else return backButton.enabled ? "#616161" : main.buttonColor
+                                }
+                                radius: 8
+
+                                Behavior on color {
+                                    ColorAnimation { duration: 150 }
+                                }
                             }
+
                             contentItem: Text {
                                 text: parent.text
-                                color: parent.enabled ? "#e0e0e0" : "#757575"
+                                color: backButton.enabled ? "white" : "#9e9e9e"
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                                 font.pixelSize: 16
+                                font.bold: true
                             }
+
                             onClicked: {
                                 if (main.debugMode && main.canStepBack) {
                                     console.log("Отладка: Шаг назад (кнопка)");
@@ -848,8 +1181,10 @@ Window {
                         }
 
                         Button {
+                            id: forwardButton
                             text: "Вперёд"
                             enabled: main.debugMode && main.canStepForward
+                            hoverEnabled: true
                             Shortcut {
                                 sequence: "F8"
                                 enabled: main.debugMode && main.canStepForward
@@ -862,17 +1197,30 @@ Window {
                             }
                             Layout.preferredHeight: 45
                             Layout.preferredWidth: 120
+
                             background: Rectangle {
-                                color: parent.enabled ? "#616161" : "#424242"
-                                radius: 5
+                                id: forwardButtonBg
+                                color: {
+                                    if (forwardButton.down) return Qt.darker("#616161", 1.2)
+                                    else if (forwardButton.hovered) return Qt.lighter("#616161", 1.1)
+                                    else return forwardButton.enabled ? "#616161" : main.buttonColor
+                                }
+                                radius: 8
+
+                                Behavior on color {
+                                    ColorAnimation { duration: 150 }
+                                }
                             }
+
                             contentItem: Text {
                                 text: parent.text
-                                color: parent.enabled ? "#e0e0e0" : "#757575"
+                                color: forwardButton.enabled ? "white" : "#9e9e9e"
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                                 font.pixelSize: 16
+                                font.bold: true
                             }
+
                             onClicked: {
                                 if (main.debugMode && main.canStepForward) {
                                     console.log("Отладка: Шаг вперёд (кнопка)");
@@ -884,8 +1232,9 @@ Window {
 
                     Text {
                         text: "Таблица переменных:"
-                        color: "#bdbdbd"
+                        color: main.isDarkTheme ? "#bdbdbd" : "#616161"
                         font.pixelSize: 18
+                        font.bold: true
                         Layout.topMargin: 10
                     }
 
@@ -901,7 +1250,15 @@ Window {
                             delegate: Rectangle {
                                 width: parent ? parent.width : 0
                                 height: 40
-                                color: index % 2 === 0 ? "#3e3e3e" : "#2e2e2e"
+                                color: index % 2 === 0 ? (main.isDarkTheme ? "#3e3e3e" : "#f5f5f5") :
+                                                      (main.isDarkTheme ? "#2e2e2e" : "#ffffff")
+                                border.color: main.borderColor
+                                border.width: 1
+
+                                Behavior on color {
+                                    ColorAnimation { duration: 200 }
+                                }
+
                                 Row {
                                     anchors.fill: parent
                                     anchors.leftMargin: 5
@@ -909,15 +1266,16 @@ Window {
                                     spacing: 10
                                     Text {
                                         text: model.name
-                                        color: "#e0e0e0"
+                                        color: main.textColor
                                         width: (parent.width - parent.spacing) * 0.4
                                         elide: Text.ElideRight
                                         verticalAlignment: Text.AlignVCenter
                                         font.pixelSize: 16
+                                        font.bold: true
                                     }
                                     Text {
                                         text: model.value
-                                        color: "#bdbdbd"
+                                        color: main.isDarkTheme ? "#bdbdbd" : "#616161"
                                         width: (parent.width - parent.spacing) * 0.6
                                         elide: Text.ElideRight
                                         verticalAlignment: Text.AlignVCenter
@@ -928,7 +1286,10 @@ Window {
                             header: Rectangle {
                                 width: parent ? parent.width : 0
                                 height: 40
-                                color: "#424242"
+                                color: main.isDarkTheme ? "#424242" : "#e3f2fd"
+                                border.color: main.isDarkTheme ? "#2d2d2d" : "#bbdefb"
+                                border.width: 1
+
                                 Row {
                                     anchors.fill: parent
                                     anchors.leftMargin: 5
@@ -936,7 +1297,7 @@ Window {
                                     spacing: 10
                                     Text {
                                         text: "Имя"
-                                        color: "#e0e0e0"
+                                        color: main.textColor
                                         font.bold: true
                                         width: (parent.width - parent.spacing) * 0.4
                                         verticalAlignment: Text.AlignVCenter
@@ -944,7 +1305,7 @@ Window {
                                     }
                                     Text {
                                         text: "Значение"
-                                        color: "#e0e0e0"
+                                        color: main.textColor
                                         font.bold: true
                                         width: (parent.width - parent.spacing) * 0.6
                                         verticalAlignment: Text.AlignVCenter
@@ -956,21 +1317,36 @@ Window {
                     }
 
                     Button {
+                        id: closeDebugButton
                         text: "Закрыть"
+                        hoverEnabled: true
                         Layout.alignment: Qt.AlignHCenter
                         Layout.preferredHeight: 40
                         Layout.preferredWidth: 120
+
                         background: Rectangle {
-                            color: "#d32f2f"
-                            radius: 5
+                            id: closeDebugBg
+                            color: {
+                                if (closeDebugButton.down) return Qt.darker("#d32f2f", 1.2)
+                                else if (closeDebugButton.hovered) return Qt.lighter("#d32f2f", 1.1)
+                                else return "#f44336"
+                            }
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 150 }
+                            }
                         }
+
                         contentItem: Text {
                             text: parent.text
                             color: "white"
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             font.pixelSize: 18
+                            font.bold: true
                         }
+
                         onClicked: {
                             console.log("Отладка: Нажата кнопка 'Закрыть'");
                             myObrabotka.stopDebugging();
@@ -980,14 +1356,14 @@ Window {
             }
         }
 
-        // === Область вывода ===
+        // === Область вывода (консоль) ===
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 180
-            border.color: "#424242"
-            border.width: 2
+            border.color: main.borderColor
+            border.width: main.isDarkTheme ? 2 : 2  // Добавили обводку в обеих темах
             radius: 5
-            color: "#1e1e1e"
+            color: main.panelColor
 
             ScrollView {
                 anchors.fill: parent
@@ -996,7 +1372,7 @@ Window {
                     id: otvet
                     text: "Вывод"
                     readOnly: true
-                    color: "#e0e0e0"
+                    color: main.textColor
                     font.pixelSize: 18
                     background: Rectangle {
                         color: "transparent"
@@ -1015,37 +1391,59 @@ Window {
                 placeholderText: "Ввод"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 50
-                color: "#e0e0e0"
-                placeholderTextColor: "#bdbdbd"
+                color: main.textColor
+                placeholderTextColor: main.isDarkTheme ? "#bdbdbd" : "#9e9e9e"
                 font.pixelSize: 18
+                hoverEnabled: true
+
                 background: Rectangle {
+                    id: vvodBg
                     anchors.fill: parent
-                    border.color: "#424242"
-                    border.width: 2
-                    radius: 5
-                    color: "#2d2d2d"
+                    border.color: vvod.hovered ? "#42a5f5" : main.borderColor
+                    border.width: 2  // Добавили обводку в обеих темах
+                    radius: 8
+                    color: main.isDarkTheme ? "#2d2d2d" : "#ffffff"
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
                 }
+
                 Keys.onReturnPressed: myObrabotka.userInputReceived(vvod.text)
                 Keys.onEnterPressed: myObrabotka.userInputReceived(vvod.text)
             }
 
             Button {
+                id: sendButton
                 text: "Отправить"
+                hoverEnabled: true
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 150
                 onClicked: myObrabotka.userInputReceived(vvod.text)
                 Shortcut { sequence: "Return"; onActivated: myObrabotka.userInputReceived(vvod.text) }
                 Shortcut { sequence: "Enter"; onActivated: myObrabotka.userInputReceived(vvod.text) }
+
                 background: Rectangle {
-                    color: parent.down ? "#1e88e5" : "#42a5f5"
-                    radius: 5
+                    id: sendButtonBg
+                    color: {
+                        if (sendButton.down) return Qt.darker("#42a5f5", 1.2)
+                        else if (sendButton.hovered) return Qt.lighter("#42a5f5", 1.1)
+                        else return "#42a5f5"
+                    }
+                    radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 150 }
+                    }
                 }
+
                 contentItem: Text {
                     text: parent.text
-                    color: "black"
+                    color: "white"
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 18
+                    font.bold: true
                 }
             }
         }
@@ -1083,7 +1481,7 @@ Window {
         }
 
         var newBlock = spisok.createObject(parentContainer, { "blockType": type, "uniqueId": main.blockIdCounter++ });
-        newBlock.z = referenceIndex + 2; 
+        newBlock.z = referenceIndex + 2;
         for(i = referenceIndex + 1; i < parentContainer.children.length; ++i) {
              if(parentContainer.children[i] !== newBlock) {
                 parentContainer.children[i].z = i + 1;
@@ -1131,6 +1529,7 @@ Window {
             property bool isDebugHighlighted: false
             property int uniqueId: -1
             property bool isDebugStart: main.debugStartBlockId === root.uniqueId
+            property bool hovered: false
 
             function highlightInSelfAndChildren(targetId) {
                 if (root.uniqueId === targetId) {
@@ -1212,6 +1611,18 @@ Window {
                 return result;
             }
 
+            HoverHandler {
+                id: blockHoverHandler
+                enabled: !main.debugMode
+                onHoveredChanged: {
+                    root.hovered = hovered;
+                    if (hovered) {
+                        shapeItem.scale = 1.02;
+                    } else {
+                        shapeItem.scale = 1.0;
+                    }
+                }
+            }
 
             Row {
                 id: contentRow
@@ -1225,20 +1636,34 @@ Window {
                     width: 30
                     height: 30
                     anchors.verticalCenter: parent.verticalCenter
+                    hoverEnabled: true
+
                     background: Rectangle {
-                        color: root.isDebugStart ? "#FF69B4" : "#bdbdbd"
-                        border.color: "#9e9e9e"
-                        border.width: 1
+                        id: debugStartBg
+                        color: {
+                            if (setDebugStartButton.down) return Qt.darker(main.pressedColor, 1.2)
+                            else if (setDebugStartButton.hovered) return Qt.lighter(main.hoverColor, 1.1)
+                            else return root.isDebugStart ? "#FF69B4" : main.buttonColor
+                        }
                         radius: 15
+
+                        Behavior on color {
+                            ColorAnimation { duration: 150 }
+                        }
                     }
+
                     contentItem: Text {
                         text: "О"
-                        color: "black"
+                        color: root.isDebugStart ? "white" : main.textColor
                         font.bold: true
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
+
+                    scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 100 } }
+
                     onClicked: {
                         if (root.isDebugStart) {
                             main.debugStartBlockId = -1;
@@ -1298,7 +1723,7 @@ Window {
                                 const w = width, h = height, cx = w/2, cy = h/2, s = 20
                                 ctx.beginPath()
                                 ctx.fillStyle = getBlockColor(root.blockType)
-                                ctx.strokeStyle = root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : "#e0e0e0")
+                                ctx.strokeStyle = root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : (root.hovered ? Qt.darker("#e0e0e0", 1.2) : "#e0e0e0"))
                                 ctx.lineWidth = root.isDebugHighlighted ? 3 : (root.isDebugStart ? 4 : 2)
                                 if (["ввод", "вывод"].includes(root.blockType)) {
                                     ctx.moveTo(s, 0);
@@ -1327,7 +1752,7 @@ Window {
                                 ctx.fill();
                                 ctx.stroke()
                                 if (["начало", "конец"].includes(root.blockType)) {
-                                    ctx.fillStyle = "black"
+                                    ctx.fillStyle = main.textColor
                                     ctx.font = "bold 20px Arial"
                                     ctx.textAlign = "center"
                                     ctx.textBaseline = "middle"
@@ -1356,11 +1781,13 @@ Window {
                                 "вывод": "Введите данные для вывода...",
                                 "действие": "Введите действие...",
                             })[root.blockType] || "Введите данные..."
-                            color: "black"
-                            placeholderTextColor: "#757575"
+                            color: main.textColor
+                            placeholderTextColor: main.isDarkTheme ? "#757575" : "#9e9e9e"
                             selectByMouse: true
                             font.pixelSize: 26
                             font.bold: true
+                            hoverEnabled: true
+
                             background: Rectangle {
                                 color: "transparent";
                                 border.width: 0
@@ -1377,11 +1804,13 @@ Window {
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             placeholderText: "Введите условие..."
-                            color: "black"
-                            placeholderTextColor: "#757575"
+                            color: main.textColor
+                            placeholderTextColor: main.isDarkTheme ? "#757575" : "#9e9e9e"
                             selectByMouse: true
                             font.pixelSize: 26
                             font.bold: true
+                            hoverEnabled: true
+
                             background: Rectangle {
                                 color: "transparent";
                                 border.width: 0
@@ -1402,7 +1831,7 @@ Window {
                                     spacing: 8
                                     Text {
                                         text: "Переменная:"
-                                        color: "black"
+                                        color: main.textColor
                                         font.pixelSize: 26
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
@@ -1412,16 +1841,18 @@ Window {
                                         enabled: !main.debugMode
                                         width: 70
                                         placeholderText: "i"
-                                        color: "black"
-                                        placeholderTextColor: "#9e9e9e"
+                                        color: main.textColor
+                                        placeholderTextColor: main.isDarkTheme ? "#9e9e9e" : "#757575"
                                         selectByMouse: true
                                         font.pixelSize: 26
                                         font.bold: true
+                                        hoverEnabled: true
+
                                         background: Rectangle {
                                             color: "transparent"
-                                            border.color: "black"
+                                            border.color: main.borderColor
                                             border.width: 1
-                                            radius: 2
+                                            radius: 4
                                         }
                                     }
                                 }
@@ -1430,7 +1861,7 @@ Window {
                                     spacing: 8
                                     Text {
                                         text: "Шаг:"
-                                        color: "black"
+                                        color: main.textColor
                                         font.pixelSize: 26
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
@@ -1440,16 +1871,18 @@ Window {
                                         enabled: !main.debugMode
                                         width: 70
                                         placeholderText: "1"
-                                        color: "black"
-                                        placeholderTextColor: "#9e9e9e"
+                                        color: main.textColor
+                                        placeholderTextColor: main.isDarkTheme ? "#9e9e9e" : "#757575"
                                         selectByMouse: true
                                         font.pixelSize: 26
                                         font.bold: true
+                                        hoverEnabled: true
+
                                         background: Rectangle {
                                             color: "transparent"
-                                            border.color: "black"
+                                            border.color: main.borderColor
                                             border.width: 1
-                                            radius: 2
+                                            radius: 4
                                         }
                                     }
                                 }
@@ -1463,7 +1896,7 @@ Window {
                                     spacing: 8
                                     Text {
                                         text: "От:"
-                                        color: "black"
+                                        color: main.textColor
                                         font.pixelSize: 26
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
@@ -1473,16 +1906,18 @@ Window {
                                         enabled: !main.debugMode
                                         width: 70
                                         placeholderText: "0"
-                                        color: "black"
-                                        placeholderTextColor: "#9e9e9e"
+                                        color: main.textColor
+                                        placeholderTextColor: main.isDarkTheme ? "#9e9e9e" : "#757575"
                                         selectByMouse: true
                                         font.pixelSize: 26
                                         font.bold: true
+                                        hoverEnabled: true
+
                                         background: Rectangle {
                                             color: "transparent"
-                                            border.color: "black"
+                                            border.color: main.borderColor
                                             border.width: 1
-                                            radius: 2
+                                            radius: 4
                                         }
                                     }
                                 }
@@ -1491,7 +1926,7 @@ Window {
                                     spacing: 8
                                     Text {
                                         text: "До:"
-                                        color: "black"
+                                        color: main.textColor
                                         font.pixelSize: 26
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
@@ -1501,16 +1936,18 @@ Window {
                                         enabled: !main.debugMode
                                         width: 70
                                         placeholderText: "10"
-                                        color: "black"
-                                        placeholderTextColor: "#9e9e9e"
+                                        color: main.textColor
+                                        placeholderTextColor: main.isDarkTheme ? "#9e9e9e" : "#757575"
                                         selectByMouse: true
                                         font.pixelSize: 26
                                         font.bold: true
+                                        hoverEnabled: true
+
                                         background: Rectangle {
                                             color: "transparent"
-                                            border.color: "black"
+                                            border.color: main.borderColor
                                             border.width: 1
-                                            radius: 2
+                                            radius: 4
                                         }
                                     }
                                 }
@@ -1528,18 +1965,28 @@ Window {
                                 enabled: !main.debugMode
                                 width: 30
                                 height: 30
+                                hoverEnabled: true
+
                                 background: Rectangle {
-                                    color: "#bdbdbd"
-                                    border.color: "#9e9e9e"
-                                    border.width: 1
+                                    id: addAboveBg
+                                    color: {
+                                        if (addAboveButton.down) return Qt.darker(main.pressedColor, 1.2)
+                                        else if (addAboveButton.hovered) return Qt.lighter(main.hoverColor, 1.1)
+                                        else return main.buttonColor
+                                    }
                                     radius: 3
+
+                                    Behavior on color {
+                                        ColorAnimation { duration: 150 }
+                                    }
+
                                     Canvas {
                                         anchors.fill: parent
                                         anchors.margins: 3
                                         onPaint: {
                                             var ctx = getContext("2d");
                                             ctx.reset();
-                                            ctx.fillStyle = "black";
+                                            ctx.fillStyle = main.textColor;
                                             var w = width;
                                             var h = height;
                                             var stemWidth = w * 0.2;
@@ -1555,7 +2002,12 @@ Window {
                                         }
                                     }
                                 }
+
                                 contentItem: Item {}
+
+                                scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
+                                Behavior on scale { NumberAnimation { duration: 100 } }
+
                                 onClicked: {
                                     console.log("Кнопка 'Добавить выше' нажата для блока типа:", root.blockType);
                                     main.insertBlockBefore(root, main.selectedBlockType);
@@ -1567,18 +2019,28 @@ Window {
                                 enabled: !main.debugMode
                                 width: 30
                                 height: 30
+                                hoverEnabled: true
+
                                 background: Rectangle {
-                                    color: "#bdbdbd"
-                                    border.color: "#9e9e9e"
-                                    border.width: 1
+                                    id: addBelowBg
+                                    color: {
+                                        if (addBelowButton.down) return Qt.darker(main.pressedColor, 1.2)
+                                        else if (addBelowButton.hovered) return Qt.lighter(main.hoverColor, 1.1)
+                                        else return main.buttonColor
+                                    }
                                     radius: 3
+
+                                    Behavior on color {
+                                        ColorAnimation { duration: 150 }
+                                    }
+
                                     Canvas {
                                         anchors.fill: parent
                                         anchors.margins: 3
                                         onPaint: {
                                             var ctx = getContext("2d");
                                             ctx.reset();
-                                            ctx.fillStyle = "black";
+                                            ctx.fillStyle = main.textColor;
                                             var w = width;
                                             var h = height;
                                             var stemWidth = w * 0.2;
@@ -1594,7 +2056,12 @@ Window {
                                         }
                                     }
                                 }
+
                                 contentItem: Item {}
+
+                                scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
+                                Behavior on scale { NumberAnimation { duration: 100 } }
+
                                 onClicked: {
                                     console.log("Кнопка 'Добавить ниже' нажата для блока типа:", root.blockType);
                                     main.insertBlockAfter(root, main.selectedBlockType);
@@ -1636,13 +2103,18 @@ Window {
                             spacing: 10
 
                             Rectangle {
+                                id: counterRect
                                 width: Math.max(400, centerContainerCounter.childrenRect.width + 40)
                                 height: Math.max(160, centerContainerCounter.childrenRect.height + 50)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? "#9c27b0" : "#424242")
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? "#9c27b0" : main.borderColor)
                                 border.width: root.isDebugHighlighted ? 4 : 2
                                 radius: 5
                                 color: "transparent"
                                 anchors.horizontalCenter: parent.horizontalCenter
+
+                                Behavior on border.color {
+                                    ColorAnimation { duration: 300 }
+                                }
 
                                 Column {
                                     id: centerContainerCounter
@@ -1660,12 +2132,22 @@ Window {
                                     width: 35
                                     height: 35
                                     text: "A"
+                                    hoverEnabled: true
+
                                     background: Rectangle {
-                                        color: main.activeContainer === centerContainerCounter ? "#9c27b0" : "#424242"
+                                        id: counterActivateBg
+                                        color: {
+                                            if (counterActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                            else if (counterActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
+                                            else return main.activeContainer === centerContainerCounter ? "#9c27b0" : main.buttonColor
+                                        }
                                         radius: width / 2
-                                        border.color: "white"
-                                        border.width: 1
+
+                                        Behavior on color {
+                                            ColorAnimation { duration: 150 }
+                                        }
                                     }
+
                                     contentItem: Text {
                                         text: parent.text
                                         color: "white"
@@ -1674,8 +2156,10 @@ Window {
                                         font.pixelSize: 18
                                         font.bold: true
                                     }
+
                                     scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
                                     Behavior on scale { NumberAnimation { duration: 100 } }
+
                                     onClicked: {
                                         if (main.activeContainer === centerContainerCounter) {
                                             main.activeContainer = null
@@ -1716,13 +2200,18 @@ Window {
                             spacing: 10
 
                             Rectangle {
+                                id: cycleRect
                                 width: Math.max(400, centerContainer.childrenRect.width + 40)
                                 height: Math.max(160, centerContainer.childrenRect.height + 50)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? "#9c27b0" : "#424242")
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? "#9c27b0" : main.borderColor)
                                 border.width: root.isDebugHighlighted ? 4 : 2
                                 radius: 5
                                 color: "transparent"
                                 anchors.horizontalCenter: parent.horizontalCenter
+
+                                Behavior on border.color {
+                                    ColorAnimation { duration: 300 }
+                                }
 
                                 Column {
                                     id: centerContainer
@@ -1740,12 +2229,22 @@ Window {
                                     width: 35
                                     height: 35
                                     text: "A"
+                                    hoverEnabled: true
+
                                     background: Rectangle {
-                                        color: main.activeContainer === centerContainer ? "#9c27b0" : "#424242"
+                                        id: cycleActivateBg
+                                        color: {
+                                            if (cycleActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                            else if (cycleActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
+                                            else return main.activeContainer === centerContainer ? "#9c27b0" : main.buttonColor
+                                        }
                                         radius: width / 2
-                                        border.color: "white"
-                                        border.width: 1
+
+                                        Behavior on color {
+                                            ColorAnimation { duration: 150 }
+                                        }
                                     }
+
                                     contentItem: Text {
                                         text: parent.text
                                         color: "white"
@@ -1754,8 +2253,10 @@ Window {
                                         font.pixelSize: 18
                                         font.bold: true
                                     }
+
                                     scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
                                     Behavior on scale { NumberAnimation { duration: 100 } }
+
                                     onClicked: {
                                         if (main.activeContainer === centerContainer) {
                                             main.activeContainer = null
@@ -1802,12 +2303,17 @@ Window {
 
                                 // Левая ветка (истина)
                                 Rectangle {
+                                    id: leftRect
                                     width: Math.max(280, leftContainer.childrenRect.width + 40)
                                     height: Math.max(160, leftContainer.childrenRect.height + 50)
-                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? "#9c27b0" : "#424242")
+                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? "#9c27b0" : main.borderColor)
                                     border.width: root.isDebugHighlighted ? 4 : 2
                                     radius: 5
                                     color: "transparent"
+
+                                    Behavior on border.color {
+                                        ColorAnimation { duration: 300 }
+                                    }
 
                                     Column {
                                         id: leftContainer
@@ -1825,12 +2331,22 @@ Window {
                                         width: 35
                                         height: 35
                                         text: "A"
+                                        hoverEnabled: true
+
                                         background: Rectangle {
-                                            color: main.activeContainer === leftContainer ? "#9c27b0" : "#424242"
+                                            id: leftActivateBg
+                                            color: {
+                                                if (leftActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                                else if (leftActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
+                                                else return main.activeContainer === leftContainer ? "#9c27b0" : main.buttonColor
+                                            }
                                             radius: width / 2
-                                            border.color: "white"
-                                            border.width: 1
+
+                                            Behavior on color {
+                                                ColorAnimation { duration: 150 }
+                                            }
                                         }
+
                                         contentItem: Text {
                                             text: parent.text
                                             color: "white"
@@ -1839,6 +2355,10 @@ Window {
                                             font.pixelSize: 18
                                             font.bold: true
                                         }
+
+                                        scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
+                                        Behavior on scale { NumberAnimation { duration: 100 } }
+
                                         onClicked: {
                                             if (main.activeContainer === leftContainer) {
                                                 main.activeContainer = null
@@ -1864,12 +2384,17 @@ Window {
 
                                 // Правая ветка (ложь)
                                 Rectangle {
+                                    id: rightRect
                                     width: Math.max(280, rightContainer.childrenRect.width + 40)
                                     height: Math.max(160, rightContainer.childrenRect.height + 50)
-                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? "#9c27b0" : "#424242")
+                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? "#9c27b0" : main.borderColor)
                                     border.width: root.isDebugHighlighted ? 4 : 2
                                     radius: 5
                                     color: "transparent"
+
+                                    Behavior on border.color {
+                                        ColorAnimation { duration: 300 }
+                                    }
 
                                     Column {
                                         id: rightContainer
@@ -1887,12 +2412,22 @@ Window {
                                         width: 35
                                         height: 35
                                         text: "A"
+                                        hoverEnabled: true
+
                                         background: Rectangle {
-                                            color: main.activeContainer === rightContainer ? "#9c27b0" : "#424242"
+                                            id: rightActivateBg
+                                            color: {
+                                                if (rightActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                                else if (rightActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
+                                                else return main.activeContainer === rightContainer ? "#9c27b0" : main.buttonColor
+                                            }
                                             radius: width / 2
-                                            border.color: "white"
-                                            border.width: 1
+
+                                            Behavior on color {
+                                                ColorAnimation { duration: 150 }
+                                            }
                                         }
+
                                         contentItem: Text {
                                             text: parent.text
                                             color: "white"
@@ -1901,6 +2436,10 @@ Window {
                                             font.pixelSize: 18
                                             font.bold: true
                                         }
+
+                                        scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
+                                        Behavior on scale { NumberAnimation { duration: 100 } }
+
                                         onClicked: {
                                             if (main.activeContainer === rightContainer) {
                                                 main.activeContainer = null
@@ -1942,13 +2481,18 @@ Window {
                             spacing: 10
 
                             Rectangle {
+                                id: postRect
                                 width: Math.max(400, centerContainerPost.childrenRect.width + 40)
                                 height: Math.max(160, centerContainerPost.childrenRect.height + 50)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? "#9c27b0" : "#424242")
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? "#9c27b0" : main.borderColor)
                                 border.width: root.isDebugHighlighted ? 4 : 2
                                 radius: 5
                                 color: "transparent"
                                 anchors.horizontalCenter: parent.horizontalCenter
+
+                                Behavior on border.color {
+                                    ColorAnimation { duration: 300 }
+                                }
 
                                 Column {
                                     id: centerContainerPost
@@ -1966,12 +2510,22 @@ Window {
                                     width: 35
                                     height: 35
                                     text: "A"
+                                    hoverEnabled: true
+
                                     background: Rectangle {
-                                        color: main.activeContainer === centerContainerPost ? "#9c27b0" : "#424242"
+                                        id: postActivateBg
+                                        color: {
+                                            if (postActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                            else if (postActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
+                                            else return main.activeContainer === centerContainerPost ? "#9c27b0" : main.buttonColor
+                                        }
                                         radius: width / 2
-                                        border.color: "white"
-                                        border.width: 1
+
+                                        Behavior on color {
+                                            ColorAnimation { duration: 150 }
+                                        }
                                     }
+
                                     contentItem: Text {
                                         text: parent.text
                                         color: "white"
@@ -1980,8 +2534,10 @@ Window {
                                         font.pixelSize: 18
                                         font.bold: true
                                     }
+
                                     scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
                                     Behavior on scale { NumberAnimation { duration: 100 } }
+
                                     onClicked: {
                                         if (main.activeContainer === centerContainerPost) {
                                             main.activeContainer = null
@@ -2124,6 +2680,12 @@ Window {
         focus: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         padding: 10
+        background: Rectangle {
+            color: main.panelColor
+            border.color: main.borderColor
+            border.width: 2
+            radius: 8
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -2131,12 +2693,38 @@ Window {
                 text: "Вы уверены, что хотите создать новый алгоритм? Все несохраненные данные будут утеряны."
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
+                color: main.textColor
             }
 
             RowLayout {
                 Layout.alignment: Qt.AlignHCenter
                 Button {
+                    id: okButton
                     text: "Ok"
+                    hoverEnabled: true
+
+                    background: Rectangle {
+                        id: okButtonBg
+                        color: {
+                            if (okButton.down) return Qt.darker("#4caf50", 1.2)
+                            else if (okButton.hovered) return Qt.lighter("#4caf50", 1.1)
+                            else return "#4caf50"
+                        }
+                        radius: 8
+
+                        Behavior on color {
+                            ColorAnimation { duration: 150 }
+                        }
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+
                     onClicked: {
                         container.destroyChildren()
                         main.blockIdCounter = 0
@@ -2145,8 +2733,34 @@ Window {
                         newAlgorithmDialog.close()
                     }
                 }
+
                 Button {
+                    id: cancelButton
                     text: "Cancel"
+                    hoverEnabled: true
+
+                    background: Rectangle {
+                        id: cancelButtonBg
+                        color: {
+                            if (cancelButton.down) return Qt.darker("#f44336", 1.2)
+                            else if (cancelButton.hovered) return Qt.lighter("#f44336", 1.1)
+                            else return "#f44336"
+                        }
+                        radius: 8
+
+                        Behavior on color {
+                            ColorAnimation { duration: 150 }
+                        }
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+
                     onClicked: newAlgorithmDialog.close()
                 }
             }
@@ -2165,22 +2779,56 @@ Window {
         padding: 10
         property alias text: errorText.text
 
+        background: Rectangle {
+            color: main.panelColor
+            border.color: "#f44336"
+            border.width: 2
+            radius: 8
+        }
+
         ColumnLayout{
             anchors.fill: parent
              Text {
                 id: errorText
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
+                color: main.textColor
             }
             RowLayout{
                  Layout.alignment: Qt.AlignHCenter
                  Button {
+                    id: errorOkButton
                     text: "Ok"
+                    hoverEnabled: true
+
+                    background: Rectangle {
+                        id: errorOkButtonBg
+                        color: {
+                            if (errorOkButton.down) return Qt.darker("#f44336", 1.2)
+                            else if (errorOkButton.hovered) return Qt.lighter("#f44336", 1.1)
+                            else return "#f44336"
+                        }
+                        radius: 8
+
+                        Behavior on color {
+                            ColorAnimation { duration: 150 }
+                        }
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+
                     onClicked: errorDialog.close()
                 }
             }
         }
     }
+
     Popup {
         id: helpDialog
         x: (parent.width - width) / 2
@@ -2191,6 +2839,13 @@ Window {
         focus: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         padding: 10
+
+        background: Rectangle {
+            color: main.panelColor
+            border.color: "#42a5f5"
+            border.width: 2
+            radius: 8
+        }
 
         ColumnLayout{
             anchors.fill: parent
@@ -2218,12 +2873,38 @@ Window {
                         + "Для создания блока выберите его тип в выпадающем списке и кликните в нужной области (основной или внутри другого блока).\n"
                         + "Для удаления блока кликните по нему правой кнопкой мыши или дважды левой.\n"
                         + "Для активации области для добавления блоков (например, ветки 'Да'/'Нет' в условии) кликните по кнопке 'A' в углу этой области."
+                    color: main.textColor
                 }
             }
             RowLayout{
                 Layout.alignment: Qt.AlignHCenter
                 Button {
+                    id: helpOkButton
                     text: "Ok"
+                    hoverEnabled: true
+
+                    background: Rectangle {
+                        id: helpOkButtonBg
+                        color: {
+                            if (helpOkButton.down) return Qt.darker("#42a5f5", 1.2)
+                            else if (helpOkButton.hovered) return Qt.lighter("#42a5f5", 1.1)
+                            else return "#42a5f5"
+                        }
+                        radius: 8
+
+                        Behavior on color {
+                            ColorAnimation { duration: 150 }
+                        }
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+
                     onClicked: helpDialog.close()
                 }
             }
@@ -2241,17 +2922,52 @@ Window {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         padding: 10
         property alias text: infoText.text
+
+        background: Rectangle {
+            color: main.panelColor
+            border.color: "#4caf50"
+            border.width: 2
+            radius: 8
+        }
+
          ColumnLayout{
             anchors.fill: parent
             Text {
                 id: infoText
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignHCenter
+                color: main.textColor
+                font.bold: true
             }
             RowLayout{
                 Layout.alignment: Qt.AlignHCenter
                 Button {
+                    id: infoOkButton
                     text: "Ok"
+                    hoverEnabled: true
+
+                    background: Rectangle {
+                        id: infoOkButtonBg
+                        color: {
+                            if (infoOkButton.down) return Qt.darker("#4caf50", 1.2)
+                            else if (infoOkButton.hovered) return Qt.lighter("#4caf50", 1.1)
+                            else return "#4caf50"
+                        }
+                        radius: 8
+
+                        Behavior on color {
+                            ColorAnimation { duration: 150 }
+                        }
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+
                     onClicked: information_save.close()
                 }
             }
@@ -2269,7 +2985,7 @@ Window {
                 const w = width, h = height, cx = w/2, cy = h/2, s = 5
                 ctx.beginPath()
                 ctx.fillStyle = getBlockColor(blockType)
-                ctx.strokeStyle = "#424242"
+                ctx.strokeStyle = main.borderColor
                 ctx.lineWidth = 1
                 if (["ввод", "вывод"].includes(blockType)) {
                     ctx.moveTo(s, 0); ctx.lineTo(w, 0); ctx.lineTo(w-s, h); ctx.lineTo(0, h)
