@@ -126,16 +126,13 @@ Window {
                 Layout.preferredWidth: 60
 
                 background: Rectangle {
-                    color: "transparent" // Убрали фоновый цвет
-                    border.color: themeButton.hovered ? "#42a5f5" : main.borderColor
-                    border.width: 2 // Добавили обводку
+                    color: "transparent"
+                    border.color: main.borderColor
+                    border.width: 2
                     radius: 8
 
                     Behavior on border.color {
                         ColorAnimation { duration: 200 }
-                    }
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
                     }
                 }
 
@@ -146,6 +143,12 @@ Window {
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 20
                 }
+
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
 
                 onClicked: {
                     main.isDarkTheme = !main.isDarkTheme
@@ -174,7 +177,7 @@ Window {
                 background: Rectangle {
                     id: debugBg
                     color: {
-                        if (debugButton.down) return Qt.darker("#9c27b0", 1.2)
+                        if (debugButton.pressed) return Qt.darker("#9c27b0", 1.2)
                         else if (debugButton.hovered) return Qt.lighter("#9c27b0", 1.1)
                         else return main.debugMode ? "#9c27b0" : "#ab47bc"
                     }
@@ -193,6 +196,12 @@ Window {
                     font.pixelSize: 16
                     font.bold: true
                 }
+
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
 
                 onClicked: {
                     if (main.debugMode) {
@@ -218,7 +227,7 @@ Window {
                 background: Rectangle {
                     id: runBg
                     color: {
-                        if (runButton.down) return Qt.darker("#4caf50", 1.2)
+                        if (runButton.pressed) return Qt.darker("#4caf50", 1.2)
                         else if (runButton.hovered) return Qt.lighter("#4caf50", 1.1)
                         else return "#4caf50"
                     }
@@ -237,6 +246,12 @@ Window {
                     font.pixelSize: 16
                     font.bold: true
                 }
+
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
 
             Button {
@@ -250,7 +265,7 @@ Window {
                 background: Rectangle {
                     id: saveBg
                     color: {
-                        if (saveButton.down) return Qt.darker("#42a5f5", 1.2)
+                        if (saveButton.pressed) return Qt.darker("#42a5f5", 1.2)
                         else if (saveButton.hovered) return Qt.lighter("#42a5f5", 1.1)
                         else return "#42a5f5"
                     }
@@ -270,6 +285,12 @@ Window {
                     font.bold: true
                 }
 
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
+
                 onClicked: saveFileDialog.open()
             }
 
@@ -284,7 +305,7 @@ Window {
                 background: Rectangle {
                     id: openBg
                     color: {
-                        if (openButton.down) return Qt.darker("#42a5f5", 1.2)
+                        if (openButton.pressed) return Qt.darker("#42a5f5", 1.2)
                         else if (openButton.hovered) return Qt.lighter("#42a5f5", 1.1)
                         else return "#42a5f5"
                     }
@@ -304,6 +325,12 @@ Window {
                     font.bold: true
                 }
 
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
+
                 onClicked: openFileDialog.open()
             }
 
@@ -318,7 +345,7 @@ Window {
                 background: Rectangle {
                     id: newAlgBg
                     color: {
-                        if (newAlgButton.down) return Qt.darker("#42a5f5", 1.2)
+                        if (newAlgButton.pressed) return Qt.darker("#42a5f5", 1.2)
                         else if (newAlgButton.hovered) return Qt.lighter("#42a5f5", 1.1)
                         else return "#42a5f5"
                     }
@@ -338,6 +365,12 @@ Window {
                     font.bold: true
                 }
 
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
+
                 onClicked: newAlgorithmDialog.open()
             }
 
@@ -352,7 +385,7 @@ Window {
                 background: Rectangle {
                     id: helpBg
                     color: {
-                        if (helpButton.down) return Qt.darker("#ab47bc", 1.2)
+                        if (helpButton.pressed) return Qt.darker("#ab47bc", 1.2)
                         else if (helpButton.hovered) return Qt.lighter("#ab47bc", 1.1)
                         else return "#ab47bc"
                     }
@@ -371,6 +404,12 @@ Window {
                     font.pixelSize: 16
                     font.bold: true
                 }
+
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
 
                 onClicked: helpDialog.open()
             }
@@ -515,21 +554,16 @@ Window {
 
                 background: Rectangle {
                     id: inputBtnBg
-                    color: "transparent" // Убрали фоновый цвет
-                    border.color: inputBtn.hovered ? "#42a5f5" : main.borderColor
-                    border.width: 2
+                    color: "transparent"
                     radius: 8
+                }
 
-                    Behavior on border.color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
+                contentItem: Item {
+                    anchors.fill: parent
 
                     Canvas {
                         anchors.fill: parent
-                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
+                        anchors.margins: 3
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -542,23 +576,32 @@ Window {
                             ctx.lineTo(w - s, h)
                             ctx.lineTo(0, h)
                             ctx.closePath()
-                            ctx.fillStyle = "#ba68c8"
+                            var fillColor = inputBtn.pressed ? Qt.darker("#ba68c8", 1.2) :
+                                            (inputBtn.hovered ? Qt.lighter("#ba68c8", 1.1) : "#ba68c8")
+                            ctx.fillStyle = fillColor
                             ctx.fill()
                             ctx.strokeStyle = inputBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
                     }
+
+                    Text {
+                        text: "Ввод"
+                        anchors.centerIn: parent
+                        color: main.textColor
+                        font.bold: true
+                        font.pixelSize: 18
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
 
-                contentItem: Text {
-                    text: "Ввод"
-                    color: main.textColor
-                    font.bold: true
-                    font.pixelSize: 18
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
 
             Button {
@@ -573,21 +616,16 @@ Window {
 
                 background: Rectangle {
                     id: outputBtnBg
-                    color: "transparent" // Убрали фоновый цвет
-                    border.color: outputBtn.hovered ? "#42a5f5" : main.borderColor
-                    border.width: 2
+                    color: "transparent"
                     radius: 8
+                }
 
-                    Behavior on border.color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
+                contentItem: Item {
+                    anchors.fill: parent
 
                     Canvas {
                         anchors.fill: parent
-                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
+                        anchors.margins: 3
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -600,22 +638,32 @@ Window {
                             ctx.lineTo(w - s, h)
                             ctx.lineTo(0, h)
                             ctx.closePath()
-                            ctx.fillStyle = "#4db6ac"
+                            var fillColor = outputBtn.pressed ? Qt.darker("#4db6ac", 1.2) :
+                                            (outputBtn.hovered ? Qt.lighter("#4db6ac", 1.1) : "#4db6ac")
+                            ctx.fillStyle = fillColor
                             ctx.fill()
                             ctx.strokeStyle = outputBtn.hovered ? "#e0e0e0" : "#e0e0e0"
+                            ctx.lineWidth = 2
                             ctx.stroke()
                         }
                     }
+
+                    Text {
+                        text: "Вывод"
+                        anchors.centerIn: parent
+                        color: main.textColor
+                        font.bold: true
+                        font.pixelSize: 18
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
 
-                contentItem: Text {
-                    text: "Вывод"
-                    color: main.textColor
-                    font.bold: true
-                    font.pixelSize: 18
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
 
             Button {
@@ -630,42 +678,47 @@ Window {
 
                 background: Rectangle {
                     id: actionBtnBg
-                    color: "transparent" // Убрали фоновый цвет
-                    border.color: actionBtn.hovered ? "#42a5f5" : main.borderColor
-                    border.width: 2
+                    color: "transparent"
                     radius: 8
+                }
 
-                    Behavior on border.color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
+                contentItem: Item {
+                    anchors.fill: parent
 
                     Canvas {
                         anchors.fill: parent
-                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
+                        anchors.margins: 3
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
                             ctx.reset()
-                            ctx.fillStyle = "#64b5f6"
-                            ctx.fillRect(0, 0, width, height)
+                            var w = width, h = height
+                            var fillColor = actionBtn.pressed ? Qt.darker("#64b5f6", 1.2) :
+                                            (actionBtn.hovered ? Qt.lighter("#64b5f6", 1.1) : "#64b5f6")
+                            ctx.fillStyle = fillColor
+                            ctx.fillRect(0, 0, w, h)
                             ctx.strokeStyle = actionBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.lineWidth = 2
-                            ctx.strokeRect(0, 0, width, height)
+                            ctx.strokeRect(0, 0, w, h)
                         }
+                    }
+
+                    Text {
+                        text: "Действие"
+                        anchors.centerIn: parent
+                        color: main.textColor
+                        font.bold: true
+                        font.pixelSize: 18
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
                     }
                 }
 
-                contentItem: Text {
-                    text: "Действие"
-                    color: main.textColor
-                    font.bold: true
-                    font.pixelSize: 18
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
 
             Button {
@@ -680,21 +733,16 @@ Window {
 
                 background: Rectangle {
                     id: counterBtnBg
-                    color: "transparent" // Убрали фоновый цвет
-                    border.color: counterBtn.hovered ? "#42a5f5" : main.borderColor
-                    border.width: 2
+                    color: "transparent"
                     radius: 8
+                }
 
-                    Behavior on border.color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
+                contentItem: Item {
+                    anchors.fill: parent
 
                     Canvas {
                         anchors.fill: parent
-                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
+                        anchors.margins: 3
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -709,23 +757,32 @@ Window {
                             ctx.lineTo(hex, h)
                             ctx.lineTo(0, h / 2)
                             ctx.closePath()
-                            ctx.fillStyle = "#ef5350"
+                            var fillColor = counterBtn.pressed ? Qt.darker("#ef5350", 1.2) :
+                                            (counterBtn.hovered ? Qt.lighter("#ef5350", 1.1) : "#ef5350")
+                            ctx.fillStyle = fillColor
                             ctx.fill()
                             ctx.strokeStyle = counterBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
                     }
+
+                    Text {
+                        text: "Счетчик"
+                        anchors.centerIn: parent
+                        color: main.textColor
+                        font.bold: true
+                        font.pixelSize: 18
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
 
-                contentItem: Text {
-                    text: "Счетчик"
-                    color: main.textColor
-                    font.bold: true
-                    font.pixelSize: 18
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
 
             Button {
@@ -740,21 +797,16 @@ Window {
 
                 background: Rectangle {
                     id: precondBtnBg
-                    color: "transparent" // Убрали фоновый цвет
-                    border.color: precondBtn.hovered ? "#42a5f5" : main.borderColor
-                    border.width: 2
+                    color: "transparent"
                     radius: 8
+                }
 
-                    Behavior on border.color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
+                contentItem: Item {
+                    anchors.fill: parent
 
                     Canvas {
                         anchors.fill: parent
-                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
+                        anchors.margins: 3
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -767,23 +819,32 @@ Window {
                             ctx.lineTo(cx, h - 5)
                             ctx.lineTo(5, cy)
                             ctx.closePath()
-                            ctx.fillStyle = "#ffb74d"
+                            var fillColor = precondBtn.pressed ? Qt.darker("#ffb74d", 1.2) :
+                                            (precondBtn.hovered ? Qt.lighter("#ffb74d", 1.1) : "#ffb74d")
+                            ctx.fillStyle = fillColor
                             ctx.fill()
                             ctx.strokeStyle = precondBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
                     }
+
+                    Text {
+                        text: "Предусл"
+                        anchors.centerIn: parent
+                        color: main.textColor
+                        font.bold: true
+                        font.pixelSize: 18
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
 
-                contentItem: Text {
-                    text: "Предусл"
-                    color: main.textColor
-                    font.bold: true
-                    font.pixelSize: 18
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
 
             Button {
@@ -798,21 +859,16 @@ Window {
 
                 background: Rectangle {
                     id: postcondBtnBg
-                    color: "transparent" // Убрали фоновый цвет
-                    border.color: postcondBtn.hovered ? "#42a5f5" : main.borderColor
-                    border.width: 2
+                    color: "transparent"
                     radius: 8
+                }
 
-                    Behavior on border.color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
+                contentItem: Item {
+                    anchors.fill: parent
 
                     Canvas {
                         anchors.fill: parent
-                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
+                        anchors.margins: 3
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -825,23 +881,32 @@ Window {
                             ctx.lineTo(cx, h - 5)
                             ctx.lineTo(5, cy)
                             ctx.closePath()
-                            ctx.fillStyle = "#ce93d8"
+                            var fillColor = postcondBtn.pressed ? Qt.darker("#ce93d8", 1.2) :
+                                            (postcondBtn.hovered ? Qt.lighter("#ce93d8", 1.1) : "#ce93d8")
+                            ctx.fillStyle = fillColor
                             ctx.fill()
                             ctx.strokeStyle = postcondBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
                     }
+
+                    Text {
+                        text: "Постусл"
+                        anchors.centerIn: parent
+                        color: main.textColor
+                        font.bold: true
+                        font.pixelSize: 18
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
 
-                contentItem: Text {
-                    text: "Постусл"
-                    color: main.textColor
-                    font.bold: true
-                    font.pixelSize: 18
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
 
             Button {
@@ -855,21 +920,16 @@ Window {
 
                 background: Rectangle {
                     id: condBtnBg
-                    color: "transparent" // Убрали фоновый цвет
-                    border.color: condBtn.hovered ? "#42a5f5" : main.borderColor
-                    border.width: 2
+                    color: "transparent"
                     radius: 8
+                }
 
-                    Behavior on border.color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
+                contentItem: Item {
+                    anchors.fill: parent
 
                     Canvas {
                         anchors.fill: parent
-                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
+                        anchors.margins: 3
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -882,23 +942,32 @@ Window {
                             ctx.lineTo(cx, h - 5)
                             ctx.lineTo(5, cy)
                             ctx.closePath()
-                            ctx.fillStyle = "#81c784"
+                            var fillColor = condBtn.pressed ? Qt.darker("#81c784", 1.2) :
+                                            (condBtn.hovered ? Qt.lighter("#81c784", 1.1) : "#81c784")
+                            ctx.fillStyle = fillColor
                             ctx.fill()
                             ctx.strokeStyle = condBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
                     }
+
+                    Text {
+                        text: "Усл"
+                        anchors.centerIn: parent
+                        color: main.textColor
+                        font.bold: true
+                        font.pixelSize: 18
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
 
-                contentItem: Text {
-                    text: "Усл"
-                    color: main.textColor
-                    font.bold: true
-                    font.pixelSize: 18
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
 
             Button {
@@ -912,21 +981,16 @@ Window {
 
                 background: Rectangle {
                     id: startBtnBg
-                    color: "transparent" // Убрали фоновый цвет
-                    border.color: startBtn.hovered ? "#42a5f5" : main.borderColor
-                    border.width: 2
-                    radius: 25
+                    color: "transparent"
+                    radius: 8
+                }
 
-                    Behavior on border.color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
+                contentItem: Item {
+                    anchors.fill: parent
 
                     Canvas {
                         anchors.fill: parent
-                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
+                        anchors.margins: 3
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -936,7 +1000,9 @@ Window {
                             ctx.beginPath()
                             ctx.ellipse(5, 5, w - 10, h - 10)
                             ctx.closePath()
-                            ctx.fillStyle = "#64b5f6"
+                            var fillColor = startBtn.pressed ? Qt.darker("#64b5f6", 1.2) :
+                                            (startBtn.hovered ? Qt.lighter("#64b5f6", 1.1) : "#64b5f6")
+                            ctx.fillStyle = fillColor
                             ctx.fill()
                             ctx.strokeStyle = startBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.stroke()
@@ -949,7 +1015,11 @@ Window {
                     }
                 }
 
-                contentItem: Item {}
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
 
             Button {
@@ -963,21 +1033,16 @@ Window {
 
                 background: Rectangle {
                     id: endBtnBg
-                    color: "transparent" // Убрали фоновый цвет
-                    border.color: endBtn.hovered ? "#42a5f5" : main.borderColor
-                    border.width: 2
-                    radius: 25
+                    color: "transparent"
+                    radius: 8
+                }
 
-                    Behavior on border.color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
+                contentItem: Item {
+                    anchors.fill: parent
 
                     Canvas {
                         anchors.fill: parent
-                        anchors.margins: 3 // Добавили отступы чтобы фигура не касалась границ
+                        anchors.margins: 3
                         antialiasing: true
                         onPaint: {
                             var ctx = getContext("2d")
@@ -987,7 +1052,9 @@ Window {
                             ctx.beginPath()
                             ctx.ellipse(5, 5, w - 10, h - 10)
                             ctx.closePath()
-                            ctx.fillStyle = "#ffb74d"
+                            var fillColor = endBtn.pressed ? Qt.darker("#ffb74d", 1.2) :
+                                            (endBtn.hovered ? Qt.lighter("#ffb74d", 1.1) : "#ffb74d")
+                            ctx.fillStyle = fillColor
                             ctx.fill()
                             ctx.strokeStyle = endBtn.hovered ? "#e0e0e0" : "#e0e0e0"
                             ctx.stroke()
@@ -1000,7 +1067,11 @@ Window {
                     }
                 }
 
-                contentItem: Item {}
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
         }
 
@@ -1055,7 +1126,7 @@ Window {
                         background: Rectangle {
                             id: mainActivateBg
                             color: {
-                                if (mainActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                if (mainActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
                                 else if (mainActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
                                 else return main.activeContainer === container ? "#9c27b0" : main.buttonColor
                             }
@@ -1075,8 +1146,11 @@ Window {
                             font.bold: true
                         }
 
-                        scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                        Behavior on scale { NumberAnimation { duration: 100 } }
+                        scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                        opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+                        Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                        Behavior on opacity { NumberAnimation { duration: 100 } }
+
                         onClicked: {
                             if (main.activeContainer === container) {
                                 main.activeContainer = null
@@ -1152,7 +1226,7 @@ Window {
                             background: Rectangle {
                                 id: backButtonBg
                                 color: {
-                                    if (backButton.down) return Qt.darker("#616161", 1.2)
+                                    if (backButton.pressed) return Qt.darker("#616161", 1.2)
                                     else if (backButton.hovered) return Qt.lighter("#616161", 1.1)
                                     else return backButton.enabled ? "#616161" : main.buttonColor
                                 }
@@ -1171,6 +1245,12 @@ Window {
                                 font.pixelSize: 16
                                 font.bold: true
                             }
+
+                            scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                            opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                            Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                            Behavior on opacity { NumberAnimation { duration: 100 } }
 
                             onClicked: {
                                 if (main.debugMode && main.canStepBack) {
@@ -1201,7 +1281,7 @@ Window {
                             background: Rectangle {
                                 id: forwardButtonBg
                                 color: {
-                                    if (forwardButton.down) return Qt.darker("#616161", 1.2)
+                                    if (forwardButton.pressed) return Qt.darker("#616161", 1.2)
                                     else if (forwardButton.hovered) return Qt.lighter("#616161", 1.1)
                                     else return forwardButton.enabled ? "#616161" : main.buttonColor
                                 }
@@ -1220,6 +1300,12 @@ Window {
                                 font.pixelSize: 16
                                 font.bold: true
                             }
+
+                            scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                            opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                            Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                            Behavior on opacity { NumberAnimation { duration: 100 } }
 
                             onClicked: {
                                 if (main.debugMode && main.canStepForward) {
@@ -1327,7 +1413,7 @@ Window {
                         background: Rectangle {
                             id: closeDebugBg
                             color: {
-                                if (closeDebugButton.down) return Qt.darker("#d32f2f", 1.2)
+                                if (closeDebugButton.pressed) return Qt.darker("#d32f2f", 1.2)
                                 else if (closeDebugButton.hovered) return Qt.lighter("#d32f2f", 1.1)
                                 else return "#f44336"
                             }
@@ -1347,6 +1433,12 @@ Window {
                             font.bold: true
                         }
 
+                        scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                        opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                        Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                        Behavior on opacity { NumberAnimation { duration: 100 } }
+
                         onClicked: {
                             console.log("Отладка: Нажата кнопка 'Закрыть'");
                             myObrabotka.stopDebugging();
@@ -1361,7 +1453,7 @@ Window {
             Layout.fillWidth: true
             Layout.preferredHeight: 180
             border.color: main.borderColor
-            border.width: main.isDarkTheme ? 2 : 2  // Добавили обводку в обеих темах
+            border.width: 2
             radius: 5
             color: main.panelColor
 
@@ -1400,7 +1492,7 @@ Window {
                     id: vvodBg
                     anchors.fill: parent
                     border.color: vvod.hovered ? "#42a5f5" : main.borderColor
-                    border.width: 2  // Добавили обводку в обеих темах
+                    border.width: 2
                     radius: 8
                     color: main.isDarkTheme ? "#2d2d2d" : "#ffffff"
 
@@ -1426,7 +1518,7 @@ Window {
                 background: Rectangle {
                     id: sendButtonBg
                     color: {
-                        if (sendButton.down) return Qt.darker("#42a5f5", 1.2)
+                        if (sendButton.pressed) return Qt.darker("#42a5f5", 1.2)
                         else if (sendButton.hovered) return Qt.lighter("#42a5f5", 1.1)
                         else return "#42a5f5"
                     }
@@ -1445,6 +1537,12 @@ Window {
                     font.pixelSize: 18
                     font.bold: true
                 }
+
+                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
         }
     }
@@ -1617,9 +1715,11 @@ Window {
                 onHoveredChanged: {
                     root.hovered = hovered;
                     if (hovered) {
-                        shapeItem.scale = 1.02;
+                        shapeItem.scale = 0.9;
+                        shapeItem.opacity = 0.9;
                     } else {
                         shapeItem.scale = 1.0;
+                        shapeItem.opacity = 1.0;
                     }
                 }
             }
@@ -1641,8 +1741,8 @@ Window {
                     background: Rectangle {
                         id: debugStartBg
                         color: {
-                            if (setDebugStartButton.down) return Qt.darker(main.pressedColor, 1.2)
-                            else if (setDebugStartButton.hovered) return Qt.lighter(main.hoverColor, 1.1)
+                            if (setDebugStartButton.pressed) return Qt.darker("#FF69B4", 1.2)
+                            else if (setDebugStartButton.hovered) return Qt.lighter("#FF69B4", 1.1)
                             else return root.isDebugStart ? "#FF69B4" : main.buttonColor
                         }
                         radius: 15
@@ -1661,8 +1761,10 @@ Window {
                         verticalAlignment: Text.AlignVCenter
                     }
 
-                    scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 100 } }
+                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                     onClicked: {
                         if (root.isDebugStart) {
@@ -1722,7 +1824,15 @@ Window {
                                 ctx.reset();
                                 const w = width, h = height, cx = w/2, cy = h/2, s = 20
                                 ctx.beginPath()
-                                ctx.fillStyle = getBlockColor(root.blockType)
+                                var fillColor = root.blockType;
+                                if (root.blockHoverHandler && root.blockHoverHandler.pressed) {
+                                    fillColor = Qt.darker(getBlockColor(root.blockType), 1.2);
+                                } else if (root.hovered) {
+                                    fillColor = Qt.lighter(getBlockColor(root.blockType), 1.1);
+                                } else {
+                                    fillColor = getBlockColor(root.blockType);
+                                }
+                                ctx.fillStyle = fillColor;
                                 ctx.strokeStyle = root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : (root.hovered ? Qt.darker("#e0e0e0", 1.2) : "#e0e0e0"))
                                 ctx.lineWidth = root.isDebugHighlighted ? 3 : (root.isDebugStart ? 4 : 2)
                                 if (["ввод", "вывод"].includes(root.blockType)) {
@@ -1970,7 +2080,7 @@ Window {
                                 background: Rectangle {
                                     id: addAboveBg
                                     color: {
-                                        if (addAboveButton.down) return Qt.darker(main.pressedColor, 1.2)
+                                        if (addAboveButton.pressed) return Qt.darker(main.pressedColor, 1.2)
                                         else if (addAboveButton.hovered) return Qt.lighter(main.hoverColor, 1.1)
                                         else return main.buttonColor
                                     }
@@ -2005,8 +2115,10 @@ Window {
 
                                 contentItem: Item {}
 
-                                scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                                Behavior on scale { NumberAnimation { duration: 100 } }
+                                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+                                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                                Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                 onClicked: {
                                     console.log("Кнопка 'Добавить выше' нажата для блока типа:", root.blockType);
@@ -2024,7 +2136,7 @@ Window {
                                 background: Rectangle {
                                     id: addBelowBg
                                     color: {
-                                        if (addBelowButton.down) return Qt.darker(main.pressedColor, 1.2)
+                                        if (addBelowButton.pressed) return Qt.darker(main.pressedColor, 1.2)
                                         else if (addBelowButton.hovered) return Qt.lighter(main.hoverColor, 1.1)
                                         else return main.buttonColor
                                     }
@@ -2059,8 +2171,10 @@ Window {
 
                                 contentItem: Item {}
 
-                                scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                                Behavior on scale { NumberAnimation { duration: 100 } }
+                                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+                                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                                Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                 onClicked: {
                                     console.log("Кнопка 'Добавить ниже' нажата для блока типа:", root.blockType);
@@ -2137,7 +2251,7 @@ Window {
                                     background: Rectangle {
                                         id: counterActivateBg
                                         color: {
-                                            if (counterActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                            if (counterActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
                                             else if (counterActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
                                             else return main.activeContainer === centerContainerCounter ? "#9c27b0" : main.buttonColor
                                         }
@@ -2157,8 +2271,10 @@ Window {
                                         font.bold: true
                                     }
 
-                                    scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                                    Behavior on scale { NumberAnimation { duration: 100 } }
+                                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+                                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                     onClicked: {
                                         if (main.activeContainer === centerContainerCounter) {
@@ -2234,7 +2350,7 @@ Window {
                                     background: Rectangle {
                                         id: cycleActivateBg
                                         color: {
-                                            if (cycleActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                            if (cycleActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
                                             else if (cycleActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
                                             else return main.activeContainer === centerContainer ? "#9c27b0" : main.buttonColor
                                         }
@@ -2254,8 +2370,10 @@ Window {
                                         font.bold: true
                                     }
 
-                                    scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                                    Behavior on scale { NumberAnimation { duration: 100 } }
+                                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+                                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                     onClicked: {
                                         if (main.activeContainer === centerContainer) {
@@ -2336,7 +2454,7 @@ Window {
                                         background: Rectangle {
                                             id: leftActivateBg
                                             color: {
-                                                if (leftActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                                if (leftActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
                                                 else if (leftActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
                                                 else return main.activeContainer === leftContainer ? "#9c27b0" : main.buttonColor
                                             }
@@ -2356,8 +2474,10 @@ Window {
                                             font.bold: true
                                         }
 
-                                        scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                                        Behavior on scale { NumberAnimation { duration: 100 } }
+                                        scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                                        opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+                                        Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                                        Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                         onClicked: {
                                             if (main.activeContainer === leftContainer) {
@@ -2417,7 +2537,7 @@ Window {
                                         background: Rectangle {
                                             id: rightActivateBg
                                             color: {
-                                                if (rightActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                                if (rightActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
                                                 else if (rightActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
                                                 else return main.activeContainer === rightContainer ? "#9c27b0" : main.buttonColor
                                             }
@@ -2437,8 +2557,10 @@ Window {
                                             font.bold: true
                                         }
 
-                                        scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                                        Behavior on scale { NumberAnimation { duration: 100 } }
+                                        scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                                        opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+                                        Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                                        Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                         onClicked: {
                                             if (main.activeContainer === rightContainer) {
@@ -2515,7 +2637,7 @@ Window {
                                     background: Rectangle {
                                         id: postActivateBg
                                         color: {
-                                            if (postActivateBtn.down) return Qt.darker("#9c27b0", 1.2)
+                                            if (postActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
                                             else if (postActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
                                             else return main.activeContainer === centerContainerPost ? "#9c27b0" : main.buttonColor
                                         }
@@ -2535,8 +2657,10 @@ Window {
                                         font.bold: true
                                     }
 
-                                    scale: parent.pressed ? 0.8 : (parent.hovered ? 0.9 : 1.0)
-                                    Behavior on scale { NumberAnimation { duration: 100 } }
+                                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+                                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                     onClicked: {
                                         if (main.activeContainer === centerContainerPost) {
@@ -2706,7 +2830,7 @@ Window {
                     background: Rectangle {
                         id: okButtonBg
                         color: {
-                            if (okButton.down) return Qt.darker("#4caf50", 1.2)
+                            if (okButton.pressed) return Qt.darker("#4caf50", 1.2)
                             else if (okButton.hovered) return Qt.lighter("#4caf50", 1.1)
                             else return "#4caf50"
                         }
@@ -2725,6 +2849,12 @@ Window {
                         font.bold: true
                     }
 
+                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                    Behavior on opacity { NumberAnimation { duration: 100 } }
+
                     onClicked: {
                         container.destroyChildren()
                         main.blockIdCounter = 0
@@ -2742,7 +2872,7 @@ Window {
                     background: Rectangle {
                         id: cancelButtonBg
                         color: {
-                            if (cancelButton.down) return Qt.darker("#f44336", 1.2)
+                            if (cancelButton.pressed) return Qt.darker("#f44336", 1.2)
                             else if (cancelButton.hovered) return Qt.lighter("#f44336", 1.1)
                             else return "#f44336"
                         }
@@ -2760,6 +2890,12 @@ Window {
                         verticalAlignment: Text.AlignVCenter
                         font.bold: true
                     }
+
+                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                     onClicked: newAlgorithmDialog.close()
                 }
@@ -2804,7 +2940,7 @@ Window {
                     background: Rectangle {
                         id: errorOkButtonBg
                         color: {
-                            if (errorOkButton.down) return Qt.darker("#f44336", 1.2)
+                            if (errorOkButton.pressed) return Qt.darker("#f44336", 1.2)
                             else if (errorOkButton.hovered) return Qt.lighter("#f44336", 1.1)
                             else return "#f44336"
                         }
@@ -2822,6 +2958,12 @@ Window {
                         verticalAlignment: Text.AlignVCenter
                         font.bold: true
                     }
+
+                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                     onClicked: errorDialog.close()
                 }
@@ -2886,7 +3028,7 @@ Window {
                     background: Rectangle {
                         id: helpOkButtonBg
                         color: {
-                            if (helpOkButton.down) return Qt.darker("#42a5f5", 1.2)
+                            if (helpOkButton.pressed) return Qt.darker("#42a5f5", 1.2)
                             else if (helpOkButton.hovered) return Qt.lighter("#42a5f5", 1.1)
                             else return "#42a5f5"
                         }
@@ -2904,6 +3046,12 @@ Window {
                         verticalAlignment: Text.AlignVCenter
                         font.bold: true
                     }
+
+                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                     onClicked: helpDialog.close()
                 }
@@ -2949,7 +3097,7 @@ Window {
                     background: Rectangle {
                         id: infoOkButtonBg
                         color: {
-                            if (infoOkButton.down) return Qt.darker("#4caf50", 1.2)
+                            if (infoOkButton.pressed) return Qt.darker("#4caf50", 1.2)
                             else if (infoOkButton.hovered) return Qt.lighter("#4caf50", 1.1)
                             else return "#4caf50"
                         }
@@ -2967,6 +3115,12 @@ Window {
                         verticalAlignment: Text.AlignVCenter
                         font.bold: true
                     }
+
+                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
+                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+
+                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                     onClicked: information_save.close()
                 }
