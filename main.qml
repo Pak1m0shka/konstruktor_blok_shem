@@ -15,15 +15,44 @@ Window {
     visible: true
     title: qsTr("Построй алгоритм по задаче")
 
-    // Свойства темы
-    property bool isDarkTheme: true
-    property color backgroundColor: isDarkTheme ? "#121212" : "#f5f7fa"
-    property color panelColor: isDarkTheme ? "#1e1e1e" : "#ffffff"
-    property color textColor: isDarkTheme ? "#e0e0e0" : "#333333"
-    property color borderColor: isDarkTheme ? "#424242" : "#e0e0e0"
-    property color buttonColor: isDarkTheme ? "#424242" : "#e0e0e0"
-    property color hoverColor: isDarkTheme ? "#616161" : "#d0d0d0"
-    property color pressedColor: isDarkTheme ? "#757575" : "#bdbdbd"
+    // Стандартные темные цвета (для сброса)
+    property color defaultBackgroundColor: "#121212"
+    property color defaultPanelColor: "#1e1e1e"
+    property color defaultTextColor: "#e0e0e0"
+    property color defaultBorderColor: "#424242"
+    property color defaultButtonColor: "#424242"
+    property color defaultHoverColor: "#616161"
+    property color defaultPressedColor: "#757575"
+
+    // Цвета кнопок спавна блоков
+    property color defaultInputColor: "#ba68c8"
+    property color defaultOutputColor: "#4db6ac"
+    property color defaultActionColor: "#64b5f6"
+    property color defaultCounterColor: "#ef5350"
+    property color defaultPrecondColor: "#ffb74d"
+    property color defaultPostcondColor: "#ce93d8"
+    property color defaultCondColor: "#81c784"
+    property color defaultStartColor: "#64b5f6"
+    property color defaultEndColor: "#ffb74d"
+
+    // Текущие цвета (могут меняться пользователем)
+    property color backgroundColor: defaultBackgroundColor
+    property color panelColor: defaultPanelColor
+    property color textColor: defaultTextColor
+    property color borderColor: defaultBorderColor
+    property color buttonColor: defaultButtonColor
+    property color hoverColor: defaultHoverColor
+    property color pressedColor: defaultPressedColor
+
+    property color inputColor: defaultInputColor
+    property color outputColor: defaultOutputColor
+    property color actionColor: defaultActionColor
+    property color counterColor: defaultCounterColor
+    property color precondColor: defaultPrecondColor
+    property color postcondColor: defaultPostcondColor
+    property color condColor: defaultCondColor
+    property color startColor: defaultStartColor
+    property color endColor: defaultEndColor
 
     color: backgroundColor
     property Item activeContainer: container
@@ -35,6 +64,26 @@ Window {
     property bool canStepForward: true
     property int blockIdCounter: 0
     property int debugStartBlockId: -1
+
+    // Функция сброса всех цветов к стандартным
+    function resetAllColors() {
+        backgroundColor = defaultBackgroundColor
+        panelColor = defaultPanelColor
+        textColor = defaultTextColor
+        borderColor = defaultBorderColor
+        buttonColor = defaultButtonColor
+        hoverColor = defaultHoverColor
+        pressedColor = defaultPressedColor
+        inputColor = defaultInputColor
+        outputColor = defaultOutputColor
+        actionColor = defaultActionColor
+        counterColor = defaultCounterColor
+        precondColor = defaultPrecondColor
+        postcondColor = defaultPostcondColor
+        condColor = defaultCondColor
+        startColor = defaultStartColor
+        endColor = defaultEndColor
+    }
 
     Obrabotka {
         id: myObrabotka
@@ -92,69 +141,98 @@ Window {
             main.debugStartBlockId = -1
             if (algorithm && algorithm.length > 0) {
                 loadAlgorithm(algorithm, container)
-                information_save.text = "Алгоритм успешно загружен"
-                information_save.open()
             }
         }
 
         onErrorOccurred: (errorMessage) => {
             console.log("Ошибка при загрузке:", errorMessage)
-            errorDialog.text = errorMessage
-            errorDialog.open()
         }
     }
 
     property string userInputResult: ""
+
+    // Диалог выбора цвета
+    ColorDialog {
+        id: colorPicker
+        title: "Выберите цвет"
+        visible: false
+        modality: Qt.ApplicationModal
+
+        onAccepted: {
+            if (colorPicker.currentTarget === "border") main.borderColor = colorPicker.color
+            else if (colorPicker.currentTarget === "button") main.buttonColor = colorPicker.color
+            else if (colorPicker.currentTarget === "background") main.backgroundColor = colorPicker.color
+            else if (colorPicker.currentTarget === "panel") main.panelColor = colorPicker.color
+            else if (colorPicker.currentTarget === "input") main.inputColor = colorPicker.color
+            else if (colorPicker.currentTarget === "output") main.outputColor = colorPicker.color
+            else if (colorPicker.currentTarget === "action") main.actionColor = colorPicker.color
+            else if (colorPicker.currentTarget === "counter") main.counterColor = colorPicker.color
+            else if (colorPicker.currentTarget === "precond") main.precondColor = colorPicker.color
+            else if (colorPicker.currentTarget === "postcond") main.postcondColor = colorPicker.color
+            else if (colorPicker.currentTarget === "cond") main.condColor = colorPicker.color
+            else if (colorPicker.currentTarget === "start") main.startColor = colorPicker.color
+            else if (colorPicker.currentTarget === "end") main.endColor = colorPicker.color
+            else if (colorPicker.currentTarget === "text") main.textColor = colorPicker.color
+        }
+
+        property string currentTarget: ""
+    }
 
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10
         spacing: 10
 
-        // === Верхняя панель кнопок (1 ряд) ===
+        // === Единая панель кнопок (запуск, отладка, настройки и спавн блоков) ===
         RowLayout {
             Layout.alignment: Qt.AlignTop
             Layout.fillWidth: true
             spacing: 5
 
-            // Кнопка переключения темы
+            // Кнопка запуска
             Button {
-                id: themeButton
-                text: main.isDarkTheme ? "☀️" : "🌙"
+                id: runButton
+                text: "Запуск"
                 hoverEnabled: true
+                onClicked: collectData(1)
+                Shortcut { sequence: "F1"; onActivated: collectData(1) }
                 Layout.preferredHeight: 50
-                Layout.preferredWidth: 60
+                Layout.preferredWidth: 150
 
                 background: Rectangle {
-                    color: "transparent"
-                    border.color: main.borderColor
-                    border.width: 2
+                    id: runBg
+                    color: {
+                        if (runButton.pressed) {
+                            var c = Qt.darker(buttonColor, 1.25);
+                            return Qt.rgba(c.r, c.g, c.b, 1);
+                        } else if (runButton.hovered) {
+                            var c = Qt.lighter(buttonColor, 1.15);
+                            return Qt.rgba(c.r, c.g, c.b, 1);
+                        } else return buttonColor
+                    }
+                    border.color: borderColor
+                    border.width: 1
                     radius: 8
 
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
                     Behavior on border.color {
-                        ColorAnimation { duration: 200 }
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                     }
                 }
 
                 contentItem: Text {
                     text: parent.text
-                    color: main.textColor
+                    color: textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    font.pixelSize: 20
-                }
-
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
-
-                onClicked: {
-                    main.isDarkTheme = !main.isDarkTheme
+                    font.pixelSize: 16
+                    font.bold: true
                 }
             }
 
+            // Кнопка отладки
             Button {
                 id: debugButton
                 text: main.debugMode ? "Закончить отладку" : "Отладка"
@@ -177,31 +255,34 @@ Window {
                 background: Rectangle {
                     id: debugBg
                     color: {
-                        if (debugButton.pressed) return Qt.darker("#9c27b0", 1.2)
-                        else if (debugButton.hovered) return Qt.lighter("#9c27b0", 1.1)
-                        else return main.debugMode ? "#9c27b0" : "#ab47bc"
+                        if (debugButton.pressed) {
+                            var c = Qt.darker(buttonColor, 1.25);
+                            return Qt.rgba(c.r, c.g, c.b, 1);
+                        } else if (debugButton.hovered) {
+                            var c = Qt.lighter(buttonColor, 1.15);
+                            return Qt.rgba(c.r, c.g, c.b, 1);
+                        } else return buttonColor
                     }
+                    border.color: borderColor
+                    border.width: 1
                     radius: 8
 
                     Behavior on color {
-                        ColorAnimation { duration: 150 }
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
+                    Behavior on border.color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                     }
                 }
 
                 contentItem: Text {
                     text: parent.text
-                    color: "white"
+                    color: textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 16
                     font.bold: true
                 }
-
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
 
                 onClicked: {
                     if (main.debugMode) {
@@ -215,212 +296,63 @@ Window {
                 }
             }
 
+            // Кнопка настроек
             Button {
-                id: runButton
-                text: "Запуск"
+                id: settingsButton
+                text: "Настройки"
                 hoverEnabled: true
-                onClicked: collectData(1)
-                Shortcut { sequence: "F1"; onActivated: collectData(1) }
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 150
 
                 background: Rectangle {
-                    id: runBg
+                    id: settingsBg
                     color: {
-                        if (runButton.pressed) return Qt.darker("#4caf50", 1.2)
-                        else if (runButton.hovered) return Qt.lighter("#4caf50", 1.1)
-                        else return "#4caf50"
+                        if (settingsButton.pressed) {
+                            var c = Qt.darker(buttonColor, 1.25);
+                            return Qt.rgba(c.r, c.g, c.b, 1);
+                        } else if (settingsButton.hovered) {
+                            var c = Qt.lighter(buttonColor, 1.15);
+                            return Qt.rgba(c.r, c.g, c.b, 1);
+                        } else return buttonColor
                     }
+                    border.color: borderColor
+                    border.width: 1
                     radius: 8
 
                     Behavior on color {
-                        ColorAnimation { duration: 150 }
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
+                    Behavior on border.color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                     }
                 }
 
                 contentItem: Text {
                     text: parent.text
-                    color: "white"
+                    color: textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 16
                     font.bold: true
                 }
 
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
+                onClicked: {
+                    settingsWindow.show()
+                }
             }
 
-            Button {
-                id: saveButton
-                text: "Сохранить"
-                hoverEnabled: true
-                Shortcut { sequence: "F2"; onActivated: saveFileDialog.open() }
-                Layout.preferredHeight: 50
-                Layout.preferredWidth: 150
+            // Разделитель
+            Rectangle {
+                Layout.preferredHeight: 40
+                Layout.preferredWidth: 2
+                color: borderColor
 
-                background: Rectangle {
-                    id: saveBg
-                    color: {
-                        if (saveButton.pressed) return Qt.darker("#42a5f5", 1.2)
-                        else if (saveButton.hovered) return Qt.lighter("#42a5f5", 1.1)
-                        else return "#42a5f5"
-                    }
-                    radius: 8
-
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
+                Behavior on color {
+                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                 }
-
-                contentItem: Text {
-                    text: parent.text
-                    color: "white"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    font.pixelSize: 16
-                    font.bold: true
-                }
-
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
-
-                onClicked: saveFileDialog.open()
             }
 
-            Button {
-                id: openButton
-                text: "Открыть"
-                hoverEnabled: true
-                Shortcut { sequence: "F3"; onActivated: openFileDialog.open() }
-                Layout.preferredHeight: 50
-                Layout.preferredWidth: 150
-
-                background: Rectangle {
-                    id: openBg
-                    color: {
-                        if (openButton.pressed) return Qt.darker("#42a5f5", 1.2)
-                        else if (openButton.hovered) return Qt.lighter("#42a5f5", 1.1)
-                        else return "#42a5f5"
-                    }
-                    radius: 8
-
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
-                }
-
-                contentItem: Text {
-                    text: parent.text
-                    color: "white"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    font.pixelSize: 16
-                    font.bold: true
-                }
-
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
-
-                onClicked: openFileDialog.open()
-            }
-
-            Button {
-                id: newAlgButton
-                text: "Новый алгоритм"
-                hoverEnabled: true
-                Shortcut { sequence: "F4"; onActivated: newAlgorithmDialog.open() }
-                Layout.preferredHeight: 50
-                Layout.preferredWidth: 180
-
-                background: Rectangle {
-                    id: newAlgBg
-                    color: {
-                        if (newAlgButton.pressed) return Qt.darker("#42a5f5", 1.2)
-                        else if (newAlgButton.hovered) return Qt.lighter("#42a5f5", 1.1)
-                        else return "#42a5f5"
-                    }
-                    radius: 8
-
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
-                }
-
-                contentItem: Text {
-                    text: parent.text
-                    color: "white"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    font.pixelSize: 16
-                    font.bold: true
-                }
-
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
-
-                onClicked: newAlgorithmDialog.open()
-            }
-
-            Button {
-                id: helpButton
-                text: "Справка"
-                hoverEnabled: true
-                Shortcut { sequence: "F5"; onActivated: helpDialog.open() }
-                Layout.preferredHeight: 50
-                Layout.preferredWidth: 150
-
-                background: Rectangle {
-                    id: helpBg
-                    color: {
-                        if (helpButton.pressed) return Qt.darker("#ab47bc", 1.2)
-                        else if (helpButton.hovered) return Qt.lighter("#ab47bc", 1.1)
-                        else return "#ab47bc"
-                    }
-                    radius: 8
-
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
-                }
-
-                contentItem: Text {
-                    text: parent.text
-                    color: "white"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    font.pixelSize: 16
-                    font.bold: true
-                }
-
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
-
-                onClicked: helpDialog.open()
-            }
-        }
-
-        // === Панель кнопок спавна (2 ряд) ===
-        RowLayout {
-            Layout.alignment: Qt.AlignTop
-            Layout.fillWidth: true
-            spacing: 5
-
+            // Выбор типа блока
             ComboBox {
                 id: blockTypeSelector
                 enabled: !main.debugMode
@@ -447,13 +379,16 @@ Window {
                 currentIndex: 2
                 background: Rectangle {
                     id: comboBg
-                    color: main.isDarkTheme ? "#2d2d2d" : "#ffffff"
-                    border.color: blockTypeSelector.hovered ? "#42a5f5" : main.borderColor
+                    color: buttonColor
+                    border.color: blockTypeSelector.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
                     border.width: 2
                     radius: 8
 
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
                     Behavior on border.color {
-                        ColorAnimation { duration: 200 }
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                     }
                 }
                 contentItem: Row {
@@ -484,7 +419,7 @@ Window {
                             }
                             return "";
                         }
-                        color: main.textColor
+                        color: textColor
                         verticalAlignment: Text.AlignVCenter
                         font.pixelSize: 18
                         font.bold: true
@@ -497,11 +432,16 @@ Window {
                     hoverEnabled: true
                     highlighted: ListView.isCurrentItem
                     background: Rectangle {
-                        color: delegateItem.highlighted ? (main.isDarkTheme ? "#424242" : "#e3f2fd") :
-                                (delegateItem.hovered ? (main.isDarkTheme ? "#2d2d2d" : "#f5f5f5") :
-                                (main.isDarkTheme ? "#2d2d2d" : "#ffffff"))
+                        color: delegateItem.highlighted ? hoverColor :
+                                (delegateItem.hovered ? Qt.lighter(panelColor, 1.15) : panelColor)
+                        border.color: borderColor
+                        border.width: 1
+
                         Behavior on color {
-                            ColorAnimation { duration: 150 }
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                         }
                     }
                     contentItem: Row {
@@ -517,7 +457,7 @@ Window {
                         }
                         Text {
                             text: model.displayName
-                            color: main.textColor
+                            color: textColor
                             verticalAlignment: Text.AlignVCenter
                             leftPadding: 5
                             font.pixelSize: 18
@@ -531,7 +471,7 @@ Window {
                     height: 8
                     onPaint: {
                         var ctx = getContext("2d")
-                        ctx.fillStyle = main.textColor
+                        ctx.fillStyle = textColor
                         ctx.moveTo(0, 0)
                         ctx.lineTo(width, 0)
                         ctx.lineTo(width / 2, height)
@@ -541,7 +481,7 @@ Window {
                 }
             }
 
-            // Кнопки с фигурами блоков
+            // Кнопки с фигурами блоков (без внешних бордеров)
             Button {
                 id: inputBtn
                 text: "Ввод"
@@ -555,13 +495,19 @@ Window {
                 background: Rectangle {
                     id: inputBtnBg
                     color: "transparent"
+                    border.width: 0  // Убираем внешний бордер
                     radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
                 }
 
                 contentItem: Item {
                     anchors.fill: parent
 
                     Canvas {
+                        id: inputCanvas
                         anchors.fill: parent
                         anchors.margins: 3
                         antialiasing: true
@@ -576,11 +522,11 @@ Window {
                             ctx.lineTo(w - s, h)
                             ctx.lineTo(0, h)
                             ctx.closePath()
-                            var fillColor = inputBtn.pressed ? Qt.darker("#ba68c8", 1.2) :
-                                            (inputBtn.hovered ? Qt.lighter("#ba68c8", 1.1) : "#ba68c8")
+                            var fillColor = inputBtn.pressed ? Qt.darker(inputColor, 1.3) :
+                                            (inputBtn.hovered ? Qt.lighter(inputColor, 1.2) : inputColor)
                             ctx.fillStyle = fillColor
                             ctx.fill()
-                            ctx.strokeStyle = inputBtn.hovered ? "#e0e0e0" : "#e0e0e0"
+                            ctx.strokeStyle = inputBtn.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
@@ -589,7 +535,7 @@ Window {
                     Text {
                         text: "Ввод"
                         anchors.centerIn: parent
-                        color: main.textColor
+                        color: textColor
                         font.bold: true
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
@@ -597,11 +543,13 @@ Window {
                     }
                 }
 
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
+                onPressedChanged: inputCanvas.requestPaint()
+                onHoveredChanged: inputCanvas.requestPaint()
+                Connections {
+                    target: main
+                    function onInputColorChanged() { inputCanvas.requestPaint() }
+                    function onBorderColorChanged() { inputCanvas.requestPaint() }
+                }
             }
 
             Button {
@@ -617,13 +565,19 @@ Window {
                 background: Rectangle {
                     id: outputBtnBg
                     color: "transparent"
+                    border.width: 0  // Убираем внешний бордер
                     radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
                 }
 
                 contentItem: Item {
                     anchors.fill: parent
 
                     Canvas {
+                        id: outputCanvas
                         anchors.fill: parent
                         anchors.margins: 3
                         antialiasing: true
@@ -638,11 +592,11 @@ Window {
                             ctx.lineTo(w - s, h)
                             ctx.lineTo(0, h)
                             ctx.closePath()
-                            var fillColor = outputBtn.pressed ? Qt.darker("#4db6ac", 1.2) :
-                                            (outputBtn.hovered ? Qt.lighter("#4db6ac", 1.1) : "#4db6ac")
+                            var fillColor = outputBtn.pressed ? Qt.darker(outputColor, 1.3) :
+                                            (outputBtn.hovered ? Qt.lighter(outputColor, 1.2) : outputColor)
                             ctx.fillStyle = fillColor
                             ctx.fill()
-                            ctx.strokeStyle = outputBtn.hovered ? "#e0e0e0" : "#e0e0e0"
+                            ctx.strokeStyle = outputBtn.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
@@ -651,7 +605,7 @@ Window {
                     Text {
                         text: "Вывод"
                         anchors.centerIn: parent
-                        color: main.textColor
+                        color: textColor
                         font.bold: true
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
@@ -659,11 +613,13 @@ Window {
                     }
                 }
 
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
+                onPressedChanged: outputCanvas.requestPaint()
+                onHoveredChanged: outputCanvas.requestPaint()
+                Connections {
+                    target: main
+                    function onOutputColorChanged() { outputCanvas.requestPaint() }
+                    function onBorderColorChanged() { outputCanvas.requestPaint() }
+                }
             }
 
             Button {
@@ -679,13 +635,19 @@ Window {
                 background: Rectangle {
                     id: actionBtnBg
                     color: "transparent"
+                    border.width: 0  // Убираем внешний бордер
                     radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
                 }
 
                 contentItem: Item {
                     anchors.fill: parent
 
                     Canvas {
+                        id: actionCanvas
                         anchors.fill: parent
                         anchors.margins: 3
                         antialiasing: true
@@ -693,11 +655,11 @@ Window {
                             var ctx = getContext("2d")
                             ctx.reset()
                             var w = width, h = height
-                            var fillColor = actionBtn.pressed ? Qt.darker("#64b5f6", 1.2) :
-                                            (actionBtn.hovered ? Qt.lighter("#64b5f6", 1.1) : "#64b5f6")
+                            var fillColor = actionBtn.pressed ? Qt.darker(actionColor, 1.3) :
+                                            (actionBtn.hovered ? Qt.lighter(actionColor, 1.2) : actionColor)
                             ctx.fillStyle = fillColor
                             ctx.fillRect(0, 0, w, h)
-                            ctx.strokeStyle = actionBtn.hovered ? "#e0e0e0" : "#e0e0e0"
+                            ctx.strokeStyle = actionBtn.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
                             ctx.lineWidth = 2
                             ctx.strokeRect(0, 0, w, h)
                         }
@@ -706,7 +668,7 @@ Window {
                     Text {
                         text: "Действие"
                         anchors.centerIn: parent
-                        color: main.textColor
+                        color: textColor
                         font.bold: true
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
@@ -714,11 +676,13 @@ Window {
                     }
                 }
 
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
+                onPressedChanged: actionCanvas.requestPaint()
+                onHoveredChanged: actionCanvas.requestPaint()
+                Connections {
+                    target: main
+                    function onActionColorChanged() { actionCanvas.requestPaint() }
+                    function onBorderColorChanged() { actionCanvas.requestPaint() }
+                }
             }
 
             Button {
@@ -734,13 +698,19 @@ Window {
                 background: Rectangle {
                     id: counterBtnBg
                     color: "transparent"
+                    border.width: 0  // Убираем внешний бордер
                     radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
                 }
 
                 contentItem: Item {
                     anchors.fill: parent
 
                     Canvas {
+                        id: counterCanvas
                         anchors.fill: parent
                         anchors.margins: 3
                         antialiasing: true
@@ -757,11 +727,11 @@ Window {
                             ctx.lineTo(hex, h)
                             ctx.lineTo(0, h / 2)
                             ctx.closePath()
-                            var fillColor = counterBtn.pressed ? Qt.darker("#ef5350", 1.2) :
-                                            (counterBtn.hovered ? Qt.lighter("#ef5350", 1.1) : "#ef5350")
+                            var fillColor = counterBtn.pressed ? Qt.darker(counterColor, 1.3) :
+                                            (counterBtn.hovered ? Qt.lighter(counterColor, 1.2) : counterColor)
                             ctx.fillStyle = fillColor
                             ctx.fill()
-                            ctx.strokeStyle = counterBtn.hovered ? "#e0e0e0" : "#e0e0e0"
+                            ctx.strokeStyle = counterBtn.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
@@ -770,7 +740,7 @@ Window {
                     Text {
                         text: "Счетчик"
                         anchors.centerIn: parent
-                        color: main.textColor
+                        color: textColor
                         font.bold: true
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
@@ -778,11 +748,13 @@ Window {
                     }
                 }
 
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
+                onPressedChanged: counterCanvas.requestPaint()
+                onHoveredChanged: counterCanvas.requestPaint()
+                Connections {
+                    target: main
+                    function onCounterColorChanged() { counterCanvas.requestPaint() }
+                    function onBorderColorChanged() { counterCanvas.requestPaint() }
+                }
             }
 
             Button {
@@ -798,13 +770,19 @@ Window {
                 background: Rectangle {
                     id: precondBtnBg
                     color: "transparent"
+                    border.width: 0  // Убираем внешний бордер
                     radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
                 }
 
                 contentItem: Item {
                     anchors.fill: parent
 
                     Canvas {
+                        id: precondCanvas
                         anchors.fill: parent
                         anchors.margins: 3
                         antialiasing: true
@@ -819,11 +797,11 @@ Window {
                             ctx.lineTo(cx, h - 5)
                             ctx.lineTo(5, cy)
                             ctx.closePath()
-                            var fillColor = precondBtn.pressed ? Qt.darker("#ffb74d", 1.2) :
-                                            (precondBtn.hovered ? Qt.lighter("#ffb74d", 1.1) : "#ffb74d")
+                            var fillColor = precondBtn.pressed ? Qt.darker(precondColor, 1.3) :
+                                            (precondBtn.hovered ? Qt.lighter(precondColor, 1.2) : precondColor)
                             ctx.fillStyle = fillColor
                             ctx.fill()
-                            ctx.strokeStyle = precondBtn.hovered ? "#e0e0e0" : "#e0e0e0"
+                            ctx.strokeStyle = precondBtn.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
@@ -832,7 +810,7 @@ Window {
                     Text {
                         text: "Предусл"
                         anchors.centerIn: parent
-                        color: main.textColor
+                        color: textColor
                         font.bold: true
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
@@ -840,11 +818,13 @@ Window {
                     }
                 }
 
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
+                onPressedChanged: precondCanvas.requestPaint()
+                onHoveredChanged: precondCanvas.requestPaint()
+                Connections {
+                    target: main
+                    function onPrecondColorChanged() { precondCanvas.requestPaint() }
+                    function onBorderColorChanged() { precondCanvas.requestPaint() }
+                }
             }
 
             Button {
@@ -860,13 +840,19 @@ Window {
                 background: Rectangle {
                     id: postcondBtnBg
                     color: "transparent"
+                    border.width: 0  // Убираем внешний бордер
                     radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
                 }
 
                 contentItem: Item {
                     anchors.fill: parent
 
                     Canvas {
+                        id: postcondCanvas
                         anchors.fill: parent
                         anchors.margins: 3
                         antialiasing: true
@@ -881,11 +867,11 @@ Window {
                             ctx.lineTo(cx, h - 5)
                             ctx.lineTo(5, cy)
                             ctx.closePath()
-                            var fillColor = postcondBtn.pressed ? Qt.darker("#ce93d8", 1.2) :
-                                            (postcondBtn.hovered ? Qt.lighter("#ce93d8", 1.1) : "#ce93d8")
+                            var fillColor = postcondBtn.pressed ? Qt.darker(postcondColor, 1.3) :
+                                            (postcondBtn.hovered ? Qt.lighter(postcondColor, 1.2) : postcondColor)
                             ctx.fillStyle = fillColor
                             ctx.fill()
-                            ctx.strokeStyle = postcondBtn.hovered ? "#e0e0e0" : "#e0e0e0"
+                            ctx.strokeStyle = postcondBtn.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
@@ -894,7 +880,7 @@ Window {
                     Text {
                         text: "Постусл"
                         anchors.centerIn: parent
-                        color: main.textColor
+                        color: textColor
                         font.bold: true
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
@@ -902,11 +888,13 @@ Window {
                     }
                 }
 
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
+                onPressedChanged: postcondCanvas.requestPaint()
+                onHoveredChanged: postcondCanvas.requestPaint()
+                Connections {
+                    target: main
+                    function onPostcondColorChanged() { postcondCanvas.requestPaint() }
+                    function onBorderColorChanged() { postcondCanvas.requestPaint() }
+                }
             }
 
             Button {
@@ -921,13 +909,19 @@ Window {
                 background: Rectangle {
                     id: condBtnBg
                     color: "transparent"
+                    border.width: 0  // Убираем внешний бордер
                     radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
                 }
 
                 contentItem: Item {
                     anchors.fill: parent
 
                     Canvas {
+                        id: condCanvas
                         anchors.fill: parent
                         anchors.margins: 3
                         antialiasing: true
@@ -942,11 +936,11 @@ Window {
                             ctx.lineTo(cx, h - 5)
                             ctx.lineTo(5, cy)
                             ctx.closePath()
-                            var fillColor = condBtn.pressed ? Qt.darker("#81c784", 1.2) :
-                                            (condBtn.hovered ? Qt.lighter("#81c784", 1.1) : "#81c784")
+                            var fillColor = condBtn.pressed ? Qt.darker(condColor, 1.3) :
+                                            (condBtn.hovered ? Qt.lighter(condColor, 1.2) : condColor)
                             ctx.fillStyle = fillColor
                             ctx.fill()
-                            ctx.strokeStyle = condBtn.hovered ? "#e0e0e0" : "#e0e0e0"
+                            ctx.strokeStyle = condBtn.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
@@ -955,7 +949,7 @@ Window {
                     Text {
                         text: "Усл"
                         anchors.centerIn: parent
-                        color: main.textColor
+                        color: textColor
                         font.bold: true
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
@@ -963,11 +957,13 @@ Window {
                     }
                 }
 
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
+                onPressedChanged: condCanvas.requestPaint()
+                onHoveredChanged: condCanvas.requestPaint()
+                Connections {
+                    target: main
+                    function onCondColorChanged() { condCanvas.requestPaint() }
+                    function onBorderColorChanged() { condCanvas.requestPaint() }
+                }
             }
 
             Button {
@@ -982,13 +978,19 @@ Window {
                 background: Rectangle {
                     id: startBtnBg
                     color: "transparent"
+                    border.width: 0  // Убираем внешний бордер
                     radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
                 }
 
                 contentItem: Item {
                     anchors.fill: parent
 
                     Canvas {
+                        id: startCanvas
                         anchors.fill: parent
                         anchors.margins: 3
                         antialiasing: true
@@ -1000,13 +1002,13 @@ Window {
                             ctx.beginPath()
                             ctx.ellipse(5, 5, w - 10, h - 10)
                             ctx.closePath()
-                            var fillColor = startBtn.pressed ? Qt.darker("#64b5f6", 1.2) :
-                                            (startBtn.hovered ? Qt.lighter("#64b5f6", 1.1) : "#64b5f6")
+                            var fillColor = startBtn.pressed ? Qt.darker(startColor, 1.3) :
+                                            (startBtn.hovered ? Qt.lighter(startColor, 1.2) : startColor)
                             ctx.fillStyle = fillColor
                             ctx.fill()
-                            ctx.strokeStyle = startBtn.hovered ? "#e0e0e0" : "#e0e0e0"
+                            ctx.strokeStyle = startBtn.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
                             ctx.stroke()
-                            ctx.fillStyle = main.textColor
+                            ctx.fillStyle = textColor
                             ctx.font = "bold 20px Arial"
                             ctx.textAlign = "center"
                             ctx.textBaseline = "middle"
@@ -1015,11 +1017,13 @@ Window {
                     }
                 }
 
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
+                onPressedChanged: startCanvas.requestPaint()
+                onHoveredChanged: startCanvas.requestPaint()
+                Connections {
+                    target: main
+                    function onStartColorChanged() { startCanvas.requestPaint() }
+                    function onBorderColorChanged() { startCanvas.requestPaint() }
+                }
             }
 
             Button {
@@ -1034,13 +1038,19 @@ Window {
                 background: Rectangle {
                     id: endBtnBg
                     color: "transparent"
+                    border.width: 0  // Убираем внешний бордер
                     radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
                 }
 
                 contentItem: Item {
                     anchors.fill: parent
 
                     Canvas {
+                        id: endCanvas
                         anchors.fill: parent
                         anchors.margins: 3
                         antialiasing: true
@@ -1052,13 +1062,13 @@ Window {
                             ctx.beginPath()
                             ctx.ellipse(5, 5, w - 10, h - 10)
                             ctx.closePath()
-                            var fillColor = endBtn.pressed ? Qt.darker("#ffb74d", 1.2) :
-                                            (endBtn.hovered ? Qt.lighter("#ffb74d", 1.1) : "#ffb74d")
+                            var fillColor = endBtn.pressed ? Qt.darker(endColor, 1.3) :
+                                            (endBtn.hovered ? Qt.lighter(endColor, 1.2) : endColor)
                             ctx.fillStyle = fillColor
                             ctx.fill()
-                            ctx.strokeStyle = endBtn.hovered ? "#e0e0e0" : "#e0e0e0"
+                            ctx.strokeStyle = endBtn.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
                             ctx.stroke()
-                            ctx.fillStyle = main.textColor
+                            ctx.fillStyle = textColor
                             ctx.font = "bold 20px Arial"
                             ctx.textAlign = "center"
                             ctx.textBaseline = "middle"
@@ -1067,11 +1077,13 @@ Window {
                     }
                 }
 
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
+                onPressedChanged: endCanvas.requestPaint()
+                onHoveredChanged: endCanvas.requestPaint()
+                Connections {
+                    target: main
+                    function onEndColorChanged() { endCanvas.requestPaint() }
+                    function onBorderColorChanged() { endCanvas.requestPaint() }
+                }
             }
         }
 
@@ -1086,13 +1098,16 @@ Window {
                 id: algorithmArea
                 width: main.debugMode ? (parent.width - debugPanel.width - parent.spacing) : parent.width
                 height: parent.height
-                border.color: main.activeContainer === container ? "#9c27b0" : main.borderColor
+                border.color: main.activeContainer === container ? "#9c27b0" : borderColor
                 border.width: 2
                 radius: 5
-                color: main.panelColor
+                color: panelColor
 
                 Behavior on border.color {
-                    ColorAnimation { duration: 300 }
+                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                }
+                Behavior on color {
+                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                 }
 
                 Flickable {
@@ -1126,30 +1141,34 @@ Window {
                         background: Rectangle {
                             id: mainActivateBg
                             color: {
-                                if (mainActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
-                                else if (mainActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
-                                else return main.activeContainer === container ? "#9c27b0" : main.buttonColor
+                                if (mainActivateBtn.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (mainActivateBtn.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return main.activeContainer === container ? "#9c27b0" : buttonColor
                             }
+                            border.color: borderColor
+                            border.width: 1
                             radius: width / 2
 
                             Behavior on color {
-                                ColorAnimation { duration: 150 }
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                             }
                         }
 
                         contentItem: Text {
                             text: parent.text
-                            color: "white"
+                            color: textColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             font.pixelSize: 18
                             font.bold: true
                         }
-
-                        scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                        opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-                        Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                        Behavior on opacity { NumberAnimation { duration: 100 } }
 
                         onClicked: {
                             if (main.activeContainer === container) {
@@ -1181,12 +1200,12 @@ Window {
                 height: parent.height
                 visible: main.debugMode && width > 0
                 opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 200 } }
-                Behavior on width { NumberAnimation { duration: 200 } }
+                Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
                 border.color: "#9c27b0"
                 border.width: 2
                 radius: 5
-                color: main.isDarkTheme ? "#2d2d2d" : "#ffffff"
+                color: "#2d2d2d"
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -1195,7 +1214,7 @@ Window {
 
                     Text {
                         text: "Панель отладки"
-                        color: main.textColor
+                        color: textColor
                         font.pixelSize: 20
                         font.bold: true
                         Layout.alignment: Qt.AlignHCenter
@@ -1226,31 +1245,34 @@ Window {
                             background: Rectangle {
                                 id: backButtonBg
                                 color: {
-                                    if (backButton.pressed) return Qt.darker("#616161", 1.2)
-                                    else if (backButton.hovered) return Qt.lighter("#616161", 1.1)
-                                    else return backButton.enabled ? "#616161" : main.buttonColor
+                                    if (backButton.pressed) {
+                                        var c = Qt.darker(buttonColor, 1.25);
+                                        return Qt.rgba(c.r, c.g, c.b, 1);
+                                    } else if (backButton.hovered) {
+                                        var c = Qt.lighter(buttonColor, 1.15);
+                                        return Qt.rgba(c.r, c.g, c.b, 1);
+                                    } else return backButton.enabled ? "#616161" : buttonColor
                                 }
+                                border.color: borderColor
+                                border.width: 1
                                 radius: 8
 
                                 Behavior on color {
-                                    ColorAnimation { duration: 150 }
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                }
+                                Behavior on border.color {
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                 }
                             }
 
                             contentItem: Text {
                                 text: parent.text
-                                color: backButton.enabled ? "white" : "#9e9e9e"
+                                color: backButton.enabled ? textColor : "#9e9e9e"
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                                 font.pixelSize: 16
                                 font.bold: true
                             }
-
-                            scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                            opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                            Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                            Behavior on opacity { NumberAnimation { duration: 100 } }
 
                             onClicked: {
                                 if (main.debugMode && main.canStepBack) {
@@ -1281,31 +1303,34 @@ Window {
                             background: Rectangle {
                                 id: forwardButtonBg
                                 color: {
-                                    if (forwardButton.pressed) return Qt.darker("#616161", 1.2)
-                                    else if (forwardButton.hovered) return Qt.lighter("#616161", 1.1)
-                                    else return forwardButton.enabled ? "#616161" : main.buttonColor
+                                    if (forwardButton.pressed) {
+                                        var c = Qt.darker(buttonColor, 1.25);
+                                        return Qt.rgba(c.r, c.g, c.b, 1);
+                                    } else if (forwardButton.hovered) {
+                                        var c = Qt.lighter(buttonColor, 1.15);
+                                        return Qt.rgba(c.r, c.g, c.b, 1);
+                                    } else return forwardButton.enabled ? "#616161" : buttonColor
                                 }
+                                border.color: borderColor
+                                border.width: 1
                                 radius: 8
 
                                 Behavior on color {
-                                    ColorAnimation { duration: 150 }
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                }
+                                Behavior on border.color {
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                 }
                             }
 
                             contentItem: Text {
                                 text: parent.text
-                                color: forwardButton.enabled ? "white" : "#9e9e9e"
+                                color: forwardButton.enabled ? textColor : "#9e9e9e"
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                                 font.pixelSize: 16
                                 font.bold: true
                             }
-
-                            scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                            opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                            Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                            Behavior on opacity { NumberAnimation { duration: 100 } }
 
                             onClicked: {
                                 if (main.debugMode && main.canStepForward) {
@@ -1318,7 +1343,7 @@ Window {
 
                     Text {
                         text: "Таблица переменных:"
-                        color: main.isDarkTheme ? "#bdbdbd" : "#616161"
+                        color: textColor
                         font.pixelSize: 18
                         font.bold: true
                         Layout.topMargin: 10
@@ -1336,13 +1361,15 @@ Window {
                             delegate: Rectangle {
                                 width: parent ? parent.width : 0
                                 height: 40
-                                color: index % 2 === 0 ? (main.isDarkTheme ? "#3e3e3e" : "#f5f5f5") :
-                                                      (main.isDarkTheme ? "#2e2e2e" : "#ffffff")
-                                border.color: main.borderColor
+                                color: index % 2 === 0 ? "#3e3e3e" : "#2e2e2e"
+                                border.color: borderColor
                                 border.width: 1
 
                                 Behavior on color {
-                                    ColorAnimation { duration: 200 }
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                }
+                                Behavior on border.color {
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                 }
 
                                 Row {
@@ -1352,7 +1379,7 @@ Window {
                                     spacing: 10
                                     Text {
                                         text: model.name
-                                        color: main.textColor
+                                        color: textColor
                                         width: (parent.width - parent.spacing) * 0.4
                                         elide: Text.ElideRight
                                         verticalAlignment: Text.AlignVCenter
@@ -1361,7 +1388,7 @@ Window {
                                     }
                                     Text {
                                         text: model.value
-                                        color: main.isDarkTheme ? "#bdbdbd" : "#616161"
+                                        color: textColor
                                         width: (parent.width - parent.spacing) * 0.6
                                         elide: Text.ElideRight
                                         verticalAlignment: Text.AlignVCenter
@@ -1372,9 +1399,16 @@ Window {
                             header: Rectangle {
                                 width: parent ? parent.width : 0
                                 height: 40
-                                color: main.isDarkTheme ? "#424242" : "#e3f2fd"
-                                border.color: main.isDarkTheme ? "#2d2d2d" : "#bbdefb"
+                                color: "#424242"
+                                border.color: borderColor
                                 border.width: 1
+
+                                Behavior on color {
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                }
+                                Behavior on border.color {
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                }
 
                                 Row {
                                     anchors.fill: parent
@@ -1383,7 +1417,7 @@ Window {
                                     spacing: 10
                                     Text {
                                         text: "Имя"
-                                        color: main.textColor
+                                        color: textColor
                                         font.bold: true
                                         width: (parent.width - parent.spacing) * 0.4
                                         verticalAlignment: Text.AlignVCenter
@@ -1391,7 +1425,7 @@ Window {
                                     }
                                     Text {
                                         text: "Значение"
-                                        color: main.textColor
+                                        color: textColor
                                         font.bold: true
                                         width: (parent.width - parent.spacing) * 0.6
                                         verticalAlignment: Text.AlignVCenter
@@ -1413,31 +1447,34 @@ Window {
                         background: Rectangle {
                             id: closeDebugBg
                             color: {
-                                if (closeDebugButton.pressed) return Qt.darker("#d32f2f", 1.2)
-                                else if (closeDebugButton.hovered) return Qt.lighter("#d32f2f", 1.1)
-                                else return "#f44336"
+                                if (closeDebugButton.pressed) {
+                                    var c = Qt.darker("#d32f2f", 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (closeDebugButton.hovered) {
+                                    var c = Qt.lighter("#d32f2f", 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return "#f44336"
                             }
+                            border.color: borderColor
+                            border.width: 1
                             radius: 8
 
                             Behavior on color {
-                                ColorAnimation { duration: 150 }
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                             }
                         }
 
                         contentItem: Text {
                             text: parent.text
-                            color: "white"
+                            color: textColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             font.pixelSize: 18
                             font.bold: true
                         }
-
-                        scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                        opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                        Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                        Behavior on opacity { NumberAnimation { duration: 100 } }
 
                         onClicked: {
                             console.log("Отладка: Нажата кнопка 'Закрыть'");
@@ -1452,10 +1489,17 @@ Window {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 180
-            border.color: main.borderColor
+            border.color: borderColor
             border.width: 2
             radius: 5
-            color: main.panelColor
+            color: panelColor
+
+            Behavior on border.color {
+                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+            }
+            Behavior on color {
+                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+            }
 
             ScrollView {
                 anchors.fill: parent
@@ -1464,7 +1508,7 @@ Window {
                     id: otvet
                     text: "Вывод"
                     readOnly: true
-                    color: main.textColor
+                    color: textColor
                     font.pixelSize: 18
                     background: Rectangle {
                         color: "transparent"
@@ -1483,21 +1527,24 @@ Window {
                 placeholderText: "Ввод"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 50
-                color: main.textColor
-                placeholderTextColor: main.isDarkTheme ? "#bdbdbd" : "#9e9e9e"
+                color: textColor
+                placeholderTextColor: "#bdbdbd"
                 font.pixelSize: 18
                 hoverEnabled: true
 
                 background: Rectangle {
                     id: vvodBg
                     anchors.fill: parent
-                    border.color: vvod.hovered ? "#42a5f5" : main.borderColor
+                    border.color: vvod.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
                     border.width: 2
                     radius: 8
-                    color: main.isDarkTheme ? "#2d2d2d" : "#ffffff"
+                    color: "#2d2d2d"
 
                     Behavior on border.color {
-                        ColorAnimation { duration: 200 }
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                     }
                 }
 
@@ -1518,31 +1565,34 @@ Window {
                 background: Rectangle {
                     id: sendButtonBg
                     color: {
-                        if (sendButton.pressed) return Qt.darker("#42a5f5", 1.2)
-                        else if (sendButton.hovered) return Qt.lighter("#42a5f5", 1.1)
-                        else return "#42a5f5"
+                        if (sendButton.pressed) {
+                            var c = Qt.darker(buttonColor, 1.25);
+                            return Qt.rgba(c.r, c.g, c.b, 1);
+                        } else if (sendButton.hovered) {
+                            var c = Qt.lighter(buttonColor, 1.15);
+                            return Qt.rgba(c.r, c.g, c.b, 1);
+                        } else return buttonColor
                     }
+                    border.color: borderColor
+                    border.width: 1
                     radius: 8
 
                     Behavior on color {
-                        ColorAnimation { duration: 150 }
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
+                    Behavior on border.color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                     }
                 }
 
                 contentItem: Text {
                     text: parent.text
-                    color: "white"
+                    color: textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: 18
                     font.bold: true
                 }
-
-                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 100 } }
             }
         }
     }
@@ -1714,13 +1764,6 @@ Window {
                 enabled: !main.debugMode
                 onHoveredChanged: {
                     root.hovered = hovered;
-                    if (hovered) {
-                        shapeItem.scale = 0.9;
-                        shapeItem.opacity = 0.9;
-                    } else {
-                        shapeItem.scale = 1.0;
-                        shapeItem.opacity = 1.0;
-                    }
                 }
             }
 
@@ -1741,30 +1784,34 @@ Window {
                     background: Rectangle {
                         id: debugStartBg
                         color: {
-                            if (setDebugStartButton.pressed) return Qt.darker("#FF69B4", 1.2)
-                            else if (setDebugStartButton.hovered) return Qt.lighter("#FF69B4", 1.1)
-                            else return root.isDebugStart ? "#FF69B4" : main.buttonColor
+                            if (setDebugStartButton.pressed) {
+                                var c = Qt.darker(buttonColor, 1.25);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else if (setDebugStartButton.hovered) {
+                                var c = Qt.lighter(buttonColor, 1.15);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else return root.isDebugStart ? "#FF69B4" : buttonColor
                         }
+                        border.color: borderColor
+                        border.width: 1
                         radius: 15
 
                         Behavior on color {
-                            ColorAnimation { duration: 150 }
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                         }
                     }
 
                     contentItem: Text {
                         text: "О"
-                        color: root.isDebugStart ? "white" : main.textColor
+                        color: textColor
                         font.bold: true
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
-
-                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                     onClicked: {
                         if (root.isDebugStart) {
@@ -1816,6 +1863,7 @@ Window {
                         }
 
                         Canvas {
+                            id: blockCanvas
                             anchors.fill: parent
                             antialiasing: true
                             z: 0
@@ -1824,16 +1872,14 @@ Window {
                                 ctx.reset();
                                 const w = width, h = height, cx = w/2, cy = h/2, s = 20
                                 ctx.beginPath()
-                                var fillColor = root.blockType;
-                                if (root.blockHoverHandler && root.blockHoverHandler.pressed) {
-                                    fillColor = Qt.darker(getBlockColor(root.blockType), 1.2);
-                                } else if (root.hovered) {
-                                    fillColor = Qt.lighter(getBlockColor(root.blockType), 1.1);
+                                var fillColor;
+                                if (root.hovered) {
+                                    fillColor = Qt.lighter(getBlockColor(root.blockType), 1.15);
                                 } else {
                                     fillColor = getBlockColor(root.blockType);
                                 }
                                 ctx.fillStyle = fillColor;
-                                ctx.strokeStyle = root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : (root.hovered ? Qt.darker("#e0e0e0", 1.2) : "#e0e0e0"))
+                                ctx.strokeStyle = root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : borderColor)
                                 ctx.lineWidth = root.isDebugHighlighted ? 3 : (root.isDebugStart ? 4 : 2)
                                 if (["ввод", "вывод"].includes(root.blockType)) {
                                     ctx.moveTo(s, 0);
@@ -1862,7 +1908,7 @@ Window {
                                 ctx.fill();
                                 ctx.stroke()
                                 if (["начало", "конец"].includes(root.blockType)) {
-                                    ctx.fillStyle = main.textColor
+                                    ctx.fillStyle = textColor
                                     ctx.font = "bold 20px Arial"
                                     ctx.textAlign = "center"
                                     ctx.textBaseline = "middle"
@@ -1872,11 +1918,17 @@ Window {
 
                             function getBlockColor(type) {
                                 var colors = {
-                                    "ввод": "#ba68c8", "вывод": "#4db6ac", "действие": "#64b5f6", "усл": "#81c784",
-                                    "счетчик": "#ef5350", "предусл": "#ffb74d", "постусл": "#ce93d8",
-                                    "начало": "#64b5f6", "конец": "#ffb74d"
+                                    "ввод": inputColor,
+                                    "вывод": outputColor,
+                                    "действие": actionColor,
+                                    "усл": condColor,
+                                    "счетчик": counterColor,
+                                    "предусл": precondColor,
+                                    "постусл": postcondColor,
+                                    "начало": startColor,
+                                    "конец": endColor
                                 };
-                                return colors[type] || "#64b5f6";
+                                return colors[type] || actionColor;
                             }
                         }
 
@@ -1891,8 +1943,8 @@ Window {
                                 "вывод": "Введите данные для вывода...",
                                 "действие": "Введите действие...",
                             })[root.blockType] || "Введите данные..."
-                            color: main.textColor
-                            placeholderTextColor: main.isDarkTheme ? "#757575" : "#9e9e9e"
+                            color: textColor
+                            placeholderTextColor: "#757575"
                             selectByMouse: true
                             font.pixelSize: 26
                             font.bold: true
@@ -1914,8 +1966,8 @@ Window {
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             placeholderText: "Введите условие..."
-                            color: main.textColor
-                            placeholderTextColor: main.isDarkTheme ? "#757575" : "#9e9e9e"
+                            color: textColor
+                            placeholderTextColor: "#757575"
                             selectByMouse: true
                             font.pixelSize: 26
                             font.bold: true
@@ -1941,7 +1993,7 @@ Window {
                                     spacing: 8
                                     Text {
                                         text: "Переменная:"
-                                        color: main.textColor
+                                        color: textColor
                                         font.pixelSize: 26
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
@@ -1951,8 +2003,8 @@ Window {
                                         enabled: !main.debugMode
                                         width: 70
                                         placeholderText: "i"
-                                        color: main.textColor
-                                        placeholderTextColor: main.isDarkTheme ? "#9e9e9e" : "#757575"
+                                        color: textColor
+                                        placeholderTextColor: "#9e9e9e"
                                         selectByMouse: true
                                         font.pixelSize: 26
                                         font.bold: true
@@ -1960,9 +2012,13 @@ Window {
 
                                         background: Rectangle {
                                             color: "transparent"
-                                            border.color: main.borderColor
+                                            border.color: borderColor
                                             border.width: 1
                                             radius: 4
+
+                                            Behavior on border.color {
+                                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                            }
                                         }
                                     }
                                 }
@@ -1971,7 +2027,7 @@ Window {
                                     spacing: 8
                                     Text {
                                         text: "Шаг:"
-                                        color: main.textColor
+                                        color: textColor
                                         font.pixelSize: 26
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
@@ -1981,8 +2037,8 @@ Window {
                                         enabled: !main.debugMode
                                         width: 70
                                         placeholderText: "1"
-                                        color: main.textColor
-                                        placeholderTextColor: main.isDarkTheme ? "#9e9e9e" : "#757575"
+                                        color: textColor
+                                        placeholderTextColor: "#9e9e9e"
                                         selectByMouse: true
                                         font.pixelSize: 26
                                         font.bold: true
@@ -1990,9 +2046,13 @@ Window {
 
                                         background: Rectangle {
                                             color: "transparent"
-                                            border.color: main.borderColor
+                                            border.color: borderColor
                                             border.width: 1
                                             radius: 4
+
+                                            Behavior on border.color {
+                                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                            }
                                         }
                                     }
                                 }
@@ -2006,7 +2066,7 @@ Window {
                                     spacing: 8
                                     Text {
                                         text: "От:"
-                                        color: main.textColor
+                                        color: textColor
                                         font.pixelSize: 26
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
@@ -2016,8 +2076,8 @@ Window {
                                         enabled: !main.debugMode
                                         width: 70
                                         placeholderText: "0"
-                                        color: main.textColor
-                                        placeholderTextColor: main.isDarkTheme ? "#9e9e9e" : "#757575"
+                                        color: textColor
+                                        placeholderTextColor: "#9e9e9e"
                                         selectByMouse: true
                                         font.pixelSize: 26
                                         font.bold: true
@@ -2025,9 +2085,13 @@ Window {
 
                                         background: Rectangle {
                                             color: "transparent"
-                                            border.color: main.borderColor
+                                            border.color: borderColor
                                             border.width: 1
                                             radius: 4
+
+                                            Behavior on border.color {
+                                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                            }
                                         }
                                     }
                                 }
@@ -2036,7 +2100,7 @@ Window {
                                     spacing: 8
                                     Text {
                                         text: "До:"
-                                        color: main.textColor
+                                        color: textColor
                                         font.pixelSize: 26
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
@@ -2046,8 +2110,8 @@ Window {
                                         enabled: !main.debugMode
                                         width: 70
                                         placeholderText: "10"
-                                        color: main.textColor
-                                        placeholderTextColor: main.isDarkTheme ? "#9e9e9e" : "#757575"
+                                        color: textColor
+                                        placeholderTextColor: "#9e9e9e"
                                         selectByMouse: true
                                         font.pixelSize: 26
                                         font.bold: true
@@ -2055,9 +2119,13 @@ Window {
 
                                         background: Rectangle {
                                             color: "transparent"
-                                            border.color: main.borderColor
+                                            border.color: borderColor
                                             border.width: 1
                                             radius: 4
+
+                                            Behavior on border.color {
+                                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                            }
                                         }
                                     }
                                 }
@@ -2080,14 +2148,23 @@ Window {
                                 background: Rectangle {
                                     id: addAboveBg
                                     color: {
-                                        if (addAboveButton.pressed) return Qt.darker(main.pressedColor, 1.2)
-                                        else if (addAboveButton.hovered) return Qt.lighter(main.hoverColor, 1.1)
-                                        else return main.buttonColor
+                                        if (addAboveButton.pressed) {
+                                            var c = Qt.darker(buttonColor, 1.25);
+                                            return Qt.rgba(c.r, c.g, c.b, 1);
+                                        } else if (addAboveButton.hovered) {
+                                            var c = Qt.lighter(buttonColor, 1.15);
+                                            return Qt.rgba(c.r, c.g, c.b, 1);
+                                        } else return buttonColor
                                     }
+                                    border.color: borderColor
+                                    border.width: 1
                                     radius: 3
 
                                     Behavior on color {
-                                        ColorAnimation { duration: 150 }
+                                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                    }
+                                    Behavior on border.color {
+                                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                     }
 
                                     Canvas {
@@ -2096,7 +2173,7 @@ Window {
                                         onPaint: {
                                             var ctx = getContext("2d");
                                             ctx.reset();
-                                            ctx.fillStyle = main.textColor;
+                                            ctx.fillStyle = textColor;
                                             var w = width;
                                             var h = height;
                                             var stemWidth = w * 0.2;
@@ -2115,11 +2192,6 @@ Window {
 
                                 contentItem: Item {}
 
-                                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-                                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                                Behavior on opacity { NumberAnimation { duration: 100 } }
-
                                 onClicked: {
                                     console.log("Кнопка 'Добавить выше' нажата для блока типа:", root.blockType);
                                     main.insertBlockBefore(root, main.selectedBlockType);
@@ -2136,14 +2208,23 @@ Window {
                                 background: Rectangle {
                                     id: addBelowBg
                                     color: {
-                                        if (addBelowButton.pressed) return Qt.darker(main.pressedColor, 1.2)
-                                        else if (addBelowButton.hovered) return Qt.lighter(main.hoverColor, 1.1)
-                                        else return main.buttonColor
+                                        if (addBelowButton.pressed) {
+                                            var c = Qt.darker(buttonColor, 1.25);
+                                            return Qt.rgba(c.r, c.g, c.b, 1);
+                                        } else if (addBelowButton.hovered) {
+                                            var c = Qt.lighter(buttonColor, 1.15);
+                                            return Qt.rgba(c.r, c.g, c.b, 1);
+                                        } else return buttonColor
                                     }
+                                    border.color: borderColor
+                                    border.width: 1
                                     radius: 3
 
                                     Behavior on color {
-                                        ColorAnimation { duration: 150 }
+                                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                    }
+                                    Behavior on border.color {
+                                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                     }
 
                                     Canvas {
@@ -2152,7 +2233,7 @@ Window {
                                         onPaint: {
                                             var ctx = getContext("2d");
                                             ctx.reset();
-                                            ctx.fillStyle = main.textColor;
+                                            ctx.fillStyle = textColor;
                                             var w = width;
                                             var h = height;
                                             var stemWidth = w * 0.2;
@@ -2170,11 +2251,6 @@ Window {
                                 }
 
                                 contentItem: Item {}
-
-                                scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                                opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-                                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                                Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                 onClicked: {
                                     console.log("Кнопка 'Добавить ниже' нажата для блока типа:", root.blockType);
@@ -2220,14 +2296,14 @@ Window {
                                 id: counterRect
                                 width: Math.max(400, centerContainerCounter.childrenRect.width + 40)
                                 height: Math.max(160, centerContainerCounter.childrenRect.height + 50)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? "#9c27b0" : main.borderColor)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? "#9c27b0" : borderColor)
                                 border.width: root.isDebugHighlighted ? 4 : 2
                                 radius: 5
                                 color: "transparent"
                                 anchors.horizontalCenter: parent.horizontalCenter
 
                                 Behavior on border.color {
-                                    ColorAnimation { duration: 300 }
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                 }
 
                                 Column {
@@ -2251,30 +2327,34 @@ Window {
                                     background: Rectangle {
                                         id: counterActivateBg
                                         color: {
-                                            if (counterActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
-                                            else if (counterActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
-                                            else return main.activeContainer === centerContainerCounter ? "#9c27b0" : main.buttonColor
+                                            if (counterActivateBtn.pressed) {
+                                                var c = Qt.darker(buttonColor, 1.25);
+                                                return Qt.rgba(c.r, c.g, c.b, 1);
+                                            } else if (counterActivateBtn.hovered) {
+                                                var c = Qt.lighter(buttonColor, 1.15);
+                                                return Qt.rgba(c.r, c.g, c.b, 1);
+                                            } else return main.activeContainer === centerContainerCounter ? "#9c27b0" : buttonColor
                                         }
+                                        border.color: borderColor
+                                        border.width: 1
                                         radius: width / 2
 
                                         Behavior on color {
-                                            ColorAnimation { duration: 150 }
+                                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                        }
+                                        Behavior on border.color {
+                                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                         }
                                     }
 
                                     contentItem: Text {
                                         text: parent.text
-                                        color: "white"
+                                        color: textColor
                                         horizontalAlignment: Text.AlignHCenter
                                         verticalAlignment: Text.AlignVCenter
                                         font.pixelSize: 18
                                         font.bold: true
                                     }
-
-                                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-                                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                     onClicked: {
                                         if (main.activeContainer === centerContainerCounter) {
@@ -2319,14 +2399,14 @@ Window {
                                 id: cycleRect
                                 width: Math.max(400, centerContainer.childrenRect.width + 40)
                                 height: Math.max(160, centerContainer.childrenRect.height + 50)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? "#9c27b0" : main.borderColor)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? "#9c27b0" : borderColor)
                                 border.width: root.isDebugHighlighted ? 4 : 2
                                 radius: 5
                                 color: "transparent"
                                 anchors.horizontalCenter: parent.horizontalCenter
 
                                 Behavior on border.color {
-                                    ColorAnimation { duration: 300 }
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                 }
 
                                 Column {
@@ -2350,30 +2430,34 @@ Window {
                                     background: Rectangle {
                                         id: cycleActivateBg
                                         color: {
-                                            if (cycleActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
-                                            else if (cycleActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
-                                            else return main.activeContainer === centerContainer ? "#9c27b0" : main.buttonColor
+                                            if (cycleActivateBtn.pressed) {
+                                                var c = Qt.darker(buttonColor, 1.25);
+                                                return Qt.rgba(c.r, c.g, c.b, 1);
+                                            } else if (cycleActivateBtn.hovered) {
+                                                var c = Qt.lighter(buttonColor, 1.15);
+                                                return Qt.rgba(c.r, c.g, c.b, 1);
+                                            } else return main.activeContainer === centerContainer ? "#9c27b0" : buttonColor
                                         }
+                                        border.color: borderColor
+                                        border.width: 1
                                         radius: width / 2
 
                                         Behavior on color {
-                                            ColorAnimation { duration: 150 }
+                                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                        }
+                                        Behavior on border.color {
+                                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                         }
                                     }
 
                                     contentItem: Text {
                                         text: parent.text
-                                        color: "white"
+                                        color: textColor
                                         horizontalAlignment: Text.AlignHCenter
                                         verticalAlignment: Text.AlignVCenter
                                         font.pixelSize: 18
                                         font.bold: true
                                     }
-
-                                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-                                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                     onClicked: {
                                         if (main.activeContainer === centerContainer) {
@@ -2424,13 +2508,13 @@ Window {
                                     id: leftRect
                                     width: Math.max(280, leftContainer.childrenRect.width + 40)
                                     height: Math.max(160, leftContainer.childrenRect.height + 50)
-                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? "#9c27b0" : main.borderColor)
+                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? "#9c27b0" : borderColor)
                                     border.width: root.isDebugHighlighted ? 4 : 2
                                     radius: 5
                                     color: "transparent"
 
                                     Behavior on border.color {
-                                        ColorAnimation { duration: 300 }
+                                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                     }
 
                                     Column {
@@ -2454,30 +2538,34 @@ Window {
                                         background: Rectangle {
                                             id: leftActivateBg
                                             color: {
-                                                if (leftActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
-                                                else if (leftActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
-                                                else return main.activeContainer === leftContainer ? "#9c27b0" : main.buttonColor
+                                                if (leftActivateBtn.pressed) {
+                                                    var c = Qt.darker(buttonColor, 1.25);
+                                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                                } else if (leftActivateBtn.hovered) {
+                                                    var c = Qt.lighter(buttonColor, 1.15);
+                                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                                } else return main.activeContainer === leftContainer ? "#9c27b0" : buttonColor
                                             }
+                                            border.color: borderColor
+                                            border.width: 1
                                             radius: width / 2
 
                                             Behavior on color {
-                                                ColorAnimation { duration: 150 }
+                                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                            }
+                                            Behavior on border.color {
+                                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                             }
                                         }
 
                                         contentItem: Text {
                                             text: parent.text
-                                            color: "white"
+                                            color: textColor
                                             horizontalAlignment: Text.AlignHCenter
                                             verticalAlignment: Text.AlignVCenter
                                             font.pixelSize: 18
                                             font.bold: true
                                         }
-
-                                        scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                                        opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-                                        Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                                        Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                         onClicked: {
                                             if (main.activeContainer === leftContainer) {
@@ -2507,13 +2595,13 @@ Window {
                                     id: rightRect
                                     width: Math.max(280, rightContainer.childrenRect.width + 40)
                                     height: Math.max(160, rightContainer.childrenRect.height + 50)
-                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? "#9c27b0" : main.borderColor)
+                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? "#9c27b0" : borderColor)
                                     border.width: root.isDebugHighlighted ? 4 : 2
                                     radius: 5
                                     color: "transparent"
 
                                     Behavior on border.color {
-                                        ColorAnimation { duration: 300 }
+                                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                     }
 
                                     Column {
@@ -2537,30 +2625,34 @@ Window {
                                         background: Rectangle {
                                             id: rightActivateBg
                                             color: {
-                                                if (rightActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
-                                                else if (rightActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
-                                                else return main.activeContainer === rightContainer ? "#9c27b0" : main.buttonColor
+                                                if (rightActivateBtn.pressed) {
+                                                    var c = Qt.darker(buttonColor, 1.25);
+                                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                                } else if (rightActivateBtn.hovered) {
+                                                    var c = Qt.lighter(buttonColor, 1.15);
+                                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                                } else return main.activeContainer === rightContainer ? "#9c27b0" : buttonColor
                                             }
+                                            border.color: borderColor
+                                            border.width: 1
                                             radius: width / 2
 
                                             Behavior on color {
-                                                ColorAnimation { duration: 150 }
+                                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                            }
+                                            Behavior on border.color {
+                                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                             }
                                         }
 
                                         contentItem: Text {
                                             text: parent.text
-                                            color: "white"
+                                            color: textColor
                                             horizontalAlignment: Text.AlignHCenter
                                             verticalAlignment: Text.AlignVCenter
                                             font.pixelSize: 18
                                             font.bold: true
                                         }
-
-                                        scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                                        opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-                                        Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                                        Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                         onClicked: {
                                             if (main.activeContainer === rightContainer) {
@@ -2606,14 +2698,14 @@ Window {
                                 id: postRect
                                 width: Math.max(400, centerContainerPost.childrenRect.width + 40)
                                 height: Math.max(160, centerContainerPost.childrenRect.height + 50)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? "#9c27b0" : main.borderColor)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? "#9c27b0" : borderColor)
                                 border.width: root.isDebugHighlighted ? 4 : 2
                                 radius: 5
                                 color: "transparent"
                                 anchors.horizontalCenter: parent.horizontalCenter
 
                                 Behavior on border.color {
-                                    ColorAnimation { duration: 300 }
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                 }
 
                                 Column {
@@ -2637,30 +2729,34 @@ Window {
                                     background: Rectangle {
                                         id: postActivateBg
                                         color: {
-                                            if (postActivateBtn.pressed) return Qt.darker("#9c27b0", 1.2)
-                                            else if (postActivateBtn.hovered) return Qt.lighter("#9c27b0", 1.1)
-                                            else return main.activeContainer === centerContainerPost ? "#9c27b0" : main.buttonColor
+                                            if (postActivateBtn.pressed) {
+                                                var c = Qt.darker(buttonColor, 1.25);
+                                                return Qt.rgba(c.r, c.g, c.b, 1);
+                                            } else if (postActivateBtn.hovered) {
+                                                var c = Qt.lighter(buttonColor, 1.15);
+                                                return Qt.rgba(c.r, c.g, c.b, 1);
+                                            } else return main.activeContainer === centerContainerPost ? "#9c27b0" : buttonColor
                                         }
+                                        border.color: borderColor
+                                        border.width: 1
                                         radius: width / 2
 
                                         Behavior on color {
-                                            ColorAnimation { duration: 150 }
+                                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                        }
+                                        Behavior on border.color {
+                                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                         }
                                     }
 
                                     contentItem: Text {
                                         text: parent.text
-                                        color: "white"
+                                        color: textColor
                                         horizontalAlignment: Text.AlignHCenter
                                         verticalAlignment: Text.AlignVCenter
                                         font.pixelSize: 18
                                         font.bold: true
                                     }
-
-                                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-                                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                                     onClicked: {
                                         if (main.activeContainer === centerContainerPost) {
@@ -2716,7 +2812,6 @@ Window {
         return data
     }
 
-
     function updateBlockHighlight() {
         // Вызываем рекурсивную подсветку для всех блоков верхнего уровня
         for (var i = 0; i < container.children.length; i++) {
@@ -2770,359 +2865,726 @@ Window {
         createBlocksRecursive(algorithmData, parentContainer);
     }
 
-
-    FileDialog {
-        id: saveFileDialog
-        title: "Сохранить алгоритм"
-        nameFilters: [ "JSON files (*.json)", "All files (*)" ]
-        onAccepted: {
-            var path = saveFileDialog.file.toString().substring(Qt.platform.os === "windows" ? 8 : 7)
-            var data = collectData(0)
-            myObrabotka.saveAlgorithmToFile(data, path)
-            information_save.text = "Алгоритм успешно сохранен"
-            information_save.open()
-        }
-    }
-
-    FileDialog {
-        id: openFileDialog
-        title: "Открыть алгоритм"
-        nameFilters: [ "JSON files (*.json)", "All files (*)" ]
-        onAccepted: {
-            var path = openFileDialog.file.toString().substring(Qt.platform.os === "windows" ? 8 : 7)
-            myObrabotka.loadAlgorithmFromFile(path)
-        }
-    }
-
-    Popup {
-        id: newAlgorithmDialog
-        x: (parent.width - width) / 2
-        y: (parent.height - height) / 2
+    // Окно настроек (отдельное)
+    Window {
+        id: settingsWindow
+        title: "Настройки"
         width: 300
-        height: 150
-        modal: true
-        focus: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        padding: 10
-        background: Rectangle {
-            color: main.panelColor
-            border.color: main.borderColor
-            border.width: 2
-            radius: 8
-        }
+        height: 100
+        modality: Qt.NonModal
+        color: panelColor
+        visible: false
 
-        ColumnLayout {
+        Rectangle {
             anchors.fill: parent
-            Text {
-                text: "Вы уверены, что хотите создать новый алгоритм? Все несохраненные данные будут утеряны."
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-                color: main.textColor
-            }
+            color: parent.color
 
-            RowLayout {
-                Layout.alignment: Qt.AlignHCenter
+            Column {
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 10
+
                 Button {
-                    id: okButton
-                    text: "Ok"
-                    hoverEnabled: true
+                    text: "Палитра цветов"
+                    width: parent.width
+                    height: 50
 
                     background: Rectangle {
-                        id: okButtonBg
                         color: {
-                            if (okButton.pressed) return Qt.darker("#4caf50", 1.2)
-                            else if (okButton.hovered) return Qt.lighter("#4caf50", 1.1)
-                            else return "#4caf50"
+                            if (parent.pressed) {
+                                var c = Qt.darker(buttonColor, 1.25);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else if (parent.hovered) {
+                                var c = Qt.lighter(buttonColor, 1.15);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else return buttonColor
                         }
+                        border.color: borderColor
+                        border.width: 1
                         radius: 8
 
                         Behavior on color {
-                            ColorAnimation { duration: 150 }
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                         }
                     }
 
                     contentItem: Text {
                         text: parent.text
-                        color: "white"
+                        color: textColor
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         font.bold: true
                     }
-
-                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                    Behavior on opacity { NumberAnimation { duration: 100 } }
 
                     onClicked: {
-                        container.destroyChildren()
-                        main.blockIdCounter = 0
-                        main.debugStartBlockId = -1
-                        console.log("Создан новый пустой алгоритм")
-                        newAlgorithmDialog.close()
+                        paletteWindow.show()
                     }
-                }
-
-                Button {
-                    id: cancelButton
-                    text: "Cancel"
-                    hoverEnabled: true
-
-                    background: Rectangle {
-                        id: cancelButtonBg
-                        color: {
-                            if (cancelButton.pressed) return Qt.darker("#f44336", 1.2)
-                            else if (cancelButton.hovered) return Qt.lighter("#f44336", 1.1)
-                            else return "#f44336"
-                        }
-                        radius: 8
-
-                        Behavior on color {
-                            ColorAnimation { duration: 150 }
-                        }
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.bold: true
-                    }
-
-                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                    Behavior on opacity { NumberAnimation { duration: 100 } }
-
-                    onClicked: newAlgorithmDialog.close()
                 }
             }
         }
     }
 
-    Popup {
-        id: errorDialog
-        x: (parent.width - width) / 2
-        y: (parent.height - height) / 2
-        width: 300
-        height: 150
-        modal: true
-        focus: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        padding: 10
-        property alias text: errorText.text
+    // Окно палитры цветов (отдельное)
+    Window {
+        id: paletteWindow
+        title: "Палитра цветов"
+        width: 450
+        height: 600
+        modality: Qt.NonModal
+        color: panelColor
+        visible: false
 
-        background: Rectangle {
-            color: main.panelColor
-            border.color: "#f44336"
-            border.width: 2
-            radius: 8
-        }
-
-        ColumnLayout{
+        Rectangle {
             anchors.fill: parent
-             Text {
-                id: errorText
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-                color: main.textColor
-            }
-            RowLayout{
-                 Layout.alignment: Qt.AlignHCenter
-                 Button {
-                    id: errorOkButton
-                    text: "Ok"
-                    hoverEnabled: true
+            color: parent.color
 
-                    background: Rectangle {
-                        id: errorOkButtonBg
-                        color: {
-                            if (errorOkButton.pressed) return Qt.darker("#f44336", 1.2)
-                            else if (errorOkButton.hovered) return Qt.lighter("#f44336", 1.1)
-                            else return "#f44336"
-                        }
-                        radius: 8
-
-                        Behavior on color {
-                            ColorAnimation { duration: 150 }
-                        }
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.bold: true
-                    }
-
-                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                    Behavior on opacity { NumberAnimation { duration: 100 } }
-
-                    onClicked: errorDialog.close()
-                }
-            }
-        }
-    }
-
-    Popup {
-        id: helpDialog
-        x: (parent.width - width) / 2
-        y: (parent.height - height) / 2
-        width: 600
-        height: 400
-        modal: true
-        focus: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        padding: 10
-
-        background: Rectangle {
-            color: main.panelColor
-            border.color: "#42a5f5"
-            border.width: 2
-            radius: 8
-        }
-
-        ColumnLayout{
-            anchors.fill: parent
-            ScrollView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+            Flickable {
+                anchors.fill: parent
+                anchors.margins: 10
+                contentHeight: paletteColumn.height + 20
                 clip: true
-                TextArea {
-                    readOnly: true
-                    wrapMode: Text.WordWrap
-                    text: "Добро пожаловать в редактор алгоритмов!\n\n"
-                        + "Горячие клавиши:\n"
-                        + "F1: Запуск\n"
-                        + "F2: Сохранить\n"
-                        + "F3: Открыть\n"
-                        + "F4: Новый алгоритм\n"
-                        + "F5: Справка\n"
-                        + "F6: Отладка/Закончить отладку\n"
-                        + "F7: Ввод / Шаг назад (в режиме отладки)\n"
-                        + "F8: Вывод / Шаг вперёд (в режиме отладки)\n"
-                        + "F9: Действие\n"
-                        + "F10: Счетчик\n"
-                        + "F11: Предусловие\n"
-                        + "F12: Постусловие\n\n"
-                        + "Для создания блока выберите его тип в выпадающем списке и кликните в нужной области (основной или внутри другого блока).\n"
-                        + "Для удаления блока кликните по нему правой кнопкой мыши или дважды левой.\n"
-                        + "Для активации области для добавления блоков (например, ветки 'Да'/'Нет' в условии) кликните по кнопке 'A' в углу этой области."
-                    color: main.textColor
-                }
-            }
-            RowLayout{
-                Layout.alignment: Qt.AlignHCenter
-                Button {
-                    id: helpOkButton
-                    text: "Ok"
-                    hoverEnabled: true
 
-                    background: Rectangle {
-                        id: helpOkButtonBg
-                        color: {
-                            if (helpOkButton.pressed) return Qt.darker("#42a5f5", 1.2)
-                            else if (helpOkButton.hovered) return Qt.lighter("#42a5f5", 1.1)
-                            else return "#42a5f5"
+                Column {
+                    id: paletteColumn
+                    width: parent.width - 20
+                    spacing: 10
+
+                    Text {
+                        text: "Основные цвета:"
+                        color: textColor
+                        font.bold: true
+                        font.pixelSize: 16
+                    }
+
+                    Button {
+                        text: "Сменить цвет текста"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
                         }
-                        radius: 8
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "text"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет бордеров"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "border"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет кнопок"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "button"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет фона"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "background"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет областей"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "panel"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 2
+                        color: borderColor
 
                         Behavior on color {
-                            ColorAnimation { duration: 150 }
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                         }
                     }
 
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
+                    Text {
+                        text: "Цвета кнопок спавна блоков:"
+                        color: textColor
                         font.bold: true
+                        font.pixelSize: 16
                     }
 
-                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
+                    Button {
+                        text: "Сменить цвет кнопки 'Ввод'"
+                        width: parent.width
+                        height: 40
 
-                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                    Behavior on opacity { NumberAnimation { duration: 100 } }
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
 
-                    onClicked: helpDialog.close()
-                }
-            }
-        }
-    }
-
-    Popup {
-        id: information_save
-        x: (parent.width - width) / 2
-        y: (parent.height - height) / 2
-        width: 250
-        height: 100
-        modal: true
-        focus: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        padding: 10
-        property alias text: infoText.text
-
-        background: Rectangle {
-            color: main.panelColor
-            border.color: "#4caf50"
-            border.width: 2
-            radius: 8
-        }
-
-         ColumnLayout{
-            anchors.fill: parent
-            Text {
-                id: infoText
-                Layout.fillWidth: true
-                horizontalAlignment: Text.AlignHCenter
-                color: main.textColor
-                font.bold: true
-            }
-            RowLayout{
-                Layout.alignment: Qt.AlignHCenter
-                Button {
-                    id: infoOkButton
-                    text: "Ok"
-                    hoverEnabled: true
-
-                    background: Rectangle {
-                        id: infoOkButtonBg
-                        color: {
-                            if (infoOkButton.pressed) return Qt.darker("#4caf50", 1.2)
-                            else if (infoOkButton.hovered) return Qt.lighter("#4caf50", 1.1)
-                            else return "#4caf50"
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
                         }
-                        radius: 8
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "input"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет кнопки 'Вывод'"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "output"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет кнопки 'Действие'"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "action"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет кнопки 'Счетчик'"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "counter"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет кнопки 'Предусловие'"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "precond"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет кнопки 'Постусловие'"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "postcond"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет кнопки 'Условие'"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "cond"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет кнопки 'Начало'"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "start"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Button {
+                        text: "Сменить цвет кнопки 'Конец'"
+                        width: parent.width
+                        height: 40
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: {
+                            colorPicker.currentTarget = "end"
+                            colorPicker.open()
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 2
+                        color: borderColor
 
                         Behavior on color {
-                            ColorAnimation { duration: 150 }
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                         }
                     }
 
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.bold: true
+                    Button {
+                        text: "Сбросить все цвета"
+                        width: parent.width
+                        height: 50
+
+                        background: Rectangle {
+                            color: {
+                                if (parent.pressed) {
+                                    var c = Qt.darker(buttonColor, 1.25);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else if (parent.hovered) {
+                                    var c = Qt.lighter(buttonColor, 1.15);
+                                    return Qt.rgba(c.r, c.g, c.b, 1);
+                                } else return buttonColor
+                            }
+                            border.color: borderColor
+                            border.width: 1
+                            radius: 8
+
+                            Behavior on color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on border.color {
+                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                            }
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.bold: true
+                        }
+
+                        onClicked: {
+                            resetAllColors()
+                        }
                     }
-
-                    scale: pressed ? 1.1 : (hovered ? 0.9 : 1.0)
-                    opacity: pressed ? 0.7 : (hovered ? 0.9 : 1.0)
-
-                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
-                    Behavior on opacity { NumberAnimation { duration: 100 } }
-
-                    onClicked: information_save.close()
                 }
             }
         }
@@ -3131,6 +3593,7 @@ Window {
     Component {
         id: miniBlockShapeItem
         Canvas {
+            id: miniCanvas
             property string blockType: "действие"
             antialiasing: true
             onPaint: {
@@ -3139,7 +3602,7 @@ Window {
                 const w = width, h = height, cx = w/2, cy = h/2, s = 5
                 ctx.beginPath()
                 ctx.fillStyle = getBlockColor(blockType)
-                ctx.strokeStyle = main.borderColor
+                ctx.strokeStyle = borderColor
                 ctx.lineWidth = 1
                 if (["ввод", "вывод"].includes(blockType)) {
                     ctx.moveTo(s, 0); ctx.lineTo(w, 0); ctx.lineTo(w-s, h); ctx.lineTo(0, h)
@@ -3158,11 +3621,31 @@ Window {
             }
             function getBlockColor(type) {
                 var colors = {
-                    "ввод": "#ba68c8", "вывод": "#4db6ac", "действие": "#64b5f6", "усл": "#81c784",
-                    "счетчик": "#ef5350", "предусл": "#ffb74d", "постусл": "#ce93d8",
-                    "начало": "#64b5f6", "конец": "#ffb74d"
+                    "ввод": inputColor,
+                    "вывод": outputColor,
+                    "действие": actionColor,
+                    "усл": condColor,
+                    "счетчик": counterColor,
+                    "предусл": precondColor,
+                    "постусл": postcondColor,
+                    "начало": startColor,
+                    "конец": endColor
                 };
-                return colors[type] || "#64b5f6";
+                return colors[type] || actionColor;
+            }
+
+            Connections {
+                target: main
+                function onInputColorChanged() { if (blockType === "ввод") miniCanvas.requestPaint() }
+                function onOutputColorChanged() { if (blockType === "вывод") miniCanvas.requestPaint() }
+                function onActionColorChanged() { if (blockType === "действие") miniCanvas.requestPaint() }
+                function onCondColorChanged() { if (blockType === "усл") miniCanvas.requestPaint() }
+                function onCounterColorChanged() { if (blockType === "счетчик") miniCanvas.requestPaint() }
+                function onPrecondColorChanged() { if (blockType === "предусл") miniCanvas.requestPaint() }
+                function onPostcondColorChanged() { if (blockType === "постусл") miniCanvas.requestPaint() }
+                function onStartColorChanged() { if (blockType === "начало") miniCanvas.requestPaint() }
+                function onEndColorChanged() { if (blockType === "конец") miniCanvas.requestPaint() }
+                function onBorderColorChanged() { miniCanvas.requestPaint() }
             }
         }
     }
