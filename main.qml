@@ -292,6 +292,22 @@ Window {
         }
     }
 
+    // Вспомогательная функция для получения цвета блока по типу
+    function getBlockColor(type) {
+        var colors = {
+            "ввод": inputColor,
+            "вывод": outputColor,
+            "действие": actionColor,
+            "усл": condColor,
+            "счетчик": counterColor,
+            "предусл": precondColor,
+            "постусл": postcondColor,
+            "начало": startColor,
+            "конец": endColor
+        };
+        return colors[type] || actionColor;
+    }
+
     Obrabotka {
         id: myObrabotka
         onNeedUserInput: () => {
@@ -1993,12 +2009,27 @@ Window {
             console.warn("Нет активного контейнера!")
             return
         }
+
+        var colorForBlock;
+        switch (type) {
+            case "ввод": colorForBlock = inputColor; break;
+            case "вывод": colorForBlock = outputColor; break;
+            case "действие": colorForBlock = actionColor; break;
+            case "счетчик": colorForBlock = counterColor; break;
+            case "предусл": colorForBlock = precondColor; break;
+            case "постусл": colorForBlock = postcondColor; break;
+            case "усл": colorForBlock = condColor; break;
+            case "начало": colorForBlock = startColor; break;
+            case "конец": colorForBlock = endColor; break;
+            default: colorForBlock = actionColor; break; // Default to action color
+        }
+
         var newBlock = spisok.createObject(main.activeContainer, {
             "blockType": type,
-            "uniqueId": main.blockIdCounter
+            "uniqueId": main.blockIdCounter,
+            "customColor": colorForBlock // Pass the initial color here
         })
         main.blockIdCounter++;
-        console.log("Создан блок типа:", type, "с ID:", newBlock.uniqueId, "в контейнере:", main.activeContainer)
     }
 
     function insertBlockAfter(referenceBlock, type) {
@@ -2149,6 +2180,21 @@ Window {
                     };
                 }
                 return result;
+            }
+
+            property var _blockCanvasRef: null // Приватное свойство для хранения ссылки на blockCanvas
+            function registerBlockCanvas(canvas) {
+                _blockCanvasRef = canvas;
+                // console.log("BlockCanvas registered for ID:", root.uniqueId, "canvas:", canvas); // Для отладки
+            }
+
+            function updateBlockColor(newColor) {
+                root.customColor = newColor;
+                if (root._blockCanvasRef) {
+                    root._blockCanvasRef.requestPaint();
+                } else {
+                    console.warn("blockCanvas not registered for block ID:", root.uniqueId);
+                }
             }
 
             HoverHandler {
@@ -2305,6 +2351,7 @@ Window {
 
                         Canvas {
                             id: blockCanvas
+                            Component.onCompleted: root.registerBlockCanvas(blockCanvas)
                             anchors.fill: parent
                             antialiasing: true
                             z: 0
@@ -2317,9 +2364,9 @@ Window {
                                 if (root.customColor !== "transparent") {
                                     fillColor = root.hovered ? Qt.lighter(root.customColor, 1.15) : root.customColor;
                                 } else if (root.hovered) {
-                                    fillColor = Qt.lighter(getBlockColor(root.blockType), 1.15);
+                                    fillColor = Qt.lighter(main.getBlockColor(root.blockType), 1.15);
                                 } else {
-                                    fillColor = getBlockColor(root.blockType);
+                                    fillColor = main.getBlockColor(root.blockType);
                                 }
                                 ctx.fillStyle = fillColor;
                                 ctx.strokeStyle = root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : borderColor)
@@ -3312,7 +3359,7 @@ Window {
     Popup {
         id: colorPopup
         width: 300
-        height: 350
+        height: 450
         modal: true
         focus: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -3327,7 +3374,7 @@ Window {
 
         property var blockItem: null
 
-        Column {
+        ColumnLayout { // Используем ColumnLayout для лучшего управления компоновкой
             anchors.fill: parent
             anchors.margins: 10
             spacing: 10
@@ -3337,41 +3384,62 @@ Window {
                 color: textColor
                 font.pixelSize: 18
                 font.bold: true
-                anchors.horizontalCenter: parent.horizontalCenter
+                Layout.alignment: Qt.AlignHCenter // Используем Layout.alignment вместо anchors
             }
 
             Grid {
                 id: colorGrid
-                width: parent.width
-                height: 200
-                columns: 4
+                Component.onCompleted: console.log("colorGrid - onCompleted:", width, height, spacing, columns)
+                width: 280 // Жестко задаем ширину
+                height: 200 // Жестко задаем высоту
+                columns: 6 // Изменено на 6 столбцов
                 spacing: 5
 
                 property var colors: [
+                    // Основные цвета
                     "#FF0000", "#00FF00", "#0000FF", "#FFFF00",
                     "#FF00FF", "#00FFFF", "#FFA500", "#800080",
                     "#008000", "#000080", "#A52A2A", "#808080",
-                    "#C0C0C0", "#FFC0CB", "#90EE90", "#ADD8E6"
+                    "#C0C0C0", "#FFC0CB", "#90EE90", "#ADD8E6",
+                    // Дополнительные цвета
+                    "#4CAF50", "#FFEB3B", "#FF9800", "#9C27B0",
+                    "#673AB7", "#3F51B5", "#2196F3", "#03A9F4",
+                    "#00BCD4", "#009688", "#8BC34A", "#CDDC39",
+                    "#FFC107", "#FF5722", "#795548", "#607D8B",
+                    "#E91E63", "#F44336", "#9E9E9E", "#424242"
                 ]
 
                 Repeater {
                     model: colorGrid.colors
 
                     Rectangle {
+                        id: colorTile
+                        Component.onCompleted: console.log("Tile created:", colorTile.width, colorTile.height, colorTile.color, modelData, "gridWidth:", colorGrid.width)
                         width: (colorGrid.width - colorGrid.spacing * (colorGrid.columns - 1)) / colorGrid.columns
                         height: width
                         color: modelData
                         radius: 5
-                        border.color: borderColor
-                        border.width: 2
+                        border.color: {
+                            if (colorTileMouseArea.pressed) return Qt.darker(modelData, 1.5)
+                            if (colorTileMouseArea.hovered) return Qt.lighter(modelData, 1.5)
+                            return borderColor
+                        }
+                        border.width: colorTileMouseArea.hovered ? 3 : 2
+
+                        Behavior on border.color { ColorAnimation { duration: 100 } }
+                        Behavior on border.width { NumberAnimation { duration: 100 } }
 
                         MouseArea {
+                            id: colorTileMouseArea
                             anchors.fill: parent
+                            hoverEnabled: true
                             onClicked: {
                                 if (colorPopup.blockItem) {
                                     colorPopup.blockItem.customColor = modelData;
-                                    if (colorPopup.blockItem.blockCanvas) {
-                                        colorPopup.blockItem.blockCanvas.requestPaint();
+                                    if (colorPopup.blockItem._blockCanvasRef) {
+                                        colorPopup.blockItem._blockCanvasRef.requestPaint();
+                                    } else {
+                                        console.warn("blockCanvas not registered for block ID:", colorPopup.blockItem.uniqueId);
                                     }
                                 }
                                 colorPopup.close();
@@ -3381,90 +3449,105 @@ Window {
                 }
             }
 
-            Button {
-                text: "Сбросить цвет"
-                width: parent.width
-                height: 40
-                hoverEnabled: true
 
-                background: Rectangle {
-                    color: {
-                        if (parent.pressed) {
-                            var c = Qt.darker(buttonColor, 1.25);
-                            return Qt.rgba(c.r, c.g, c.b, 1);
-                        } else if (parent.hovered) {
-                            var c = Qt.lighter(buttonColor, 1.15);
-                            return Qt.rgba(c.r, c.g, c.b, 1);
-                        } else return buttonColor
-                    }
-                    border.color: borderColor
-                    border.width: 1
-                    radius: 5
 
-                    Behavior on color {
-                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                    }
-                    Behavior on border.color {
-                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                    }
-                }
-
-                contentItem: Text {
-                    text: parent.text
-                    color: textColor
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    font.bold: true
-                }
-
-                onClicked: {
-                    if (colorPopup.blockItem) {
-                        colorPopup.blockItem.customColor = "transparent";
-                        if (colorPopup.blockItem.blockCanvas) {
-                            colorPopup.blockItem.blockCanvas.requestPaint();
-                        }
-                    }
-                    colorPopup.close();
-                }
+            // Spacer, чтобы толкать кнопки вниз
+            Rectangle {
+                Layout.fillHeight: true
+                color: "transparent"
             }
 
-            Button {
-                text: "Отмена"
-                width: parent.width
-                height: 40
-                hoverEnabled: true
+            RowLayout { // Кнопки в одном ряду
+                Layout.fillWidth: true
+                Layout.preferredHeight: 40 // Задаем высоту RowLayout
+                spacing: 10
+                Layout.alignment: Qt.AlignHCenter | Qt.AlignBottom // Комбинируем выравнивание
 
-                background: Rectangle {
-                    color: {
-                        if (parent.pressed) {
-                            var c = Qt.darker("#757575", 1.25);
-                            return Qt.rgba(c.r, c.g, c.b, 1);
-                        } else if (parent.hovered) {
-                            var c = Qt.lighter("#757575", 1.15);
-                            return Qt.rgba(c.r, c.g, c.b, 1);
-                        } else return "#9e9e9e"
-                    }
-                    border.color: borderColor
-                    border.width: 1
-                    radius: 5
+                Button {
+                    text: "Сбросить цвет"
+                    Layout.fillWidth: true
+                    hoverEnabled: true
 
-                    Behavior on color {
-                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    background: Rectangle {
+                        color: {
+                            if (parent.pressed) {
+                                var c = Qt.darker(buttonColor, 1.25);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else if (parent.hovered) {
+                                var c = Qt.lighter(buttonColor, 1.15);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else return buttonColor
+                        }
+                        border.color: borderColor
+                        border.width: 1
+                        radius: 5
+
+                        Behavior on color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
                     }
-                    Behavior on border.color {
-                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: textColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+
+                    onClicked: {
+                        if (colorPopup.blockItem) {
+                            colorPopup.blockItem.customColor = main.getBlockColor(colorPopup.blockItem.blockType); // Сбрасываем к цвету по умолчанию для типа блока
+                            if (colorPopup.blockItem._blockCanvasRef) {
+                                colorPopup.blockItem._blockCanvasRef.requestPaint();
+                            }
+                        } else {
+                            console.warn("blockCanvas not registered for block ID:", colorPopup.blockItem.uniqueId);
+                        }
+                        colorPopup.close();
                     }
                 }
 
-                contentItem: Text {
-                    text: parent.text
-                    color: textColor
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    font.bold: true
-                }
+                Button {
+                    text: "Отмена"
+                    Layout.fillWidth: true
+                    hoverEnabled: true
 
-                onClicked: colorPopup.close()
+                    background: Rectangle {
+                        color: {
+                            if (parent.pressed) {
+                                var c = Qt.darker("#757575", 1.25);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else if (parent.hovered) {
+                                var c = Qt.lighter("#757575", 1.15);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else return "#9e9e9e"
+                            }
+                        border.color: borderColor
+                        border.width: 1
+                        radius: 5
+
+                        Behavior on color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: textColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+
+                    onClicked: colorPopup.close()
+                }
             }
         }
     }
@@ -3770,7 +3853,7 @@ Window {
                 ctx.reset();
                 const w = width, h = height, cx = w/2, cy = h/2, s = 5
                 ctx.beginPath()
-                ctx.fillStyle = getBlockColor(blockType)
+                ctx.fillStyle = main.getBlockColor(blockType)
                 ctx.strokeStyle = borderColor
                 ctx.lineWidth = 1
                 if (["ввод", "вывод"].includes(blockType)) {
