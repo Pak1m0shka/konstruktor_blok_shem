@@ -16,6 +16,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QFile>
+#include <QProcess>
 
 QVariantMap Obrabotka::convertToQmlVariantMap() const {
     QVariantMap map;
@@ -1223,28 +1224,59 @@ void Obrabotka::myPriem(QVariantList algoritm)
     vipolnenie(algoritm);
     peremennieMap.clear();
 }
+QString Obrabotka::currentFilePath() const
+{
+    return m_currentFilePath;
+}
 
-// Новые функции для работы с файлами
-bool Obrabotka::saveAlgorithmToFile(const QVariantList& algorithm, const QString& filename) {
-    QFile file(filename);
+void Obrabotka::setCurrentFilePath(const QString &filePath)
+{
+    if (m_currentFilePath != filePath) {
+        m_currentFilePath = filePath;
+        emit currentFilePathChanged();
+    }
+}
+
+void Obrabotka::createNewInstance(const QUrl &filePath)
+{
+    QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList() << filePath.toLocalFile());
+    QCoreApplication::quit();
+}
+
+bool Obrabotka::saveAlgorithmToFile(const QVariantList& algorithm, const QUrl& filePath) {
+    QString localPath = filePath.toLocalFile();
+    if (localPath.isEmpty()) {
+        emit errorOccurred("Неверный путь к файлу.");
+        return false;
+    }
+    QFile file(localPath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        qWarning() << "Could not open file for writing:" << filename;
+        qWarning() << "Could not open file for writing:" << localPath;
+        emit errorOccurred("Не удалось открыть файл для записи: " + localPath);
         return false;
     }
     QJsonDocument doc = QJsonDocument::fromVariant(QVariant(algorithm));
     file.write(doc.toJson(QJsonDocument::Indented));
     file.close();
 
-    qDebug() << "Алгоритм успешно сохранен в файл:" << filename;
+    setCurrentFilePath(localPath);
+    emit fileSaved(localPath);
     return true;
 }
 
-QVariantList Obrabotka::loadAlgorithmFromFile(const QString& filename) {
+QVariantList Obrabotka::loadAlgorithmFromFile(const QUrl& filePath) {
+    QString localPath = filePath.toLocalFile();
+
     QVariantList result;
 
-    QFile file(filename);
+    if (localPath.isEmpty()) {
+        emit errorOccurred("Неверный путь к файлу.");
+        return result;
+    }
+
+    QFile file(localPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        emit errorOccurred("Не удалось открыть файл для чтения: " + filename);
+        emit errorOccurred("Не удалось открыть файл для чтения: " + localPath);
         return result;
     }
 
@@ -1269,9 +1301,46 @@ QVariantList Obrabotka::loadAlgorithmFromFile(const QString& filename) {
     QJsonArray jsonArray = doc.array();
     result = jsonArray.toVariantList();
 
-    qDebug() << "Алгоритм успешно загружен из файла:" << filename;
-    qDebug() << "Количество блоков:" << result.size();
-
     emit algorithmLoaded(result);
     return result;
+}
+
+void Obrabotka::saveSettings(const QVariantMap &settings)
+{
+    QFile file("settings.json");
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "Could not open settings.json for writing";
+        return;
+    }
+
+    QJsonDocument doc = QJsonDocument::fromVariant(QVariant(settings));
+    file.write(doc.toJson(QJsonDocument::Indented));
+    file.close();
+}
+
+QVariantMap Obrabotka::loadSettings()
+{
+    QFile file("settings.json");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "Could not open settings.json for reading";
+        return QVariantMap();
+    }
+
+    QByteArray data = file.readAll();
+    file.close();
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "Error parsing settings.json:" << parseError.errorString();
+        return QVariantMap();
+    }
+
+    if (!doc.isObject()) {
+        qWarning() << "settings.json is not a valid JSON object";
+        return QVariantMap();
+    }
+
+    return doc.object().toVariantMap();
 }

@@ -9,12 +9,18 @@
 #include <QMap>
 #include <QEventLoop>
 #include <QVector>
+#include <QUrl>
 
 class Obrabotka : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QString currentFilePath READ currentFilePath WRITE setCurrentFilePath NOTIFY currentFilePathChanged)
+
 public:
     explicit Obrabotka(QObject *parent = nullptr);
+
+    QString currentFilePath() const;
+    void setCurrentFilePath(const QString &filePath);
 
     Q_INVOKABLE void myPriem(QVariantList algoritm);
     Q_INVOKABLE void userInputReceived(const QString &input);
@@ -22,11 +28,17 @@ public:
     Q_INVOKABLE void stopDebugging();
     Q_INVOKABLE void debugStep();
     Q_INVOKABLE void debugStepBack();
-    Q_INVOKABLE bool saveAlgorithmToFile(const QVariantList& algorithm, const QString& filename);
-    Q_INVOKABLE QVariantList loadAlgorithmFromFile(const QString& filename);
+
+    Q_INVOKABLE QVariantList loadAlgorithmFromFile(const QUrl &filePath);
+    Q_INVOKABLE bool saveAlgorithmToFile(const QVariantList &algorithm, const QUrl &filePath);
+    Q_INVOKABLE void createNewInstance(const QUrl &filePath);
+
+    Q_INVOKABLE void saveSettings(const QVariantMap &settings);
+    Q_INVOKABLE QVariantMap loadSettings();
 
 
 private:
+    QString m_currentFilePath;
     struct VariableInfo {
         QVariant value;
         QString type;
@@ -122,6 +134,9 @@ signals:
     void debugHistoryChanged(bool canStepBack, bool canStepForward);
     void debugFinished();
     void algorithmLoaded(QVariantList algorithm);
+    void newAlgorithmSignal();
+    void currentFilePathChanged();
+    void fileSaved(const QString &filePath);
 };
 
 #endif // OBRABOTKA_H

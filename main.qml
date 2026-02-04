@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Window
 import QtQuick.Controls
-import myObrabotka
 import QtQuick.Dialogs
 import Qt.labs.platform 1.1
 
@@ -13,7 +12,14 @@ Window {
     minimumWidth: 800
     minimumHeight: 600
     visible: true
-    title: qsTr("Построй алгоритм по задаче")
+    title: obrabotka.currentFilePath ? obrabotka.currentFilePath : qsTr("Построй алгоритм по задаче")
+
+    // Флаг режима клавиатуры
+    property bool keyboardMode: false
+    property var keyboardFocusItem: null
+    property int currentKeyboardIndex: -1
+    property var allBlocks: []
+    property bool isEditingBlock: false
 
     // Стандартные темные цвета (для сброса)
     property color defaultBackgroundColor: "#121212"
@@ -65,6 +71,7 @@ Window {
     property real buttonsZoomLevel: 1.0
     property real blocksZoomLevel: 1.0
     property real blockScale: 1.0
+    // property url currentFilePath: "" // This is now in obrabotka
 
     color: backgroundColor
     property Item activeContainer: container
@@ -76,6 +83,219 @@ Window {
     property bool canStepForward: true
     property int blockIdCounter: 0
     property int debugStartBlockId: -1
+
+    // Функция для сбора всех блоков в порядке обхода
+    function collectAllBlocks() {
+        var blocks = []
+
+        function traverseContainer(container) {
+            if (!container || !container.children) return
+
+            for (var i = 0; i < container.children.length; i++) {
+                var child = container.children[i]
+                if (child && child.hasOwnProperty("blockType")) {
+                    blocks.push(child)
+
+                    // Рекурсивно обходим вложенные контейнеры в порядке:
+                    // 1. Для условий: сначала YES ветка, потом NO ветка
+                    if (child.blockType === "усл") {
+                        if (child.leftContainer) traverseContainer(child.leftContainer)
+                        if (child.rightContainer) traverseContainer(child.rightContainer)
+                    }
+                    // 2. Для счетчиков и циклов
+                    else if (child.blockType === "счетчик" && child.centerContainerCounter) {
+                        traverseContainer(child.centerContainerCounter)
+                    }
+                    else if (child.blockType === "предусл" && child.centerContainer) {
+                        traverseContainer(child.centerContainer)
+                    }
+                    else if (child.blockType === "постусл" && child.centerContainerPost) {
+                        traverseContainer(child.centerContainerPost)
+                    }
+                }
+            }
+        }
+
+        traverseContainer(container)
+        return blocks
+    }
+
+    // Функция активации режима клавиатуры
+    function activateKeyboardMode() {
+        if (keyboardMode) {
+            keyboardMode = false
+            if (keyboardFocusItem) {
+                keyboardFocusItem.keyboardFocused = false
+                keyboardFocusItem = null
+            }
+            otvet.text = otvet.text + "\n" + "Режим управления через клавиатуру выключен"
+        } else {
+            keyboardMode = true
+            isEditingBlock = false
+            allBlocks = collectAllBlocks()
+            currentKeyboardIndex = 0
+
+            if (allBlocks.length > 0) {
+                keyboardFocusItem = allBlocks[currentKeyboardIndex]
+                keyboardFocusItem.keyboardFocused = true
+                otvet.text = otvet.text + "\n" + "Режим управления через клавиатуру активирован. Используйте стрелки для навигации, Enter для редактирования, Insert для выхода."
+                otvet.text = otvet.text + "\n" + "Текущий фокус на блоке ID: " + keyboardFocusItem.uniqueId
+            } else {
+                otvet.text = otvet.text + "\n" + "Нет блоков для управления"
+                keyboardMode = false
+            }
+        }
+    }
+
+    // Функция перемещения фокуса вверх
+    function moveFocusUp() {
+        if (!keyboardMode || isEditingBlock || allBlocks.length === 0) return
+
+        if (keyboardFocusItem) {
+            keyboardFocusItem.keyboardFocused = false
+        }
+
+        currentKeyboardIndex = (currentKeyboardIndex - 1 + allBlocks.length) % allBlocks.length
+        keyboardFocusItem = allBlocks[currentKeyboardIndex]
+        keyboardFocusItem.keyboardFocused = true
+
+        otvet.text = otvet.text + "\n" + "Фокус перемещен на блок ID: " + keyboardFocusItem.uniqueId
+    }
+
+    // Функция перемещения фокуса вниз
+    function moveFocusDown() {
+        if (!keyboardMode || isEditingBlock || allBlocks.length === 0) return
+
+        if (keyboardFocusItem) {
+            keyboardFocusItem.keyboardFocused = false
+        }
+
+        currentKeyboardIndex = (currentKeyboardIndex + 1) % allBlocks.length
+        keyboardFocusItem = allBlocks[currentKeyboardIndex]
+        keyboardFocusItem.keyboardFocused = true
+
+        otvet.text = otvet.text + "\n" + "Фокус перемещен на блок ID: " + keyboardFocusItem.uniqueId
+    }
+
+    // Функция начала редактирования блока
+    function startEditingBlock() {
+        if (!keyboardMode || !keyboardFocusItem || isEditingBlock) return
+
+        var block = keyboardFocusItem
+        isEditingBlock = true
+
+        // Определяем какое текстовое поле активировать
+        if (["усл", "предусл", "постусл"].includes(block.blockType)) {
+            block.inputFieldDiamond.forceActiveFocus()
+            block.inputFieldDiamond.selectAll()
+        } else if (block.blockType === "счетчик") {
+            block.counterVarField.forceActiveFocus()
+            block.counterVarField.selectAll()
+        } else if (block.blockType !== "начало" && block.blockType !== "конец") {
+            block.inputField.forceActiveFocus()
+            block.inputField.selectAll()
+        }
+
+        otvet.text = otvet.text + "\n" + "Режим редактирования блока ID: " + block.uniqueId + ". Нажмите Enter для завершения."
+    }
+
+    // Функция завершения редактирования
+    function finishEditing() {
+        if (!keyboardMode || !isEditingBlock) return
+
+        isEditingBlock = false
+        main.forceActiveFocus() // Возвращаем фокус на главное окно
+
+        otvet.text = otvet.text + "\n" + "Редактирование завершено. Используйте стрелки для навигации."
+    }
+
+    // Обработка нажатий клавиш
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Insert) {
+            activateKeyboardMode()
+            event.accepted = true
+        }
+
+        if (keyboardMode && !isEditingBlock) {
+            switch(event.key) {
+                case Qt.Key_Up:
+                    moveFocusUp()
+                    event.accepted = true
+                    break
+                case Qt.Key_Down:
+                    moveFocusDown()
+                    event.accepted = true
+                    break
+                case Qt.Key_Enter:
+                case Qt.Key_Return:
+                    startEditingBlock()
+                    event.accepted = true
+                    break
+            }
+        } else if (keyboardMode && isEditingBlock && (event.key === Qt.Key_Enter || event.key === Qt.Key_Return)) {
+            finishEditing()
+            event.accepted = true
+        }
+    }
+
+    function saveSettings() {
+        var settings = {
+            "backgroundColor": backgroundColor,
+            "panelColor": panelColor,
+            "textColor": textColor,
+            "borderColor": borderColor,
+            "buttonColor": buttonColor,
+            "hoverColor": hoverColor,
+            "pressedColor": pressedColor,
+            "inputColor": inputColor,
+            "outputColor": outputColor,
+            "actionColor": actionColor,
+            "counterColor": counterColor,
+            "precondColor": precondColor,
+            "postcondColor": postcondColor,
+            "condColor": condColor,
+            "startColor": startColor,
+            "endColor": endColor,
+            "debugTableColor": debugTableColor,
+            "debugTableBorderColor": debugTableBorderColor,
+            "translucentColor": translucentColor,
+            "buttonsZoomLevel": buttonsZoomLevel,
+            "blocksZoomLevel": blocksZoomLevel
+        }
+        obrabotka.saveSettings(settings);
+    }
+
+    // Устанавливаем фокус на окно для обработки клавиш
+    Component.onCompleted: {
+        main.forceActiveFocus()
+        var settings = obrabotka.loadSettings();
+        if (settings) {
+            backgroundColor = settings.backgroundColor || defaultBackgroundColor
+            panelColor = settings.panelColor || defaultPanelColor
+            textColor = settings.textColor || defaultTextColor
+            borderColor = settings.borderColor || defaultBorderColor
+            buttonColor = settings.buttonColor || defaultButtonColor
+            hoverColor = settings.hoverColor || defaultHoverColor
+            pressedColor = settings.pressedColor || defaultPressedColor
+            inputColor = settings.inputColor || defaultInputColor
+            outputColor = settings.outputColor || defaultOutputColor
+            actionColor = settings.actionColor || defaultActionColor
+            counterColor = settings.counterColor || defaultCounterColor
+            precondColor = settings.precondColor || defaultPrecondColor
+            postcondColor = settings.postcondColor || defaultPostcondColor
+            condColor = settings.condColor || defaultCondColor
+            startColor = settings.startColor || defaultStartColor
+            endColor = settings.endColor || defaultEndColor
+            debugTableColor = settings.debugTableColor || defaultDebugTableColor
+            debugTableBorderColor = settings.debugTableBorderColor || defaultDebugTableBorderColor
+            translucentColor = settings.translucentColor || defaultTranslucentColor
+            buttonsZoomLevel = settings.buttonsZoomLevel || 1.0
+            blocksZoomLevel = settings.blocksZoomLevel || 1.0
+        }
+        if (obrabotka.currentFilePath) {
+            obrabotka.loadAlgorithmFromFile(obrabotka.currentFilePath)
+        }
+    }
 
     // Функция сброса всех цветов к стандартным темным
     function resetToDarkTheme() {
@@ -98,6 +318,7 @@ Window {
         debugTableColor = "#2d2d2d"
         debugTableBorderColor = "#9c27b0"
         translucentColor = "#80000000"
+        saveSettings()
     }
 
     // Функция установки светлой темы (улучшенная расцветка)
@@ -121,6 +342,7 @@ Window {
         debugTableColor = "#ffffff"
         debugTableBorderColor = "#7c3aed"
         translucentColor = "#80000000"
+        saveSettings()
     }
 
     // Светлая тема в стиле Ant Design
@@ -144,6 +366,7 @@ Window {
         debugTableColor = "#ffffff"
         debugTableBorderColor = "#1890ff"
         translucentColor = "#80000000"
+        saveSettings()
     }
 
     // Синяя тема
@@ -167,6 +390,7 @@ Window {
         debugTableColor = "#1b263b"
         debugTableBorderColor = "#4361ee"
         translucentColor = "#80000000"
+        saveSettings()
     }
 
     // Зеленая тема
@@ -190,6 +414,7 @@ Window {
         debugTableColor = "#252a34"
         debugTableBorderColor = "#38b000"
         translucentColor = "#80000000"
+        saveSettings()
     }
 
     // Фиолетовая тема
@@ -213,6 +438,7 @@ Window {
         debugTableColor = "#16213e"
         debugTableBorderColor = "#9c27b0"
         translucentColor = "#80000000"
+        saveSettings()
     }
 
     // Оранжевая тема
@@ -236,6 +462,7 @@ Window {
         debugTableColor = "#3d2800"
         debugTableBorderColor = "#ff6f00"
         translucentColor = "#80000000"
+        saveSettings()
     }
 
     // Функция сохранения текущей темы
@@ -281,11 +508,11 @@ Window {
             precondColor = savedTheme.precondColor
             postcondColor = savedTheme.postcondColor
             condColor = savedTheme.condColor
-            startColor = savedTheme.startColor
-            endColor = savedTheme.endColor
-            debugTableColor = savedTheme.debugTableColor
-            debugTableBorderColor = savedTheme.debugTableBorderColor
-            translucentColor = savedTheme.translucentColor
+            startColor = startColor
+            endColor = endColor
+            debugTableColor = debugTableColor
+            debugTableBorderColor = debugTableBorderColor
+            translucentColor = translucentColor
             console.log("Тема загружена из сохранения")
         } else {
             console.log("Нет сохраненной темы")
@@ -308,8 +535,8 @@ Window {
         return colors[type] || actionColor;
     }
 
-    Obrabotka {
-        id: myObrabotka
+    Connections {
+        target: obrabotka
         onNeedUserInput: () => {
             console.log("QML: Получен запрос на ввод")
             otvet.text = otvet.text + "\n" + "QML: Получен запрос на ввод"
@@ -369,6 +596,61 @@ Window {
 
         onErrorOccurred: (errorMessage) => {
             console.log("Ошибка при загрузке:", errorMessage)
+        }
+        onFileSaved: (filePath) => {
+            otvet.text = otvet.text + "\n" + "Файл сохранен: " + filePath
+        }
+    }
+
+    FileDialog {
+        id: saveAsDialog
+        title: "Сохранить как..."
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        nameFilters: [ "JSON files (*.json)", "All files (*)" ]
+        onAccepted: {
+            var data = main.collectData(0);
+            obrabotka.saveAlgorithmToFile(data, saveAsDialog.file);
+            settingsPopup.close();
+        }
+        onRejected: {
+            console.log("Сохранение файла отменено.");
+            settingsPopup.close();
+        }
+    }
+
+    FileDialog {
+        id: newFileDialog
+        title: "Создать новый алгоритм"
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "json"
+        nameFilters: [ "JSON files (*.json)", "All files (*)" ]
+        onAccepted: {
+            var data = main.collectData(0); // Collect current algorithm data
+            if (obrabotka.saveAlgorithmToFile(data, newFileDialog.file)) { // Save current algorithm to the new file
+                obrabotka.createNewInstance(newFileDialog.file); // Launch new instance with the new file
+                Qt.quit(); // Quit current instance
+            }
+            settingsPopup.close();
+        }
+        onRejected: {
+            console.log("Создание нового файла отменено.");
+            settingsPopup.close();
+        }
+    }
+
+    FileDialog {
+        id: openDialog
+        title: "Открыть алгоритм"
+        fileMode: FileDialog.OpenFile
+        nameFilters: [ "JSON files (*.json)", "All files (*)" ]
+        onAccepted: {
+            obrabotka.loadAlgorithmFromFile(openDialog.file);
+            settingsPopup.close();
+        }
+        onRejected: {
+            console.log("Открытие файла отменено.");
+            settingsPopup.close();
         }
     }
 
@@ -555,7 +837,6 @@ Window {
                         text: "Запуск"
                         hoverEnabled: true
                         onClicked: collectData(1)
-                        Shortcut { sequence: "F1"; onActivated: collectData(1) }
                         height: parent.height
                         width: 150 * buttonsZoomLevel
 
@@ -597,18 +878,6 @@ Window {
                         id: debugButton
                         text: main.debugMode ? "Закончить отладку" : "Отладка"
                         hoverEnabled: true
-                        Shortcut {
-                             sequence: "F6"
-                             onActivated: {
-                                 if (main.debugMode) {
-                                     myObrabotka.stopDebugging();
-                                 } else {
-                                     main.debugMode = true;
-                                     console.log("Режим отладки включен");
-                                     collectData(2);
-                                 }
-                             }
-                        }
                         height: parent.height
                         width: 180 * buttonsZoomLevel
 
@@ -647,7 +916,7 @@ Window {
                         onClicked: {
                             if (main.debugMode) {
                                 console.log("Нажата кнопка 'Закончить отладку'");
-                                myObrabotka.stopDebugging();
+                                obrabotka.stopDebugging();
                             } else {
                                 main.debugMode = true;
                                 console.log("Режим отладки включен");
@@ -857,7 +1126,6 @@ Window {
                         enabled: !main.debugMode
                         hoverEnabled: true
                         onClicked: createBlock("ввод")
-                        Shortcut { sequence: "F7"; onActivated: if(enabled) createBlock("ввод") }
                         height: parent.height
                         width: 100 * buttonsZoomLevel
 
@@ -928,7 +1196,6 @@ Window {
                         enabled: !main.debugMode
                         hoverEnabled: true
                         onClicked: createBlock("вывод")
-                        Shortcut { sequence: "F8"; onActivated: if(enabled) createBlock("вывод") }
                         height: parent.height
                         width: 100 * buttonsZoomLevel
 
@@ -999,7 +1266,6 @@ Window {
                         enabled: !main.debugMode
                         hoverEnabled: true
                         onClicked: createBlock("действие")
-                        Shortcut { sequence: "F9"; onActivated: if(enabled) createBlock("действие") }
                         height: parent.height
                         width: 120 * buttonsZoomLevel
 
@@ -1063,7 +1329,6 @@ Window {
                         enabled: !main.debugMode
                         hoverEnabled: true
                         onClicked: createBlock("счетчик")
-                        Shortcut { sequence: "F10"; onActivated: if(enabled) createBlock("счетчик") }
                         height: parent.height
                         width: 120 * buttonsZoomLevel
 
@@ -1092,13 +1357,13 @@ Window {
                                     var w = width, h = height
                                     var hex = h * 0.3
                                     ctx.beginPath()
-                                    ctx.moveTo(hex, 0)
-                                    ctx.lineTo(w - hex, 0)
-                                    ctx.lineTo(w, h / 2)
-                                    ctx.lineTo(w - hex, h)
-                                    ctx.lineTo(hex, h)
-                                    ctx.lineTo(0, h / 2)
-                                    ctx.closePath()
+                                    ctx.moveTo(hex, 0);
+                                    ctx.lineTo(w-hex, 0);
+                                    ctx.lineTo(w, h/2)
+                                    ctx.lineTo(w-hex, h);
+                                    ctx.lineTo(hex, h);
+                                    ctx.lineTo(0, h/2)
+                                    ctx.closePath();
                                     var fillColor = counterBtn.pressed ? Qt.darker(counterColor, 1.3) :
                                                     (counterBtn.hovered ? Qt.lighter(counterColor, 1.2) : counterColor)
                                     ctx.fillStyle = fillColor
@@ -1136,7 +1401,6 @@ Window {
                         enabled: !main.debugMode
                         hoverEnabled: true
                         onClicked: createBlock("предусл")
-                        Shortcut { sequence: "F11"; onActivated: if(enabled) createBlock("предусл") }
                         height: parent.height
                         width: 120 * buttonsZoomLevel
 
@@ -1207,7 +1471,6 @@ Window {
                         enabled: !main.debugMode
                         hoverEnabled: true
                         onClicked: createBlock("постусл")
-                        Shortcut { sequence: "F12"; onActivated: if(enabled) createBlock("постусл") }
                         height: parent.height
                         width: 120 * buttonsZoomLevel
 
@@ -1383,6 +1646,7 @@ Window {
                                     ctx.fillStyle = fillColor
                                     ctx.fill()
                                     ctx.strokeStyle = startBtn.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
+                                    ctx.lineWidth = 2 * buttonsZoomLevel
                                     ctx.stroke()
                                     ctx.fillStyle = textColor
                                     ctx.font = "bold " + (20 * buttonsZoomLevel) + "px Arial"
@@ -1444,6 +1708,7 @@ Window {
                                     ctx.fillStyle = fillColor
                                     ctx.fill()
                                     ctx.strokeStyle = endBtn.hovered ? Qt.lighter(borderColor, 1.3) : borderColor
+                                    ctx.lineWidth = 2 * buttonsZoomLevel
                                     ctx.stroke()
                                     ctx.fillStyle = textColor
                                     ctx.font = "bold " + (20 * buttonsZoomLevel) + "px Arial"
@@ -1593,22 +1858,28 @@ Window {
             // === Панель отладки ===
             Rectangle {
                 id: debugPanel
-                width: main.debugMode ? 350 : 0
                 height: parent.height
-                visible: main.debugMode && width > 0
-                opacity: main.debugMode ? 1 : 0
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: 300
-                        easing.type: Easing.InOutQuad
+
+                states: [
+                    State {
+                        name: "debugActive"
+                        when: main.debugMode
+                        PropertyChanges { target: debugPanel; width: 350; opacity: 1; visible: true }
+                    },
+                    State {
+                        name: "debugInactive"
+                        when: !main.debugMode
+                        PropertyChanges { target: debugPanel; width: 0; opacity: 0; visible: false }
                     }
-                }
-                Behavior on width {
-                    NumberAnimation {
-                        duration: 300
-                        easing.type: Easing.InOutQuad
+                ]
+
+                transitions: [
+                    Transition {
+                        from: "*"
+                        to: "*"
+                        NumberAnimation { properties: "width,opacity"; duration: 300; easing.type: Easing.InOutQuad }
                     }
-                }
+                ]
                 border.color: debugTableBorderColor
                 border.width: 2
                 radius: 5
@@ -1636,16 +1907,6 @@ Window {
                             text: "Назад"
                             enabled: main.debugMode && main.canStepBack
                             hoverEnabled: true
-                            Shortcut {
-                                sequence: "F7"
-                                enabled: main.debugMode && main.canStepBack
-                                onActivated: {
-                                     if (main.debugMode && main.canStepBack) {
-                                         console.log("Отладка: Шаг назад (F7)");
-                                         myObrabotka.debugStepBack();
-                                     }
-                                }
-                            }
                             Layout.preferredHeight: 45
                             Layout.preferredWidth: 120
 
@@ -1684,7 +1945,7 @@ Window {
                             onClicked: {
                                 if (main.debugMode && main.canStepBack) {
                                     console.log("Отладка: Шаг назад (кнопка)");
-                                    myObrabotka.debugStepBack();
+                                    obrabotka.debugStepBack();
                                 }
                             }
                         }
@@ -1694,16 +1955,6 @@ Window {
                             text: "Вперёд"
                             enabled: main.debugMode && main.canStepForward
                             hoverEnabled: true
-                            Shortcut {
-                                sequence: "F8"
-                                enabled: main.debugMode && main.canStepForward
-                                onActivated: {
-                                     if (main.debugMode && main.canStepForward) {
-                                         console.log("Отладка: Шаг вперёд (F8)");
-                                         myObrabotka.debugStep();
-                                     }
-                                }
-                            }
                             Layout.preferredHeight: 45
                             Layout.preferredWidth: 120
 
@@ -1742,7 +1993,7 @@ Window {
                             onClicked: {
                                 if (main.debugMode && main.canStepForward) {
                                     console.log("Отладка: Шаг вперёд (кнопка)");
-                                    myObrabotka.debugStep();
+                                    obrabotka.debugStep();
                                 }
                             }
                         }
@@ -1809,36 +2060,6 @@ Window {
                                 color: Qt.darker(debugTableColor, 1.2)
                                 border.color: borderColor
                                 border.width: 1
-
-                                Behavior on color {
-                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                                }
-                                Behavior on border.color {
-                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                                }
-
-                                Row {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 5
-                                    anchors.rightMargin: 5
-                                    spacing: 10
-                                    Text {
-                                        text: "Имя"
-                                        color: textColor
-                                        font.bold: true
-                                        width: (parent.width - parent.spacing) * 0.4
-                                        verticalAlignment: Text.AlignVCenter
-                                        font.pixelSize: 16
-                                    }
-                                    Text {
-                                        text: "Значение"
-                                        color: textColor
-                                        font.bold: true
-                                        width: (parent.width - parent.spacing) * 0.6
-                                        verticalAlignment: Text.AlignVCenter
-                                        font.pixelSize: 16
-                                    }
-                                }
                             }
                         }
                     }
@@ -1885,7 +2106,7 @@ Window {
 
                         onClicked: {
                             console.log("Отладка: Нажата кнопка 'Закрыть'");
-                            myObrabotka.stopDebugging();
+                            obrabotka.stopDebugging();
                         }
                     }
                 }
@@ -1954,9 +2175,6 @@ Window {
                         ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                     }
                 }
-
-                Keys.onReturnPressed: myObrabotka.userInputReceived(vvod.text)
-                Keys.onEnterPressed: myObrabotka.userInputReceived(vvod.text)
             }
 
             Button {
@@ -1965,9 +2183,7 @@ Window {
                 hoverEnabled: true
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 150
-                onClicked: myObrabotka.userInputReceived(vvod.text)
-                Shortcut { sequence: "Return"; onActivated: myObrabotka.userInputReceived(vvod.text) }
-                Shortcut { sequence: "Enter"; onActivated: myObrabotka.userInputReceived(vvod.text) }
+                onClicked: obrabotka.userInputReceived(vvod.text)
 
                 background: Rectangle {
                     id: sendButtonBg
@@ -2101,6 +2317,20 @@ Window {
             property bool isDebugStart: main.debugStartBlockId === root.uniqueId
             property bool hovered: false
             property color customColor: "transparent"
+            property bool keyboardFocused: false
+
+            function setTextFields(blockType, input, counterVar, counterFrom, counterTo, counterStep) {
+                if (blockType === "усл" || blockType === "предусл" || blockType === "постусл") {
+                    inputFieldDiamond.text = input;
+                } else if (blockType === "счетчик") {
+                    if (counterVar) counterVarField.text = counterVar;
+                    if (counterFrom) counterFromField.text = counterFrom;
+                    if (counterTo) counterToField.text = counterTo;
+                    if (counterStep) counterStepField.text = counterStep;
+                } else if (blockType !== "начало" && blockType !== "конец") {
+                    inputField.text = input;
+                }
+            }
 
             function highlightInSelfAndChildren(targetId) {
                 if (root.uniqueId === targetId) {
@@ -2146,7 +2376,8 @@ Window {
                         "uniqueId": root.uniqueId,
                         "input": inputFieldDiamond.text.trim(),
                         "trueBranch": processContainer(leftContainer),
-                        "falseBranch": processContainer(rightContainer)
+                        "falseBranch": processContainer(rightContainer),
+                        "customColor": root.customColor
                     };
                 } else if (root.blockType === "счетчик") {
                     result = {
@@ -2156,27 +2387,31 @@ Window {
                                counterFromField.text.trim() + " to " +
                                counterToField.text.trim() + " step " +
                                counterStepField.text.trim(),
-                        "loopBody": processContainer(centerContainerCounter)
+                        "loopBody": processContainer(centerContainerCounter),
+                        "customColor": root.customColor
                     };
                 } else if (root.blockType === "предусл") {
                     result = {
                         "type": root.blockType,
                         "uniqueId": root.uniqueId,
                         "input": inputFieldDiamond.text.trim(),
-                        "loopBody": processContainer(centerContainer)
+                        "loopBody": processContainer(centerContainer),
+                        "customColor": root.customColor
                     };
                 } else if (root.blockType === "постусл") {
                     result = {
                         "type": root.blockType,
                         "uniqueId": root.uniqueId,
                         "input": inputFieldDiamond.text.trim(),
-                        "loopBody": processContainer(centerContainerPost)
+                        "loopBody": processContainer(centerContainerPost),
+                        "customColor": root.customColor
                     };
                 } else {
                     result = {
                         "type": root.blockType,
                         "uniqueId": root.uniqueId,
-                        "input": inputField.text.trim()
+                        "input": inputField.text.trim(),
+                        "customColor": root.customColor
                     };
                 }
                 return result;
@@ -2349,6 +2584,18 @@ Window {
                             z: 1
                         }
 
+                        // Красная рамка для режима клавиатуры
+                        Rectangle {
+                            id: keyboardFocusRect
+                            anchors.fill: parent
+                            border.color: "red"
+                            border.width: 4 * blockScale
+                            radius: 5 * blockScale
+                            color: "transparent"
+                            visible: root.keyboardFocused && main.keyboardMode && !main.isEditingBlock
+                            z: 2
+                        }
+
                         Canvas {
                             id: blockCanvas
                             Component.onCompleted: root.registerBlockCanvas(blockCanvas)
@@ -2424,6 +2671,7 @@ Window {
 
                         TextField {
                             id: inputField
+                            objectName: "inputField"
                             enabled: !main.debugMode
                             anchors.centerIn: parent
                             width: parent.width - 30 * blockScale
@@ -2444,10 +2692,17 @@ Window {
                                 color: "transparent";
                                 border.width: 0
                             }
+
+                            onActiveFocusChanged: {
+                                if (!activeFocus && main.isEditingBlock) {
+                                    main.finishEditing();
+                                }
+                            }
                         }
 
                         TextField {
                             id: inputFieldDiamond
+                            objectName: "inputFieldDiamond"
                             enabled: !main.debugMode
                             visible: ["усл", "предусл", "постусл"].includes(root.blockType)
                             anchors.centerIn: parent
@@ -2466,6 +2721,12 @@ Window {
                             background: Rectangle {
                                 color: "transparent";
                                 border.width: 0
+                            }
+
+                            onActiveFocusChanged: {
+                                if (!activeFocus && main.isEditingBlock) {
+                                    main.finishEditing();
+                                }
                             }
                         }
 
@@ -2490,6 +2751,7 @@ Window {
                                     }
                                     TextField {
                                         id: counterVarField
+                                        objectName: "counterVarField"
                                         enabled: !main.debugMode
                                         width: 70 * blockScale
                                         placeholderText: "i"
@@ -2510,6 +2772,12 @@ Window {
                                                 ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                             }
                                         }
+
+                                        onActiveFocusChanged: {
+                                            if (!activeFocus && main.isEditingBlock) {
+                                                main.finishEditing();
+                                            }
+                                        }
                                     }
                                 }
 
@@ -2524,6 +2792,7 @@ Window {
                                     }
                                     TextField {
                                         id: counterStepField
+                                        objectName: "counterStepField"
                                         enabled: !main.debugMode
                                         width: 70 * blockScale
                                         placeholderText: "1"
@@ -2542,6 +2811,12 @@ Window {
 
                                             Behavior on border.color {
                                                 ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                            }
+                                        }
+
+                                        onActiveFocusChanged: {
+                                            if (!activeFocus && main.isEditingBlock) {
+                                                main.finishEditing();
                                             }
                                         }
                                     }
@@ -2563,6 +2838,7 @@ Window {
                                     }
                                     TextField {
                                         id: counterFromField
+                                        objectName: "counterFromField"
                                         enabled: !main.debugMode
                                         width: 70 * blockScale
                                         placeholderText: "0"
@@ -2583,6 +2859,12 @@ Window {
                                                 ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                             }
                                         }
+
+                                        onActiveFocusChanged: {
+                                            if (!activeFocus && main.isEditingBlock) {
+                                                main.finishEditing();
+                                            }
+                                        }
                                     }
                                 }
 
@@ -2597,6 +2879,7 @@ Window {
                                     }
                                     TextField {
                                         id: counterToField
+                                        objectName: "counterToField"
                                         enabled: !main.debugMode
                                         width: 70 * blockScale
                                         placeholderText: "10"
@@ -2615,6 +2898,12 @@ Window {
 
                                             Behavior on border.color {
                                                 ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                            }
+                                        }
+
+                                        onActiveFocusChanged: {
+                                            if (!activeFocus && main.isEditingBlock) {
+                                                main.finishEditing();
                                             }
                                         }
                                     }
@@ -2798,6 +3087,7 @@ Window {
 
                                 Column {
                                     id: centerContainerCounter
+                                    objectName: "centerContainerCounter"
                                     width: Math.max(350 * blockScale, childrenRect.width)
                                     anchors.centerIn: parent
                                     spacing: 10 * blockScale
@@ -2901,6 +3191,7 @@ Window {
 
                                 Column {
                                     id: centerContainer
+                                    objectName: "centerContainer"
                                     width: Math.max(350 * blockScale, childrenRect.width)
                                     anchors.centerIn: parent
                                     spacing: 10 * blockScale
@@ -3009,6 +3300,7 @@ Window {
 
                                     Column {
                                         id: leftContainer
+                                        objectName: "leftContainer"
                                         width: Math.max(250 * blockScale, childrenRect.width)
                                         anchors.centerIn: parent
                                         spacing: 10 * blockScale
@@ -3096,6 +3388,7 @@ Window {
 
                                     Column {
                                         id: rightContainer
+                                        objectName: "rightContainer"
                                         width: Math.max(250 * blockScale, childrenRect.width)
                                         anchors.centerIn: parent
                                         spacing: 10 * blockScale
@@ -3200,6 +3493,7 @@ Window {
 
                                 Column {
                                     id: centerContainerPost
+                                    objectName: "centerContainerPost"
                                     width: Math.max(350 * blockScale, childrenRect.width)
                                     anchors.centerIn: parent
                                     spacing: 10 * blockScale
@@ -3295,9 +3589,9 @@ Window {
         console.log(JSON.stringify(data, null, 2))
 
         if(a === 1){
-            myObrabotka.myPriem(data)
+            obrabotka.myPriem(data)
         } else if(a === 2){
-            myObrabotka.startDebugging(data, main.debugStartBlockId)
+            obrabotka.startDebugging(data, main.debugStartBlockId)
         }
         return data
     }
@@ -3315,14 +3609,20 @@ Window {
     onCurrentDebugBlockIdChanged: updateBlockHighlight()
 
     function loadAlgorithm(algorithmData, parentContainer) {
-        parentContainer.destroyChildren() // Очищаем контейнер
+        // Очищаем контейнер
+        var children = parentContainer.children
+        for (var i = children.length - 1; i >= 0; i--) {
+            children[i].destroy();
+        }
+        main.blockIdCounter = 0 // Сбросить счетчик ID блоков при загрузке нового алгоритма
 
         function createBlocksRecursive(dataArray, container) {
             for (var i = 0; i < dataArray.length; i++) {
                 var blockData = dataArray[i];
                 var newBlock = spisok.createObject(container, {
                     "blockType": blockData.type,
-                    "uniqueId": blockData.uniqueId
+                    "uniqueId": blockData.uniqueId,
+                    "customColor": blockData.customColor || "transparent" // Устанавливаем сохраненный цвет
                 });
 
                 // Присваиваем максимальный ID, чтобы новые блоки не конфликтовали
@@ -3331,24 +3631,21 @@ Window {
                 }
 
                 if (blockData.type === "усл") {
-                    newBlock.contentItem.findChild("inputFieldDiamond").text = blockData.input;
-                    createBlocksRecursive(blockData.trueBranch, newBlock.contentItem.findChild("leftContainer"));
-                    createBlocksRecursive(blockData.falseBranch, newBlock.contentItem.findChild("rightContainer"));
+                    newBlock.setTextFields(blockData.type, blockData.input);
+                    createBlocksRecursive(blockData.trueBranch, newBlock.findChild("leftContainer", true));
+                    createBlocksRecursive(blockData.falseBranch, newBlock.findChild("rightContainer", true));
                 } else if (blockData.type === "счетчик") {
                     var counterParts = blockData.input.match(/(\w+)\s*=\s*(.+)\s*to\s*(.+)\s*step\s*(.+)/);
                     if(counterParts) {
-                        newBlock.contentItem.findChild("counterVarField").text = counterParts[1].trim();
-                        newBlock.contentItem.findChild("counterFromField").text = counterParts[2].trim();
-                        newBlock.contentItem.findChild("counterToField").text = counterParts[3].trim();
-                        newBlock.contentItem.findChild("counterStepField").text = counterParts[4].trim();
+                        newBlock.setTextFields(blockData.type, null, counterParts[1].trim(), counterParts[2].trim(), counterParts[3].trim(), counterParts[4].trim());
                     }
-                    createBlocksRecursive(blockData.loopBody, newBlock.contentItem.findChild("centerContainerCounter"));
+                    createBlocksRecursive(blockData.loopBody, newBlock.findChild("centerContainerCounter", true));
                 } else if (blockData.type === "предусл" || blockData.type === "постусл") {
-                    newBlock.contentItem.findChild("inputFieldDiamond").text = blockData.input;
-                    var loopContainer = newBlock.contentItem.findChild("centerContainer") || newBlock.contentItem.findChild("centerContainerPost");
+                    newBlock.setTextFields(blockData.type, blockData.input);
+                    var loopContainer = (blockData.type === "предусл") ? newBlock.findChild("centerContainer", true) : newBlock.findChild("centerContainerPost", true);
                     createBlocksRecursive(blockData.loopBody, loopContainer);
                 } else if (blockData.type !== "начало" && blockData.type !== "конец") {
-                    newBlock.contentItem.findChild("inputField").text = blockData.input;
+                    newBlock.setTextFields(blockData.type, blockData.input);
                 }
             }
         }
@@ -3448,8 +3745,6 @@ Window {
                     }
                 }
             }
-
-
 
             // Spacer, чтобы толкать кнопки вниз
             Rectangle {
@@ -3555,12 +3850,13 @@ Window {
     // Popup настроек
     Popup {
         id: settingsPopup
-        width: 350
-        height: 350
+        width: 300
+        height: contentItem.implicitHeight
+        padding: 20
+        anchors.centerIn: Overlay.overlay
         modal: true
         focus: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        anchors.centerIn: Overlay.overlay
 
         background: Rectangle {
             color: panelColor
@@ -3718,7 +4014,10 @@ Window {
                 to: 2.0
                 value: buttonsZoomLevel
                 stepSize: 0.1
-                onValueChanged: buttonsZoomLevel = value
+                onValueChanged: {
+                    buttonsZoomLevel = value
+                    saveSettings()
+                }
 
                 background: Rectangle {
                     x: parent.leftPadding
@@ -3763,7 +4062,10 @@ Window {
                 to: 2.0
                 value: blocksZoomLevel
                 stepSize: 0.1
-                onValueChanged: blocksZoomLevel = value
+                onValueChanged: {
+                    blocksZoomLevel = value
+                    saveSettings()
+                }
 
                 background: Rectangle {
                     x: parent.leftPadding
@@ -3793,50 +4095,176 @@ Window {
                     border.color: borderColor
                     border.width: 2
                 }
+            }
+
+            Rectangle {
+                width: parent.width
+                height: 2
+                color: borderColor
+                anchors.horizontalCenter: parent.horizontalCenter
             }
 
             Text {
-                text: "Размер блоков: " + Math.round(blockScale * 100) + "%"
+                text: "Файл"
                 color: textColor
+                font.bold: true
                 font.pixelSize: 16
             }
 
-            Slider {
-                id: blockScaleSlider
+            ColumnLayout { // Изменено с RowLayout на ColumnLayout
                 width: parent.width
-                from: 0.5
-                to: 2.0
-                value: blockScale
-                stepSize: 0.1
-                onValueChanged: blockScale = value
+                spacing: 10
 
-                background: Rectangle {
-                    x: parent.leftPadding
-                    y: parent.topPadding + parent.availableHeight / 2 - height / 2
-                    implicitWidth: 200
-                    implicitHeight: 4
-                    width: parent.availableWidth
-                    height: implicitHeight
-                    radius: 2
-                    color: buttonColor
+                Button {
+                    height: 40
+                    background: Rectangle {
+                        color: {
+                            if (parent.pressed) {
+                                var c = Qt.darker(buttonColor, 1.25);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else if (parent.hovered) {
+                                var c = Qt.lighter(buttonColor, 1.15);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else return buttonColor
+                        }
+                        border.color: borderColor
+                        border.width: 1
+                        radius: 5
 
-                    Rectangle {
-                        width: parent.width * (parent.parent.value - parent.parent.from) / (parent.parent.to - parent.parent.from)
-                        height: parent.height
-                        color: hoverColor
-                        radius: 2
+                        Behavior on color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: textColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+                    onClicked: {
+                        newFileDialog.open();
+                        settingsPopup.close();
                     }
                 }
+                Button {
+                    text: "Открыть"
+                    Layout.fillWidth: true
+                    height: 40
+                    background: Rectangle {
+                        color: {
+                            if (parent.pressed) {
+                                var c = Qt.darker(buttonColor, 1.25);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else if (parent.hovered) {
+                                var c = Qt.lighter(buttonColor, 1.15);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else return buttonColor
+                        }
+                        border.color: borderColor
+                        border.width: 1
+                        radius: 5
 
-                handle: Rectangle {
-                    x: parent.leftPadding + parent.visualPosition * (parent.availableWidth - width)
-                    y: parent.topPadding + parent.availableHeight / 2 - height / 2
-                    implicitWidth: 20
-                    implicitHeight: 20
-                    radius: 10
-                    color: parent.pressed ? pressedColor : (parent.hovered ? hoverColor : buttonColor)
-                    border.color: borderColor
-                    border.width: 2
+                        Behavior on color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: textColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+                    onClicked: {
+                        openDialog.open();
+                        settingsPopup.close();
+                    }
+                }
+                Button {
+                    text: "Сохранить"
+                    Layout.fillWidth: true
+                    height: 40
+                    background: Rectangle {
+                        color: {
+                            if (parent.pressed) {
+                                var c = Qt.darker(buttonColor, 1.25);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else if (parent.hovered) {
+                                var c = Qt.lighter(buttonColor, 1.15);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else return buttonColor
+                        }
+                        border.color: borderColor
+                        border.width: 1
+                        radius: 5
+
+                        Behavior on color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: textColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+                    onClicked: {
+                        if (obrabotka.currentFilePath) {
+                            var data = main.collectData(0);
+                            obrabotka.saveAlgorithmToFile(data, URL.fromLocalFile(obrabotka.currentFilePath));
+                        } else {
+                            saveAsDialog.open();
+                        }
+                        settingsPopup.close();
+                    }
+                }
+                 Button {
+                    text: "Сохранить как..."
+                    Layout.fillWidth: true
+                    height: 40
+                    background: Rectangle {
+                        color: {
+                            if (parent.pressed) {
+                                var c = Qt.darker(buttonColor, 1.25);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else if (parent.hovered) {
+                                var c = Qt.lighter(buttonColor, 1.15);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else return buttonColor
+                        }
+                        border.color: borderColor
+                        border.width: 1
+                        radius: 5
+
+                        Behavior on color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: textColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+                    onClicked: {
+                        saveAsDialog.open();
+                        settingsPopup.close();
+                    }
                 }
             }
         }
