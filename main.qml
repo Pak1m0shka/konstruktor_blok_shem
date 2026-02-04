@@ -267,31 +267,6 @@ Window {
 
     // Устанавливаем фокус на окно для обработки клавиш
     Component.onCompleted: {
-        main.forceActiveFocus()
-        var settings = obrabotka.loadSettings();
-        if (settings) {
-            backgroundColor = settings.backgroundColor || defaultBackgroundColor
-            panelColor = settings.panelColor || defaultPanelColor
-            textColor = settings.textColor || defaultTextColor
-            borderColor = settings.borderColor || defaultBorderColor
-            buttonColor = settings.buttonColor || defaultButtonColor
-            hoverColor = settings.hoverColor || defaultHoverColor
-            pressedColor = settings.pressedColor || defaultPressedColor
-            inputColor = settings.inputColor || defaultInputColor
-            outputColor = settings.outputColor || defaultOutputColor
-            actionColor = settings.actionColor || defaultActionColor
-            counterColor = settings.counterColor || defaultCounterColor
-            precondColor = settings.precondColor || defaultPrecondColor
-            postcondColor = settings.postcondColor || defaultPostcondColor
-            condColor = settings.condColor || defaultCondColor
-            startColor = settings.startColor || defaultStartColor
-            endColor = settings.endColor || defaultEndColor
-            debugTableColor = settings.debugTableColor || defaultDebugTableColor
-            debugTableBorderColor = settings.debugTableBorderColor || defaultDebugTableBorderColor
-            translucentColor = settings.translucentColor || defaultTranslucentColor
-            buttonsZoomLevel = settings.buttonsZoomLevel || 1.0
-            blocksZoomLevel = settings.blocksZoomLevel || 1.0
-        }
         if (obrabotka.currentFilePath) {
             obrabotka.loadAlgorithmFromFile(obrabotka.currentFilePath)
         }
@@ -4222,7 +4197,7 @@ Window {
                     onClicked: {
                         if (obrabotka.currentFilePath) {
                             var data = main.collectData(0);
-                            obrabotka.saveAlgorithmToFile(data, URL.fromLocalFile(obrabotka.currentFilePath));
+                            obrabotka.saveAlgorithmToFile(data, Qt.resolvedUrl("file:///" + obrabotka.currentFilePath)); // Convert QString to QUrl
                         } else {
                             saveAsDialog.open();
                         }
