@@ -46,7 +46,7 @@ private:
         VariableInfo(const QVariant& v, const QString& t) : value(v), type(t) {}
     };
 
-    enum VariableType { Unknown, Integer, Double, String, Boolean };
+    enum VariableType { Unknown, Numeric, String, Boolean };
 
     QMap<QString, VariableInfo> peremennieMap;
     QString vvod_peremennich_polsovatela;

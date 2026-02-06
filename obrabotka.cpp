@@ -38,8 +38,8 @@ Obrabotka::Obrabotka(QObject *parent) : QObject(parent) {}
 // Функции для работы с типами
 Obrabotka::VariableType Obrabotka::determineType(const QVariant& value) {
     switch (value.typeId()) {
-        case QMetaType::Int: return Integer;
-        case QMetaType::Double: return Double;
+        case QMetaType::Int:
+        case QMetaType::Double: return Numeric;
         case QMetaType::QString: return String;
         case QMetaType::Bool: return Boolean;
         default: return Unknown;
@@ -48,8 +48,7 @@ Obrabotka::VariableType Obrabotka::determineType(const QVariant& value) {
 
 QString Obrabotka::typeToString(VariableType type) {
     switch (type) {
-    case Integer: return "int";
-    case Double: return "double";
+    case Numeric: return "numeric";
     case String: return "string";
     case Boolean: return "bool";
     default: return "unknown";
@@ -64,10 +63,8 @@ Obrabotka::VariableType Obrabotka::determineTypeFromString(const QString& value)
         return Boolean;
     }
     bool ok;
-    value.toInt(&ok);
-    if (ok) return Integer;
-    value.toDouble(&ok);
-    if (ok) return Double;
+    value.toDouble(&ok); // Check for double first
+    if (ok) return Numeric;
     return String;
 }
 
@@ -86,60 +83,83 @@ bool Obrabotka::isInteger(double value) {
 
 // Функции операций
 QVariant Obrabotka::addValues(const QVariant& left, const QVariant& right) {
+    qDebug() << "addValues called with left:" << left << "type:" << typeToString(determineType(left))
+             << ", right:" << right << "type:" << typeToString(determineType(right));
     VariableType leftType = determineType(left);
     VariableType rightType = determineType(right);
-    if (leftType == String && rightType == String) {
-        return left.toString() + right.toString();
+    if (leftType == String || rightType == String) { // If any is string, concatenate
+        QString result = left.toString() + right.toString();
+        qDebug() << "addValues (string concat) result:" << result;
+        return result;
     }
-    if ((leftType == Integer || leftType == Double) && (rightType == Integer || rightType == Double)) {
+    if (leftType == Numeric && rightType == Numeric) {
         double leftVal = left.toDouble();
         double rightVal = right.toDouble();
         double result = leftVal + rightVal;
-        if (leftType == Integer && rightType == Integer && isInteger(result)) {
-            return QVariant(static_cast<int>(result));
-        }
-        return QVariant(result);
+        qDebug() << "addValues (numeric sum) result:" << result;
+        return QVariant(result); // Always return as double for simplicity
     }
-    return left.toString() + right.toString();
+    setError("Ошибка: Несовместимые типы для операции сложения.");
+    return QVariant();
 }
 
 QVariant Obrabotka::subtractValues(const QVariant& left, const QVariant& right) {
-    double leftVal = left.toDouble();
-    double rightVal = right.toDouble();
-    double result = leftVal - rightVal;
-    if (determineType(left) == Integer && determineType(right) == Integer && isInteger(result)) {
-        return QVariant(static_cast<int>(result));
+    if (determineType(left) == Numeric && determineType(right) == Numeric) {
+        double leftVal = left.toDouble();
+        double rightVal = right.toDouble();
+        double result = leftVal - rightVal;
+        return QVariant(result);
     }
-    return QVariant(result);
+    setError("Ошибка: Несовместимые типы для операции вычитания.");
+    return QVariant();
 }
 
 QVariant Obrabotka::multiplyValues(const QVariant& left, const QVariant& right) {
-    double leftVal = left.toDouble();
-    double rightVal = right.toDouble();
-    double result = leftVal * rightVal;
-    if (determineType(left) == Integer && determineType(right) == Integer && isInteger(result)) {
-        return QVariant(static_cast<int>(result));
+    if (determineType(left) == Numeric && determineType(right) == Numeric) {
+        double leftVal = left.toDouble();
+        double rightVal = right.toDouble();
+        double result = leftVal * rightVal;
+        return QVariant(result);
     }
-    return QVariant(result);
+    setError("Ошибка: Несовместимые типы для операции умножения.");
+    return QVariant();
 }
 
 QVariant Obrabotka::divideValues(const QVariant& left, const QVariant& right) {
-    double rightVal = right.toDouble();
-    if (qFuzzyIsNull(rightVal)) {
-        return QVariant(0);
+    if (determineType(left) == Numeric && determineType(right) == Numeric) {
+        double rightVal = right.toDouble();
+        if (qFuzzyIsNull(rightVal)) {
+            setError("Ошибка: Деление на ноль.");
+            return QVariant();
+        }
+        double leftVal = left.toDouble();
+        double result = leftVal / rightVal;
+        return QVariant(result);
     }
-    double leftVal = left.toDouble();
-    double result = leftVal / rightVal;
-    return QVariant(result);
+    setError("Ошибка: Несовместимые типы для операции деления.");
+    return QVariant();
 }
 
 QVariant Obrabotka::moduloValues(const QVariant& left, const QVariant& right) {
-    int leftVal = left.toInt();
-    int rightVal = right.toInt();
-    if (rightVal == 0) {
-        return QVariant(0);
+    if (determineType(left) == Numeric && determineType(right) == Numeric) {
+        // Modulo typically works on integers. Convert to int, but check for valid conversion.
+        bool leftOk, rightOk;
+        int leftVal = left.toInt(&leftOk);
+        int rightVal = right.toInt(&rightOk);
+
+        if (!leftOk || !rightOk) {
+            setError("Ошибка: Для операции по модулю требуются целые числа.");
+            return QVariant();
+        }
+
+        if (rightVal == 0) {
+            setError("Ошибка: Деление на ноль при операции по модулю.");
+            return QVariant();
+        }
+        return QVariant(leftVal % rightVal);
     }
-    return QVariant(leftVal % rightVal);
+    setError("Ошибка: Несовместимые типы для операции по модулю.");
+    return QVariant();
 }
 
 bool Obrabotka::compareValues(const QVariant& left, const QVariant& right, const QString& op) {
@@ -153,7 +173,7 @@ bool Obrabotka::compareValues(const QVariant& left, const QVariant& right, const
         setError("Ошибка синтаксиса: для строк разрешены только операции == и != ");
         return false;
     }
-    if ((leftType == Integer || leftType == Double) && (rightType == Integer || rightType == Double)) {
+    if (leftType == Numeric && rightType == Numeric) {
         double leftVal = left.toDouble();
         double rightVal = right.toDouble();
         if (op == ">") return leftVal > rightVal;
@@ -169,6 +189,7 @@ bool Obrabotka::compareValues(const QVariant& left, const QVariant& right, const
         if (op == "==") return leftVal == rightVal;
         if (op == "!=") return leftVal != rightVal;
     }
+    setError("Ошибка: Несовместимые типы для операции сравнения.");
     return false;
 }
 
@@ -178,18 +199,37 @@ QVariant Obrabotka::stringLength(const QString& str) {
 }
 
 QVariant Obrabotka::stringIndex(const QString& str, int index) {
-    if (index < 0 || index >= str.length()) {
-        return QVariant("");
+    int len = str.length();
+    if (index < 0) {
+        index = len + index;
+    }
+    if (index < 0 || index >= len) {
+        setError("Ошибка: Индекс строки выходит за границы.");
+        return QVariant();
     }
     return QVariant(QString(str[index]));
 }
 
 QVariant Obrabotka::stringSlice(const QString& str, int start, int end) {
-    if (start < 0) start = 0;
-    if (end > str.length()) end = str.length();
-    if (start > end) {
+    int len = str.length();
+
+    // Adjust negative indices
+    if (start < 0) {
+        start = len + start;
+    }
+    if (end < 0) {
+        end = len + end;
+    }
+
+    // Clamp to valid range
+    start = qMax(0, start);
+    end = qMin(len, end);
+
+    // Handle cases where start > end or slice is empty
+    if (start >= end) {
         return QVariant("");
     }
+
     return QVariant(str.mid(start, end - start));
 }
 
@@ -264,11 +304,8 @@ void Obrabotka::vvod(const QString& variableName) {
     VariableType detectedType = determineTypeFromString(inputValue);
     QVariant value;
     switch (detectedType) {
-    case Integer:
-        value = QVariant(inputValue.toInt());
-        break;
-    case Double:
-        value = QVariant(inputValue.toDouble());
+    case Numeric:
+        value = QVariant(inputValue.toDouble()); // Store as double
         break;
     case Boolean:
         value = QVariant(inputValue.toLower() == "true");
@@ -368,6 +405,7 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens) {
             bracketStack.push(i);
         } else if (tokens[i] == ")") {
             if (bracketStack.empty()) {
+                setError("Ошибка: Несоответствующая закрывающая скобка.");
                 return QVariant();
             }
             int start = bracketStack.top();
@@ -386,22 +424,27 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens) {
         }
     }
     if (!bracketStack.empty()) {
+        setError("Ошибка: Несоответствующая открывающая скобка.");
         return QVariant();
     }
     for (int i = 0; i < tokens.size(); i++) {
         if (tokens[i] != "+" && tokens[i] != "-" && tokens[i] != "*" &&
             tokens[i] != "/" && tokens[i] != "%" && tokens[i] != "(" && tokens[i] != ")") {
+            // If it's a string literal
             if (tokens[i].length() >= 2 && tokens[i].startsWith('"') && tokens[i].endsWith('"')) {
-                continue;
-            }
-            bool isNumber;
-            tokens[i].toDouble(&isNumber);
-            if (!isNumber) {
-                QVariant stringOpResult = parseStringOperation(tokens[i]);
-                if (stringOpResult.isValid()) {
-                    tokens[i] = stringOpResult.toString();
+                // Keep as is, it's a string literal
+            } else {
+                double num;
+                if (canConvertToNumber(tokens[i], num)) {
+                    tokens[i] = QVariant(num).toString(); // Convert to QVariant(double) then back to string representation
                 } else {
-                    tokens[i] = getValue(tokens[i]).toString();
+                    // It's not a number literal, could be variable name or string operation
+                    QVariant stringOpResult = parseStringOperation(tokens[i]);
+                    if (stringOpResult.isValid()) {
+                        tokens[i] = stringOpResult.toString();
+                    } else {
+                        tokens[i] = getValue(tokens[i]).toString(); // Get variable value and convert to string
+                    }
                 }
             }
         }
@@ -409,32 +452,26 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens) {
     for (int i = 1; i < tokens.size() - 1; ) {
         if (tokens[i] == "*" || tokens[i] == "/" || tokens[i] == "%" ) {
             QVariant leftVal, rightVal;
+            // Determine leftVal
             if (tokens[i-1].length() >= 2 && tokens[i-1].startsWith('"') && tokens[i-1].endsWith('"')) {
                 leftVal = QVariant(tokens[i-1].mid(1, tokens[i-1].length() - 2));
             } else {
                 double num;
                 if (canConvertToNumber(tokens[i-1], num)) {
-                    if (isInteger(num)) {
-                        leftVal = QVariant(static_cast<int>(num));
-                    } else {
-                        leftVal = QVariant(num);
-                    }
+                    leftVal = QVariant(num);
                 } else {
-                    leftVal = QVariant(tokens[i-1]);
+                    leftVal = getValue(tokens[i-1]);
                 }
             }
+            // Determine rightVal
             if (tokens[i+1].length() >= 2 && tokens[i+1].startsWith('"') && tokens[i+1].endsWith('"')) {
                 rightVal = QVariant(tokens[i+1].mid(1, tokens[i+1].length() - 2));
             } else {
                 double num;
                 if (canConvertToNumber(tokens[i+1], num)) {
-                    if (isInteger(num)) {
-                        rightVal = QVariant(static_cast<int>(num));
-                    } else {
-                        rightVal = QVariant(num);
-                    }
+                    rightVal = QVariant(num);
                 } else {
-                    rightVal = QVariant(tokens[i+1]);
+                    rightVal = getValue(tokens[i+1]);
                 }
             }
             QVariant result;
@@ -456,32 +493,26 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens) {
     for (int i = 1; i < tokens.size() - 1; ) {
         if (tokens[i] == "+" || tokens[i] == "-") {
             QVariant leftVal, rightVal;
+            // Determine leftVal
             if (tokens[i-1].length() >= 2 && tokens[i-1].startsWith('"') && tokens[i-1].endsWith('"')) {
                 leftVal = QVariant(tokens[i-1].mid(1, tokens[i-1].length() - 2));
             } else {
                 double num;
                 if (canConvertToNumber(tokens[i-1], num)) {
-                    if (isInteger(num)) {
-                        leftVal = QVariant(static_cast<int>(num));
-                    } else {
-                        leftVal = QVariant(num);
-                    }
+                    leftVal = QVariant(num);
                 } else {
-                    leftVal = QVariant(tokens[i-1]);
+                    leftVal = getValue(tokens[i-1]);
                 }
             }
+            // Determine rightVal
             if (tokens[i+1].length() >= 2 && tokens[i+1].startsWith('"') && tokens[i+1].endsWith('"')) {
                 rightVal = QVariant(tokens[i+1].mid(1, tokens[i+1].length() - 2));
             } else {
                 double num;
                 if (canConvertToNumber(tokens[i+1], num)) {
-                    if (isInteger(num)) {
-                        rightVal = QVariant(static_cast<int>(num));
-                    } else {
-                        rightVal = QVariant(num);
-                    }
+                    rightVal = QVariant(num);
                 } else {
-                    rightVal = QVariant(tokens[i+1]);
+                    rightVal = getValue(tokens[i+1]);
                 }
             }
             QVariant result;
@@ -499,6 +530,7 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens) {
         }
     }
     if (tokens.size() != 1) {
+        setError("Ошибка: Некорректное выражение.");
         return QVariant();
     }
     QString resultStr = tokens[0];
@@ -507,11 +539,7 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens) {
     }
     double num;
     if (canConvertToNumber(resultStr, num)) {
-        if (isInteger(num)) {
-            return QVariant(static_cast<int>(num));
-        } else {
-            return QVariant(num);
-        }
+        return QVariant(num);
     }
     return QVariant(resultStr);
 }
@@ -527,18 +555,26 @@ QVariant Obrabotka::parseExpression(const QString& expr) {
 
 void Obrabotka::deistvie(QString vvod) {
     clearError();
+    qDebug() << "deistvie input:" << vvod; // Added debug
     vvod.remove(QRegularExpression("\\s+"));
     int equalsPos = vvod.indexOf('=');
     if (equalsPos == -1) {
+        setError("Ошибка: В действии отсутствует оператор присваивания '='."); // Added error
         return;
     }
     QString left = vvod.left(equalsPos);
     QString right = vvod.mid(equalsPos + 1);
-    if (left.isEmpty() || right.isEmpty()) {
+    if (left.isEmpty()) {
+        setError("Ошибка: Левая часть присваивания не может быть пустой."); // Added error
+        return;
+    }
+    if (right.isEmpty()) {
+        setError("Ошибка: Правая часть присваивания не может быть пустой."); // Added error
         return;
     }
     QVariant result = parseExpression(right);
     if (m_hasError) {
+        qDebug() << "deistvie: Ошибка при разборе выражения:" << m_errorMessage; // Added debug
         return;
     }
     setValue(left, result);
@@ -554,7 +590,7 @@ bool Obrabotka::evaluateCondition(const QString& condition) {
         if (type == Boolean) {
             return value.toBool();
         }
-        if (type == Integer || type == Double) {
+        if (type == Numeric) {
             return value.toDouble() != 0;
         }
         if (type == String) {
@@ -673,7 +709,7 @@ bool Obrabotka::evaluateSimpleCondition(const QString& cond) {
         if (type == Boolean) {
             return value.toBool();
         }
-        if (type == Integer || type == Double) {
+        if (type == Numeric) {
             return value.toDouble() != 0;
         }
         if (type == String) {
