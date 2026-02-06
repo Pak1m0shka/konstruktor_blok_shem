@@ -4,6 +4,7 @@ import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Dialogs
 import Qt.labs.platform 1.1
+import myObrabotka
 
 Window {
     id: main
@@ -13,6 +14,10 @@ Window {
     minimumHeight: 600
     visible: true
     title: obrabotka.currentFilePath ? obrabotka.currentFilePath : qsTr("Построй алгоритм по задаче")
+
+    Obrabotka {
+        id: obrabotka
+    }
 
     // Флаг режима клавиатуры
     property bool keyboardMode: false
