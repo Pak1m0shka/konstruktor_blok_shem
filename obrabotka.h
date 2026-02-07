@@ -36,6 +36,8 @@ public:
     Q_INVOKABLE void saveSettings(const QVariantMap &settings);
     Q_INVOKABLE QVariantMap loadSettings();
 
+    // Новая функция для проверки синтаксиса алгоритма
+    Q_INVOKABLE QVariantList checkAlgorithmSyntax(const QVariantList& algorithm);
 
 private:
     QString m_currentFilePath;
@@ -82,6 +84,10 @@ private:
     int requestUserInput();
     void setError(const QString& message);
     void clearError();
+
+    // Новые функции для проверки синтаксиса
+    void addSyntaxError(const QString& message, int blockId, QVariantList& errors);
+    bool validateExpressionSyntax(const QString& expression, int blockId, QVariantList& errors);
 
     // Функции-помощники
     VariableType determineType(const QVariant& value);
@@ -137,6 +143,8 @@ signals:
     void newAlgorithmSignal();
     void currentFilePathChanged();
     void fileSaved(const QString &filePath);
+    void syntaxErrorsOccurred(const QVariantList& errors); // New signal
+    void highlightSyntaxErrorBlock(int blockId); // New signal
 };
 
 #endif // OBRABOTKA_H

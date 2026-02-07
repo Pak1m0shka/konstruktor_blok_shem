@@ -575,7 +575,8 @@ Window {
         }
 
         onErrorOccurred: (errorMessage) => {
-            console.log("Ошибка при загрузке:", errorMessage)
+            console.log("Ошибка:", errorMessage)
+            otvet.text = otvet.text + "\n" + "Ошибка: " + errorMessage
         }
         onFileSaved: (filePath) => {
             otvet.text = otvet.text + "\n" + "Файл сохранен: " + filePath

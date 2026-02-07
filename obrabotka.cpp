@@ -87,6 +87,13 @@ QVariant Obrabotka::addValues(const QVariant& left, const QVariant& right) {
              << ", right:" << right << "type:" << typeToString(determineType(right));
     VariableType leftType = determineType(left);
     VariableType rightType = determineType(right);
+
+    // Строгая проверка типов: string + numeric или numeric + string -> ошибка
+    if ((leftType == String && rightType == Numeric) || (leftType == Numeric && rightType == String)) {
+        setError("Ошибка: Несовместимые типы для операции сложения. Нельзя складывать строку с числом без явного приведения типа (например, str(число) или использование кавычек).");
+        return QVariant();
+    }
+
     if (leftType == String || rightType == String) { // If any is string, concatenate
         QString result = left.toString() + right.toString();
         qDebug() << "addValues (string concat) result:" << result;
@@ -104,7 +111,9 @@ QVariant Obrabotka::addValues(const QVariant& left, const QVariant& right) {
 }
 
 QVariant Obrabotka::subtractValues(const QVariant& left, const QVariant& right) {
-    if (determineType(left) == Numeric && determineType(right) == Numeric) {
+    VariableType leftType = determineType(left);
+    VariableType rightType = determineType(right);
+    if (leftType == Numeric && rightType == Numeric) {
         double leftVal = left.toDouble();
         double rightVal = right.toDouble();
         double result = leftVal - rightVal;
@@ -115,7 +124,9 @@ QVariant Obrabotka::subtractValues(const QVariant& left, const QVariant& right) 
 }
 
 QVariant Obrabotka::multiplyValues(const QVariant& left, const QVariant& right) {
-    if (determineType(left) == Numeric && determineType(right) == Numeric) {
+    VariableType leftType = determineType(left);
+    VariableType rightType = determineType(right);
+    if (leftType == Numeric && rightType == Numeric) {
         double leftVal = left.toDouble();
         double rightVal = right.toDouble();
         double result = leftVal * rightVal;
@@ -126,7 +137,9 @@ QVariant Obrabotka::multiplyValues(const QVariant& left, const QVariant& right) 
 }
 
 QVariant Obrabotka::divideValues(const QVariant& left, const QVariant& right) {
-    if (determineType(left) == Numeric && determineType(right) == Numeric) {
+    VariableType leftType = determineType(left);
+    VariableType rightType = determineType(right);
+    if (leftType == Numeric && rightType == Numeric) {
         double rightVal = right.toDouble();
         if (qFuzzyIsNull(rightVal)) {
             setError("Ошибка: Деление на ноль.");
@@ -141,7 +154,9 @@ QVariant Obrabotka::divideValues(const QVariant& left, const QVariant& right) {
 }
 
 QVariant Obrabotka::moduloValues(const QVariant& left, const QVariant& right) {
-    if (determineType(left) == Numeric && determineType(right) == Numeric) {
+    VariableType leftType = determineType(left);
+    VariableType rightType = determineType(right);
+    if (leftType == Numeric && rightType == Numeric) {
         // Modulo typically works on integers. Convert to int, but check for valid conversion.
         bool leftOk, rightOk;
         int leftVal = left.toInt(&leftOk);
@@ -264,6 +279,105 @@ QVariant Obrabotka::parseStringOperation(const QString& expr) {
     }
     return QVariant();
 }
+
+// Helper to add structured syntax errors
+void Obrabotka::addSyntaxError(const QString& message, int blockId, QVariantList& errors) {
+    QVariantMap error;
+    error["message"] = message;
+    error["blockId"] = blockId;
+    errors.append(error);
+    qDebug() << "Syntax Error (Block ID:" << blockId << "):" << message;
+}
+
+// Function to perform syntax checks on a single expression/condition
+bool Obrabotka::validateExpressionSyntax(const QString& expression, int blockId, QVariantList& errors) {
+    bool hasLocalErrors = false;
+    QString expr = expression.trimmed(); // Use a local copy
+
+    // 1. Проверка баланса скобок и кавычек
+    QStack<QChar> stack;
+    QMap<QChar, QChar> matchingBrackets = {
+        {'(', ')'}, {'[', ']'}
+    };
+    bool inString = false;
+    for (int i = 0; i < expr.length(); ++i) {
+        QChar ch = expr[i];
+
+        if (ch == '"') {
+            inString = !inString;
+        } else if (!inString) {
+            if (matchingBrackets.keys().contains(ch)) { // Opening bracket
+                stack.push(ch);
+            } else if (matchingBrackets.values().contains(ch)) { // Closing bracket
+                if (stack.isEmpty()) {
+                    addSyntaxError("Несогласованная закрывающая скобка '" + QString(ch) + "' на позиции " + QString::number(i), blockId, errors);
+                    hasLocalErrors = true;
+                } else {
+                    QChar openBracket = stack.pop();
+                    if (matchingBrackets[openBracket] != ch) {
+                        addSyntaxError("Несогласованная закрывающая скобка '" + QString(ch) + "' на позиции " + QString::number(i) + ". Ожидалась '" + QString(matchingBrackets[openBracket]) + "'", blockId, errors);
+                        hasLocalErrors = true;
+                    }
+                }
+            }
+        }
+    }
+
+    if (inString) {
+        addSyntaxError("Незакрытая кавычка.", blockId, errors);
+        hasLocalErrors = true;
+    }
+    if (!stack.isEmpty()) {
+        addSyntaxError("Незакрытая открывающая скобка '" + QString(stack.top()) + "'.", blockId, errors);
+        hasLocalErrors = true;
+    }
+
+    // 2. Проверка правильности операторов (базовая)
+    QRegularExpression doubleOpRegex(R"([+\-*/%]{2})"); // Detects ++, --, **, //, %%
+    if (expr.contains(doubleOpRegex)) {
+        addSyntaxError("Обнаружен повторяющийся оператор (например, ++, --, **).", blockId, errors);
+        hasLocalErrors = true;
+    }
+
+    // Проверяем, что операторы не стоят в начале или конце выражения, если это не унарный минус
+    QRegularExpression leadingTrailingOpRegex(R"(^[+\-*/%])|([+\-*/%]$)");
+    QRegularExpressionMatch match = leadingTrailingOpRegex.match(expr);
+    if (match.hasMatch()) {
+        if (expr.startsWith('-')) {
+            QRegularExpression unaryMinusCheck(R"(^-\s*(\d|\w+\b|\(|\"))"); // - followed by digit, var, (, or "
+            if (!unaryMinusCheck.match(expr).hasMatch()) {
+                addSyntaxError("Оператор в начале или конце выражения.", blockId, errors);
+                hasLocalErrors = true;
+            }
+        } else {
+            addSyntaxError("Оператор в начале или конце выражения.", blockId, errors);
+            hasLocalErrors = true;
+        }
+    }
+
+    QRegularExpression invalidOpSequence(R"([+\-*/%]\s*[+\-*/%])");
+    QString tempCodeForOpCheck = expr;
+    tempCodeForOpCheck.replace(QRegularExpression(R"(-\s*\d+)"), "1");
+    tempCodeForOpCheck.replace(QRegularExpression(R"(-\s*\"[^\"]*\")"), "\"1\"");
+
+    if (tempCodeForOpCheck.contains(invalidOpSequence)) {
+        addSyntaxError("Неправильное расположение операторов (возможно, два оператора подряд).", blockId, errors);
+        hasLocalErrors = true;
+    }
+
+    // 3. Строгая проверка на смешивание строки с числом в арифметических операциях.
+    // Это очень базовая проверка на синтаксическом уровне, без анализа типов переменных.
+    // Более глубокая проверка происходит в addValues().
+    QRegularExpression stringNumOpRegex(R"(\"[^\"]*\"[+\-*/%]\s*\d+)|(\d+[+\-*/%]\s*\"[^\"]*\")");
+    if (expr.contains(stringNumOpRegex)) {
+        addSyntaxError("Обнаружена попытка выполнить арифметическую операцию между строковым литералом и числовым литералом.", blockId, errors);
+        hasLocalErrors = true;
+    }
+
+
+    return !hasLocalErrors;
+}
+
 
 void Obrabotka::setError(const QString& message) {
     m_hasError = true;
@@ -427,28 +541,56 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens) {
         setError("Ошибка: Несоответствующая открывающая скобка.");
         return QVariant();
     }
-    for (int i = 0; i < tokens.size(); i++) {
-        if (tokens[i] != "+" && tokens[i] != "-" && tokens[i] != "*" &&
-            tokens[i] != "/" && tokens[i] != "%" && tokens[i] != "(" && tokens[i] != ")") {
-            // If it's a string literal
-            if (tokens[i].length() >= 2 && tokens[i].startsWith('"') && tokens[i].endsWith('"')) {
-                // Keep as is, it's a string literal
+    
+    // Новая логика предварительной обработки токенов
+    for (int i = 0; i < tokens.size(); ++i) {
+        QString token = tokens[i].trimmed(); // Удаляем пробелы для надежности
+
+        if (token == "(" || token == ")" ||
+            token == "+" || token == "-" || token == "*" || token == "/" || token == "%" ||
+            token == "&&" || token == "||" || token == "!" || // Добавляем логические операторы
+            token == ">=" || token == "<=" || token == "!=" || token == "==" || token == ">" || token == "<") { // Добавляем операторы сравнения
+            // Это оператор или скобка, оставляем как есть
+            continue;
+        }
+
+        // Это строковый литерал?
+        if (token.startsWith('"') && token.endsWith('"') && token.length() >= 2) {
+            // Это строковый литерал, оставляем как есть (например, "\"hello\"")
+            continue;
+        }
+
+        // Это числовой литерал?
+        double num;
+        if (canConvertToNumber(token, num)) {
+            tokens[i] = QVariant(num).toString(); // Стандартизируем числовое представление
+            continue;
+        }
+
+        // Это строковая операция (например, len(s))?
+        QVariant stringOpResult = parseStringOperation(token);
+        if (stringOpResult.isValid()) {
+            // Если результат - строка, обертываем его в кавычки, чтобы рассматривать как строковый литерал в последующих шагах
+            if (stringOpResult.typeId() == QMetaType::QString) {
+                tokens[i] = "\"" + stringOpResult.toString() + "\"";
             } else {
-                double num;
-                if (canConvertToNumber(tokens[i], num)) {
-                    tokens[i] = QVariant(num).toString(); // Convert to QVariant(double) then back to string representation
-                } else {
-                    // It's not a number literal, could be variable name or string operation
-                    QVariant stringOpResult = parseStringOperation(tokens[i]);
-                    if (stringOpResult.isValid()) {
-                        tokens[i] = stringOpResult.toString();
-                    } else {
-                        tokens[i] = getValue(tokens[i]).toString(); // Get variable value and convert to string
-                    }
-                }
+                tokens[i] = stringOpResult.toString();
             }
+            continue;
+        }
+
+        // В противном случае предполагаем, что это имя переменной. Разрешаем его в его значение.
+        QVariant varValue = getValue(token);
+        if (varValue.typeId() == QMetaType::QString) {
+            // Если значение переменной является строкой, обертываем ее в кавычки, чтобы рассматривать как строковый литерал
+            tokens[i] = "\"" + varValue.toString() + "\"";
+        } else {
+            // Для чисел или других типов, просто используем его строковое представление
+            tokens[i] = varValue.toString();
         }
     }
+    // Конец новой логики предварительной обработки токенов
+    
     for (int i = 1; i < tokens.size() - 1; ) {
         if (tokens[i] == "*" || tokens[i] == "/" || tokens[i] == "%" ) {
             QVariant leftVal, rightVal;
@@ -545,10 +687,6 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens) {
 }
 
 QVariant Obrabotka::parseExpression(const QString& expr) {
-    QVariant stringOpResult = parseStringOperation(expr);
-    if (stringOpResult.isValid()) {
-        return stringOpResult;
-    }
     QStringList tokens = tokenize(expr);
     return evaluateTokens(tokens);
 }
@@ -1024,7 +1162,7 @@ void Obrabotka::sendCurrentState(int highlightId) {
     QVariantMap currentState = convertToQmlVariantMap();
     emit debugging_peremennie(currentState);
     emit highlightBlock(highlightId);
-    emit debugHistoryChanged(m_currentHistoryIndex > 0, hasMoreBlocks());
+    emit debugHistoryChanged(m_currentHistoryIndex > 0, hasMoreBlocks()); // Corrected line
 }
 
 void Obrabotka::executeDebugBlock(const QVariantMap& block) {
@@ -1134,6 +1272,12 @@ int Obrabotka::findNextBlockId(int currentId, bool& wasLoop) {
 }
 
 void Obrabotka::startDebugging(QVariantList algorithm, int startBlockId) {
+    QVariantList syntaxErrors = checkAlgorithmSyntax(algorithm);
+    if (!syntaxErrors.isEmpty()) {
+        emit syntaxErrorsOccurred(syntaxErrors);
+        return;
+    }
+
     internal_cleanup();
     m_currentAlgorithm = algorithm;
     m_blockMap.clear();
@@ -1257,6 +1401,11 @@ void Obrabotka::stopDebugging() {
 void Obrabotka::myPriem(QVariantList algoritm)
 {
     clearError();
+    QVariantList syntaxErrors = checkAlgorithmSyntax(algoritm);
+    if (!syntaxErrors.isEmpty()) {
+        emit syntaxErrorsOccurred(syntaxErrors);
+        return;
+    }
     vipolnenie(algoritm);
     peremennieMap.clear();
 }
@@ -1379,4 +1528,58 @@ QVariantMap Obrabotka::loadSettings()
     }
 
     return doc.object().toVariantMap();
+}
+
+QVariantList Obrabotka::checkAlgorithmSyntax(const QVariantList& algorithm) {
+    QVariantList allErrors;
+
+    for (const QVariant& blockVariant : algorithm) {
+        if (!blockVariant.canConvert<QVariantMap>()) {
+            addSyntaxError("Некорректный формат блока алгоритма.", -1, allErrors); // -1 for global error
+            continue;
+        }
+        QVariantMap block = blockVariant.toMap();
+        QString type = block["type"].toString();
+        QString content = block["input"].toString();
+        int blockId = block["uniqueId"].toInt();
+
+        if (type == "действие" || type == "усл" || type == "предусл" || type == "постусл") {
+            validateExpressionSyntax(content, blockId, allErrors);
+        } else if (type == "счетчик") {
+            // Check counter expression "var = start to end step step"
+            QRegularExpression counterParseRegex(R"(^\s*(\w+)\s*=\s*(.+)\s+(?:to|до)\s+(.+)\s+(?:step|шаг)\s*(.+)\s*$)");
+            QRegularExpressionMatch counterMatch = counterParseRegex.match(content);
+            if (!counterMatch.hasMatch()) {
+                addSyntaxError("Некорректный формат выражения счетчика. Ожидается: 'переменная = начало до конец шаг шаг'", blockId, allErrors);
+            } else {
+                // Check syntax of start, end, step parts
+                validateExpressionSyntax(counterMatch.captured(2), blockId, allErrors); // start
+                validateExpressionSyntax(counterMatch.captured(3), blockId, allErrors); // end
+                validateExpressionSyntax(counterMatch.captured(4), blockId, allErrors); // step
+            }
+        }
+        // Recursively check sub-blocks (trueBranch, falseBranch, loopBody)
+        if (block.contains("trueBranch")) {
+            QVariantList subBlocks = block["trueBranch"].value<QVariantList>();
+            QVariantList subErrors = checkAlgorithmSyntax(subBlocks);
+            for(const QVariant& err : subErrors) {
+                allErrors.append(err);
+            }
+        }
+        if (block.contains("falseBranch")) {
+            QVariantList subBlocks = block["falseBranch"].value<QVariantList>();
+            QVariantList subErrors = checkAlgorithmSyntax(subBlocks);
+            for(const QVariant& err : subErrors) {
+                allErrors.append(err);
+            }
+        }
+        if (block.contains("loopBody")) {
+            QVariantList subBlocks = block["loopBody"].value<QVariantList>();
+            QVariantList subErrors = checkAlgorithmSyntax(subBlocks);
+            for(const QVariant& err : subErrors) {
+                allErrors.append(err);
+            }
+        }
+    }
+    return allErrors;
 }
