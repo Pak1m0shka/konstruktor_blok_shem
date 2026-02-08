@@ -88,6 +88,7 @@ Window {
     property bool canStepForward: true
     property int blockIdCounter: 0
     property int debugStartBlockId: -1
+    property var errorBlockIds: [] // Changed from highlightedErrorBlockId
 
     // Функция для сбора всех блоков в порядке обхода
     function collectAllBlocks() {
@@ -564,11 +565,13 @@ Window {
             main.debugMode = false;
             variablesModel.clear();
             currentDebugBlockId = -1;
+            errorBlockIds = []; // Clear error highlight on debug finish
         }
 
         onAlgorithmLoaded: (algorithm) => {
             console.log("Получен сигнал algorithmLoaded, количество блоков:", algorithm.length)
             main.debugStartBlockId = -1
+            main.errorBlockIds = []; // Clear error highlight on new algorithm load
             if (algorithm && algorithm.length > 0) {
                 loadAlgorithm(algorithm, container)
             }
@@ -577,9 +580,35 @@ Window {
         onErrorOccurred: (errorMessage) => {
             console.log("Ошибка:", errorMessage)
             otvet.text = otvet.text + "\n" + "Ошибка: " + errorMessage
+            errorBlockIds = []; // Clear any existing highlight for runtime errors
         }
         onFileSaved: (filePath) => {
             otvet.text = otvet.text + "\n" + "Файл сохранен: " + filePath
+        }
+
+        onSyntaxErrorsOccurred: (errors) => {
+            console.log("Получены синтаксические ошибки:", errors);
+            otvet.text = "Синтаксические ошибки:\n"; // Clear and start new error report
+            main.errorBlockIds = []; // Clear previous highlights
+
+            var newErrorBlockIds = [];
+            if (errors && errors.length > 0) {
+                for (var i = 0; i < errors.length; i++) {
+                    var error = errors[i];
+                    var message = error.message || "Неизвестная ошибка";
+                    var blockId = error.blockId;
+                    var errorString = "Ошибка: " + message;
+                    if (blockId !== -1) {
+                        errorString += " (Блок ID: " + blockId + ")";
+                        newErrorBlockIds.push(blockId); // Collect all error block IDs
+                    }
+                    otvet.text += errorString + "\n";
+                }
+            } else {
+                otvet.text += "Неизвестные синтаксические ошибки.\n";
+            }
+            main.errorBlockIds = newErrorBlockIds; // Assign the new list of error block IDs
+            main.updateBlockHighlight(); // Request repaint for all relevant blocks
         }
     }
 
@@ -2597,8 +2626,10 @@ Window {
                                     fillColor = main.getBlockColor(root.blockType);
                                 }
                                 ctx.fillStyle = fillColor;
-                                ctx.strokeStyle = root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : borderColor)
-                                ctx.lineWidth = root.isDebugHighlighted ? 3 * blockScale : (root.isDebugStart ? 4 * blockScale : 2 * blockScale)
+                                // Modified strokeStyle and lineWidth
+                                var isErrorBlock = main.errorBlockIds.includes(root.uniqueId);
+                                ctx.strokeStyle = isErrorBlock ? "red" : (root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : borderColor))
+                                ctx.lineWidth = isErrorBlock ? 5 * blockScale : (root.isDebugHighlighted ? 3 * blockScale : (root.isDebugStart ? 4 * blockScale : 2 * blockScale))
                                 if (["ввод", "вывод"].includes(root.blockType)) {
                                     ctx.moveTo(s, 0);
                                     ctx.lineTo(w, 0);
@@ -3579,15 +3610,20 @@ Window {
 
     function updateBlockHighlight() {
         // Вызываем рекурсивную подсветку для всех блоков верхнего уровня
-        for (var i = 0; i < container.children.length; i++) {
-            var block = container.children[i];
+        var allExistingBlocks = collectAllBlocks(); // Получаем все блоки, включая вложенные
+        for (var i = 0; i < allExistingBlocks.length; i++) {
+            var block = allExistingBlocks[i];
             if (block && typeof block.highlightInSelfAndChildren === 'function') {
                 block.highlightInSelfAndChildren(main.currentDebugBlockId);
+            }
+            if (block && block._blockCanvasRef) {
+                block._blockCanvasRef.requestPaint(); // Request repaint for all blocks to update error highlights
             }
         }
     }
 
     onCurrentDebugBlockIdChanged: updateBlockHighlight()
+    onErrorBlockIdsChanged: updateBlockHighlight() // Trigger update when error blocks list changes
 
     function loadAlgorithm(algorithmData, parentContainer) {
         // Очищаем контейнер

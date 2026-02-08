@@ -290,9 +290,26 @@ void Obrabotka::addSyntaxError(const QString& message, int blockId, QVariantList
 }
 
 // Function to perform syntax checks on a single expression/condition
-bool Obrabotka::validateExpressionSyntax(const QString& expression, int blockId, QVariantList& errors) {
+bool Obrabotka::validateExpressionSyntax(const QString& expression, int blockId, QVariantList& errors, bool isConditionalContext) {
     bool hasLocalErrors = false;
     QString expr = expression.trimmed(); // Use a local copy
+
+    if (expr.isEmpty()) {
+        addSyntaxError("Выражение не может быть пустым.", blockId, errors);
+        hasLocalErrors = true;
+        return !hasLocalErrors; // Return early if expression is empty
+    }
+
+    if (isConditionalContext) {
+        if (expr.contains('=')) {
+            // Проверяем, не является ли это оператором сравнения ==, >=, <=, !=
+            // Если да, то это не ошибка
+            if (!expr.contains("==") && !expr.contains(">=") && !expr.contains("<=") && !expr.contains("!=")) {
+                addSyntaxError("Оператор присваивания '=' не разрешен в условиях. Используйте '==' для сравнения.", blockId, errors);
+                hasLocalErrors = true;
+            }
+        }
+    }
 
     // 1. Проверка баланса скобок и кавычек
     QStack<QChar> stack;
@@ -340,19 +357,36 @@ bool Obrabotka::validateExpressionSyntax(const QString& expression, int blockId,
     }
 
     // Проверяем, что операторы не стоят в начале или конце выражения, если это не унарный минус
-    QRegularExpression leadingTrailingOpRegex(R"(^[+\-*/%])|([+\-*/%]$)");
-    QRegularExpressionMatch match = leadingTrailingOpRegex.match(expr);
-    if (match.hasMatch()) {
-        if (expr.startsWith('-')) {
-            QRegularExpression unaryMinusCheck(R"(^-\s*(\d|\w+\b|\(|\"))"); // - followed by digit, var, (, or "
-            if (!unaryMinusCheck.match(expr).hasMatch()) {
-                addSyntaxError("Оператор в начале или конце выражения.", blockId, errors);
-                hasLocalErrors = true;
+    QString operators = "+-*/%";
+    bool leadingOpError = false;
+    bool trailingOpError = false;
+
+    // Проверка на ведущий оператор
+    if (expr.length() > 0) {
+        QChar firstChar = expr.at(0);
+        if (operators.contains(firstChar)) {
+            // Обработка унарного минуса: если это '-' и за ним следует число, переменная, '(', или '"', то это, вероятно, не ведущая ошибка.
+            if (firstChar == '-') {
+                QString remaining = expr.mid(1).trimmed();
+                if (!remaining.isEmpty() && (remaining.at(0).isDigit() || remaining.at(0).isLetter() || remaining.startsWith("(") || remaining.startsWith("\""))) {
+                    // Valid unary minus, no error.
+                } else {
+                    leadingOpError = true;
+                }
+            } else {
+                leadingOpError = true;
             }
-        } else {
-            addSyntaxError("Оператор в начале или конце выражения.", blockId, errors);
-            hasLocalErrors = true;
         }
+    }
+
+    // Проверка на замыкающий оператор
+    if (expr.length() > 0 && operators.contains(expr.at(expr.length() - 1))) {
+        trailingOpError = true;
+    }
+
+    if (leadingOpError || trailingOpError) {
+        addSyntaxError("Оператор в начале или конце выражения.", blockId, errors);
+        hasLocalErrors = true;
     }
 
     QRegularExpression invalidOpSequence(R"([+\-*/%]\s*[+\-*/%])");
@@ -365,14 +399,8 @@ bool Obrabotka::validateExpressionSyntax(const QString& expression, int blockId,
         hasLocalErrors = true;
     }
 
-    // 3. Строгая проверка на смешивание строки с числом в арифметических операциях.
-    // Это очень базовая проверка на синтаксическом уровне, без анализа типов переменных.
-    // Более глубокая проверка происходит в addValues().
-    QRegularExpression stringNumOpRegex(R"(\"[^\"]*\"[+\-*/%]\s*\d+)|(\d+[+\-*/%]\s*\"[^\"]*\")");
-    if (expr.contains(stringNumOpRegex)) {
-        addSyntaxError("Обнаружена попытка выполнить арифметическую операцию между строковым литералом и числовым литералом.", blockId, errors);
-        hasLocalErrors = true;
-    }
+    // Строгая проверка на смешивание строки с числом в арифметических операциях теперь полностью осуществляется в addValues().
+    // Удален stringNumOpRegex, чтобы избежать проблем с QRegularExpression.
 
 
     return !hasLocalErrors;
@@ -697,17 +725,14 @@ void Obrabotka::deistvie(QString vvod) {
     vvod.remove(QRegularExpression("\\s+"));
     int equalsPos = vvod.indexOf('=');
     if (equalsPos == -1) {
-        setError("Ошибка: В действии отсутствует оператор присваивания '='."); // Added error
         return;
     }
     QString left = vvod.left(equalsPos);
     QString right = vvod.mid(equalsPos + 1);
     if (left.isEmpty()) {
-        setError("Ошибка: Левая часть присваивания не может быть пустой."); // Added error
         return;
     }
     if (right.isEmpty()) {
-        setError("Ошибка: Правая часть присваивания не может быть пустой."); // Added error
         return;
     }
     QVariant result = parseExpression(right);
@@ -1543,8 +1568,28 @@ QVariantList Obrabotka::checkAlgorithmSyntax(const QVariantList& algorithm) {
         QString content = block["input"].toString();
         int blockId = block["uniqueId"].toInt();
 
-        if (type == "действие" || type == "усл" || type == "предусл" || type == "постусл") {
-            validateExpressionSyntax(content, blockId, allErrors);
+        if (type == "действие") {
+            QString trimmedContent = content.trimmed();
+            int equalsPos = trimmedContent.indexOf('=');
+
+            if (equalsPos == -1) {
+                addSyntaxError("В действии отсутствует оператор присваивания '='.", blockId, allErrors);
+            } else {
+                QString left = trimmedContent.left(equalsPos).trimmed();
+                QString right = trimmedContent.mid(equalsPos + 1).trimmed();
+
+                if (left.isEmpty()) {
+                    addSyntaxError("Левая часть присваивания не может быть пустой.", blockId, allErrors);
+                }
+                // Only validate the right side if it's not empty, otherwise, the empty error will be added
+                if (right.isEmpty()) {
+                    addSyntaxError("Правая часть присваивания не может быть пустой.", blockId, allErrors);
+                } else {
+                    validateExpressionSyntax(right, blockId, allErrors, false);
+                }
+            }
+        } else if (type == "усл" || type == "предусл" || type == "постусл") {
+            validateExpressionSyntax(content, blockId, allErrors, true);
         } else if (type == "счетчик") {
             // Check counter expression "var = start to end step step"
             QRegularExpression counterParseRegex(R"(^\s*(\w+)\s*=\s*(.+)\s+(?:to|до)\s+(.+)\s+(?:step|шаг)\s*(.+)\s*$)");
@@ -1553,9 +1598,9 @@ QVariantList Obrabotka::checkAlgorithmSyntax(const QVariantList& algorithm) {
                 addSyntaxError("Некорректный формат выражения счетчика. Ожидается: 'переменная = начало до конец шаг шаг'", blockId, allErrors);
             } else {
                 // Check syntax of start, end, step parts
-                validateExpressionSyntax(counterMatch.captured(2), blockId, allErrors); // start
-                validateExpressionSyntax(counterMatch.captured(3), blockId, allErrors); // end
-                validateExpressionSyntax(counterMatch.captured(4), blockId, allErrors); // step
+                validateExpressionSyntax(counterMatch.captured(2), blockId, allErrors, false); // start
+                validateExpressionSyntax(counterMatch.captured(3), blockId, allErrors, false); // end
+                validateExpressionSyntax(counterMatch.captured(4), blockId, allErrors, false); // step
             }
         }
         // Recursively check sub-blocks (trueBranch, falseBranch, loopBody)

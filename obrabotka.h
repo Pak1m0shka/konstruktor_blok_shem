@@ -87,7 +87,7 @@ private:
 
     // Новые функции для проверки синтаксиса
     void addSyntaxError(const QString& message, int blockId, QVariantList& errors);
-    bool validateExpressionSyntax(const QString& expression, int blockId, QVariantList& errors);
+    bool validateExpressionSyntax(const QString& expression, int blockId, QVariantList& errors, bool isConditionalContext = false);
 
     // Функции-помощники
     VariableType determineType(const QVariant& value);
@@ -144,7 +144,6 @@ signals:
     void currentFilePathChanged();
     void fileSaved(const QString &filePath);
     void syntaxErrorsOccurred(const QVariantList& errors); // New signal
-    void highlightSyntaxErrorBlock(int blockId); // New signal
 };
 
 #endif // OBRABOTKA_H
