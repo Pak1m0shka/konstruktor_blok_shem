@@ -38,16 +38,16 @@ Window {
     property color defaultDebugTableBorderColor: "#9c27b0"
     property color defaultTranslucentColor: "#80000000"
 
-    // Цвета кнопок спавна блоков
-    property color defaultInputColor: "#ba68c8"
-    property color defaultOutputColor: "#4db6ac"
-    property color defaultActionColor: "#64b5f6"
-    property color defaultCounterColor: "#ef5350"
-    property color defaultPrecondColor: "#ffb74d"
-    property color defaultPostcondColor: "#ce93d8"
-    property color defaultCondColor: "#81c784"
-    property color defaultStartColor: "#64b5f6"
-    property color defaultEndColor: "#ffb74d"
+    // Цвета кнопок спавна блоков (сделаны темнее для лучшей читаемости текста)
+    property color defaultInputColor: "#7b1fa2"  // Темно-фиолетовый
+    property color defaultOutputColor: "#00695c"  // Темно-бирюзовый
+    property color defaultActionColor: "#1565c0"  // Темно-синий
+    property color defaultCounterColor: "#c2185b"  // Темно-розовый
+    property color defaultPrecondColor: "#ef6c00"  // Темно-оранжевый
+    property color defaultPostcondColor: "#6a1b9a"  // Темно-фиолетовый
+    property color defaultCondColor: "#2e7d32"  // Темно-зеленый
+    property color defaultStartColor: "#1565c0"  // Темно-синий
+    property color defaultEndColor: "#ff8f00"  // Темно-желтый
 
     // Текущие цвета (могут меняться пользователем)
     property color backgroundColor: defaultBackgroundColor
@@ -76,7 +76,6 @@ Window {
     property real buttonsZoomLevel: 1.0
     property real blocksZoomLevel: 1.0
     property real blockScale: 1.0
-    // property url currentFilePath: "" // This is now in obrabotka
 
     color: backgroundColor
     property Item activeContainer: container
@@ -88,27 +87,364 @@ Window {
     property bool canStepForward: true
     property int blockIdCounter: 0
     property int debugStartBlockId: -1
-    property var errorBlockIds: [] // Changed from highlightedErrorBlockId
+    property var errorBlockIds: []
+    property var blockLayoutData: []
+    property var flowArrowData: []
+    property var allConnections: []
+    property var arrowComponents: []
+
+    function updateFlowArrows() {
+        main.flowArrowData = [];
+        main.allConnections = [];
+
+        // Удаляем все существующие стрелки
+        for (var i = 0; i < arrowComponents.length; i++) {
+            if (arrowComponents[i]) {
+                arrowComponents[i].destroy();
+            }
+        }
+        arrowComponents = [];
+
+        var allBlocks = collectAllBlocks();
+
+        function findBlockById(id) {
+            for (var i = 0; i < allBlocks.length; i++) {
+                if (allBlocks[i].uniqueId === id) return allBlocks[i];
+            }
+            return null;
+        }
+
+        function processBlockConnections(block) {
+            var connections = [];
+
+            if (block.blockType === "усл") {
+                var leftContainer = block.leftContainer;
+                var rightContainer = block.rightContainer;
+
+                if (leftContainer && leftContainer.children.length > 0) {
+                    connections.push({
+                        from: block.uniqueId,
+                        to: leftContainer.children[0].uniqueId,
+                        type: "yes",
+                        branch: "left"
+                    });
+
+                    // Добавляем соединение от последнего блока в левой ветке к следующему блоку после условия
+                    var lastInLeft = leftContainer.children[leftContainer.children.length - 1];
+                    if (lastInLeft && block.parent) {
+                        // Находим индекс блока условия в родительском контейнере
+                        var parentChildren = block.parent.children;
+                        var conditionIndex = -1;
+                        for (var i = 0; i < parentChildren.length; i++) {
+                            if (parentChildren[i] === block) {
+                                conditionIndex = i;
+                                break;
+                            }
+                        }
+                        // Находим следующий блок после условия
+                        if (conditionIndex !== -1 && conditionIndex + 1 < parentChildren.length) {
+                            var nextBlock = parentChildren[conditionIndex + 1];
+                            if (nextBlock && nextBlock.uniqueId !== undefined) {
+                                connections.push({
+                                    from: lastInLeft.uniqueId,
+                                    to: nextBlock.uniqueId,
+                                    type: "sequential"
+                                });
+                            }
+                        }
+                    }
+                }
+
+                if (rightContainer && rightContainer.children.length > 0) {
+                    connections.push({
+                        from: block.uniqueId,
+                        to: rightContainer.children[0].uniqueId,
+                        type: "no",
+                        branch: "right"
+                    });
+
+                    // Добавляем соединение от последнего блока в правой ветке к следующему блоку после условия
+                    var lastInRight = rightContainer.children[rightContainer.children.length - 1];
+                    if (lastInRight && block.parent) {
+                        var parentChildren = block.parent.children;
+                        var conditionIndex = -1;
+                        for (var i = 0; i < parentChildren.length; i++) {
+                            if (parentChildren[i] === block) {
+                                conditionIndex = i;
+                                break;
+                            }
+                        }
+                        if (conditionIndex !== -1 && conditionIndex + 1 < parentChildren.length) {
+                            var nextBlock = parentChildren[conditionIndex + 1];
+                            if (nextBlock && nextBlock.uniqueId !== undefined) {
+                                connections.push({
+                                    from: lastInRight.uniqueId,
+                                    to: nextBlock.uniqueId,
+                                    type: "sequential"
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            else if (block.blockType === "счетчик") {
+                var centerContainerCounter = block.centerContainerCounter;
+                if (centerContainerCounter && centerContainerCounter.children.length > 0) {
+                    connections.push({
+                        from: block.uniqueId,
+                        to: centerContainerCounter.children[0].uniqueId,
+                        type: "loop",
+                        branch: "center"
+                    });
+
+                    var lastInCounter = centerContainerCounter.children[centerContainerCounter.children.length - 1];
+                    if (lastInCounter) {
+                        connections.push({
+                            from: lastInCounter.uniqueId,
+                            to: block.uniqueId,
+                            type: "back_loop"
+                        });
+                    }
+                }
+            }
+            else if (block.blockType === "предусл") {
+                var centerContainer = block.centerContainer;
+                if (centerContainer && centerContainer.children.length > 0) {
+                    connections.push({
+                        from: block.uniqueId,
+                        to: centerContainer.children[0].uniqueId,
+                        type: "loop",
+                        branch: "center"
+                    });
+
+                    var lastInLoop = centerContainer.children[centerContainer.children.length - 1];
+                    if (lastInLoop) {
+                        connections.push({
+                            from: lastInLoop.uniqueId,
+                            to: block.uniqueId,
+                            type: "back_loop"
+                        });
+                    }
+                }
+            }
+            else if (block.blockType === "постусл") {
+                var centerContainerPost = block.centerContainerPost;
+                if (centerContainerPost && centerContainerPost.children.length > 0) {
+                    connections.push({
+                        from: block.uniqueId,
+                        to: centerContainerPost.children[0].uniqueId,
+                        type: "loop",
+                        branch: "center"
+                    });
+
+                    var lastInLoop = centerContainerPost.children[centerContainerPost.children.length - 1];
+                    if (lastInLoop) {
+                        connections.push({
+                            from: lastInLoop.uniqueId,
+                            to: block.uniqueId,
+                            type: "back_loop"
+                        });
+                    }
+                }
+            }
+
+            return connections;
+        }
+
+        for (var i = 0; i < allBlocks.length; i++) {
+            var block = allBlocks[i];
+            var blockConnections = processBlockConnections(block);
+            main.allConnections = main.allConnections.concat(blockConnections);
+        }
+
+        // Добавляем последовательные соединения между блоками в основном контейнере
+        for (var i = 0; i < allBlocks.length - 1; i++) {
+            var currentBlock = allBlocks[i];
+            var nextBlock = allBlocks[i + 1];
+
+            // Пропускаем условные блоки, так как у них свои связи
+            if (currentBlock.blockType === "усл") {
+                continue;
+            }
+
+            // Пропускаем, если следующий блок уже соединен (например, в ветке условия)
+            var alreadyConnected = false;
+            for (var j = 0; j < main.allConnections.length; j++) {
+                var conn = main.allConnections[j];
+                if ((conn.from === currentBlock.uniqueId && conn.to === nextBlock.uniqueId) ||
+                    (conn.from === nextBlock.uniqueId && conn.to === currentBlock.uniqueId)) {
+                    alreadyConnected = true;
+                    break;
+                }
+            }
+
+            if (!alreadyConnected && currentBlock.parent === container && nextBlock.parent === container) {
+                main.allConnections.push({
+                    from: currentBlock.uniqueId,
+                    to: nextBlock.uniqueId,
+                    type: "sequential"
+                });
+            }
+        }
+
+        updateArrowVisuals();
+    }
+
+    function updateArrowVisuals() {
+        var allBlocks = collectAllBlocks();
+        var blockMap = {};
+        for (var i = 0; i < allBlocks.length; i++) {
+            var block = allBlocks[i];
+            blockMap[block.uniqueId] = block;
+        }
+
+        function getBlockCenter(block) {
+            var point = block.mapToItem(prokrutka, block.width / 2, block.height / 2);
+            return { x: point.x, y: point.y };
+        }
+
+        function getBlockExitPoint(block) {
+            if (block.blockType === "усл") {
+                var point = block.mapToItem(prokrutka, block.width / 2, block.height);
+                return { x: point.x, y: point.y };
+            } else if (block.blockType === "счетчик" || block.blockType === "предусл" || block.blockType === "постусл") {
+                var point = block.mapToItem(prokrutka, block.width / 2, block.height);
+                return { x: point.x, y: point.y };
+            } else {
+                var point = block.mapToItem(prokrutka, block.width / 2, block.height);
+                return { x: point.x, y: point.y };
+            }
+        }
+
+        function getBlockEntryPoint(block) {
+            var point = block.mapToItem(prokrutka, block.width / 2, 0);
+            return { x: point.x, y: point.y };
+        }
+
+        for (var i = 0; i < main.allConnections.length; i++) {
+            var conn = main.allConnections[i];
+            var fromBlock = blockMap[conn.from];
+            var toBlock = blockMap[conn.to];
+
+            if (!fromBlock || !toBlock) continue;
+
+            var startPoint = getBlockExitPoint(fromBlock);
+            var endPoint = getBlockEntryPoint(toBlock);
+
+            if (conn.type === "yes" || conn.type === "no") {
+                // Для условий рисуем стрелки из боков ромба
+                if (conn.branch === "left") {
+                    startPoint = fromBlock.mapToItem(prokrutka, 0, fromBlock.height / 2);
+                } else if (conn.branch === "right") {
+                    startPoint = fromBlock.mapToItem(prokrutka, fromBlock.width, fromBlock.height / 2);
+                }
+
+                var container = conn.branch === "left" ? fromBlock.leftContainer : fromBlock.rightContainer;
+                if (container && container.children.length > 0) {
+                    endPoint = container.children[0].mapToItem(prokrutka, container.children[0].width / 2, 0);
+                }
+
+                // Создаем кривую стрелку для условий
+                var middlePoint = {
+                    x: (startPoint.x + endPoint.x) / 2,
+                    y: (startPoint.y + endPoint.y) / 2
+                };
+
+                // Смещаем контрольную точку для красивого изгиба
+                if (conn.branch === "left") {
+                    middlePoint.x = startPoint.x - 50;
+                    middlePoint.y = startPoint.y + 50;
+                } else {
+                    middlePoint.x = startPoint.x + 50;
+                    middlePoint.y = startPoint.y + 50;
+                }
+
+                createCurvedArrow(startPoint, middlePoint, endPoint, conn.type === "yes" ? "#4CAF50" : "#F44336");
+
+            } else if (conn.type === "back_loop") {
+                // Обратная связь для циклов
+                startPoint = getBlockExitPoint(fromBlock);
+                endPoint = toBlock.mapToItem(prokrutka, toBlock.width / 2, 0);
+
+                var middlePoint = {
+                    x: (startPoint.x + endPoint.x) / 2,
+                    y: Math.min(startPoint.y, endPoint.y) - 100
+                };
+
+                createCurvedArrow(startPoint, middlePoint, endPoint, "#FF9800");
+
+            } else if (conn.type === "loop") {
+                // Прямая связь от цикла к телу
+                startPoint = getBlockExitPoint(fromBlock);
+                endPoint = toBlock.mapToItem(prokrutka, toBlock.width / 2, 0);
+
+                createStraightArrow(startPoint, endPoint, "#FFFFFF");
+
+            } else if (conn.type === "sequential") {
+                // Последовательная связь
+                createStraightArrow(startPoint, endPoint, "#FFFFFF");
+            }
+        }
+    }
+
+    function createStraightArrow(startPoint, endPoint, color) {
+        var arrowComponent = Qt.createComponent("Arrow.qml");
+        if (arrowComponent.status === Component.Ready) {
+            var arrow = arrowComponent.createObject(prokrutka, {
+                startX: startPoint.x,
+                startY: startPoint.y,
+                endX: endPoint.x,
+                endY: endPoint.y,
+                arrowColor: color,
+                arrowType: "straight"
+            });
+            if (arrow) arrowComponents.push(arrow);
+        }
+    }
+
+    function createCurvedArrow(startPoint, controlPoint, endPoint, color) {
+        var arrowComponent = Qt.createComponent("Arrow.qml");
+        if (arrowComponent.status === Component.Ready) {
+            var arrow = arrowComponent.createObject(prokrutka, {
+                startX: startPoint.x,
+                startY: startPoint.y,
+                endX: endPoint.x,
+                endY: endPoint.y,
+                controlX1: controlPoint.x,
+                controlY1: controlPoint.y,
+                controlX2: controlPoint.x,
+                controlY2: controlPoint.y,
+                arrowColor: color,
+                arrowType: "curved"
+            });
+            if (arrow) arrowComponents.push(arrow);
+        }
+    }
 
     // Функция для сбора всех блоков в порядке обхода
     function collectAllBlocks() {
         var blocks = []
+        main.blockLayoutData = []
 
         function traverseContainer(container) {
             if (!container || !container.children) return
 
             for (var i = 0; i < container.children.length; i++) {
                 var child = container.children[i]
-                if (child && child.hasOwnProperty("blockType")) {
+                if (child && child.hasOwnProperty("blockType") && child.uniqueId !== -1) {
                     blocks.push(child)
+                    var mappedRect = child.mapToItem(prokrutka, 0, 0, child.width, child.height);
+                    main.blockLayoutData.push({
+                        id: child.uniqueId,
+                        type: child.blockType,
+                        rect: mappedRect,
+                        blockObject: child
+                    });
 
-                    // Рекурсивно обходим вложенные контейнеры в порядке:
-                    // 1. Для условий: сначала YES ветка, потом NO ветка
                     if (child.blockType === "усл") {
                         if (child.leftContainer) traverseContainer(child.leftContainer)
                         if (child.rightContainer) traverseContainer(child.rightContainer)
                     }
-                    // 2. Для счетчиков и циклов
                     else if (child.blockType === "счетчик" && child.centerContainerCounter) {
                         traverseContainer(child.centerContainerCounter)
                     }
@@ -190,7 +526,6 @@ Window {
         var block = keyboardFocusItem
         isEditingBlock = true
 
-        // Определяем какое текстовое поле активировать
         if (["усл", "предусл", "постусл"].includes(block.blockType)) {
             block.inputFieldDiamond.forceActiveFocus()
             block.inputFieldDiamond.selectAll()
@@ -210,7 +545,7 @@ Window {
         if (!keyboardMode || !isEditingBlock) return
 
         isEditingBlock = false
-        main.forceActiveFocus() // Возвращаем фокус на главное окно
+        main.forceActiveFocus()
 
         otvet.text = otvet.text + "\n" + "Редактирование завершено. Используйте стрелки для навигации."
     }
@@ -276,27 +611,28 @@ Window {
         if (obrabotka.currentFilePath) {
             obrabotka.loadAlgorithmFromFile(obrabotka.currentFilePath)
         }
+        main.updateFlowArrows();
     }
 
-    // Функция сброса всех цветов к стандартным темным
+    // Функция сброса всех цветов к стандартным темным (улучшенная для лучшей читаемости)
     function resetToDarkTheme() {
         backgroundColor = "#121212"
         panelColor = "#1e1e1e"
-        textColor = "#e0e0e0"
+        textColor = "#ffffff"  // Более яркий белый для лучшей читаемости
         borderColor = "#424242"
-        buttonColor = "#424242"
-        hoverColor = "#616161"
-        pressedColor = "#757575"
-        inputColor = "#ba68c8"
-        outputColor = "#4db6ac"
-        actionColor = "#64b5f6"
-        counterColor = "#ef5350"
-        precondColor = "#ffb74d"
-        postcondColor = "#ce93d8"
-        condColor = "#81c784"
-        startColor = "#64b5f6"
-        endColor = "#ffb74d"
-        debugTableColor = "#2d2d2d"
+        buttonColor = "#2d2d2d"  // Темнее для лучшего контраста
+        hoverColor = "#4d4d4d"   // Ярче для лучшей видимости
+        pressedColor = "#616161"
+        inputColor = "#7b1fa2"   // Темнее и контрастнее
+        outputColor = "#00695c"  // Темнее и контрастнее
+        actionColor = "#1565c0"  // Темнее и контрастнее
+        counterColor = "#c2185b" // Темнее и контрастнее
+        precondColor = "#ef6c00" // Темнее и контрастнее
+        postcondColor = "#6a1b9a" // Темнее и контрастнее
+        condColor = "#2e7d32"    // Темнее и контрастнее
+        startColor = "#1565c0"   // Темнее и контрастнее
+        endColor = "#ff8f00"     // Темнее и контрастнее
+        debugTableColor = "#252525"
         debugTableBorderColor = "#9c27b0"
         translucentColor = "#80000000"
         saveSettings()
@@ -307,7 +643,7 @@ Window {
         backgroundColor = "#f5f7fa"
         panelColor = "#ffffff"
         textColor = "#1f2937"
-        borderColor = "#d1d5db"
+        borderColor = "#8c8c8c"  // Сделали темнее
         buttonColor = "#e5e7eb"
         hoverColor = "#d1d5db"
         pressedColor = "#9ca3af"
@@ -326,12 +662,36 @@ Window {
         saveSettings()
     }
 
-    // Светлая тема в стиле Ant Design
+    // Новая белая тема "Pure White"
+    function setPureWhiteTheme() {
+        backgroundColor = "#ffffff"
+        panelColor = "#f8f9fa"
+        textColor = "#212529"
+        borderColor = "#8c8c8c"  // Сделали темнее
+        buttonColor = "#e9ecef"
+        hoverColor = "#ced4da"
+        pressedColor = "#adb5bd"
+        inputColor = "#845ef7"
+        outputColor = "#20c997"
+        actionColor = "#339af0"
+        counterColor = "#ff6b6b"
+        precondColor = "#ff922b"
+        postcondColor = "#cc5de8"
+        condColor = "#51cf66"
+        startColor = "#339af0"
+        endColor = "#ff922b"
+        debugTableColor = "#f8f9fa"
+        debugTableBorderColor = "#845ef7"
+        translucentColor = "#80000000"
+        saveSettings()
+    }
+
+    // Светлая тема в стиле Ant Design (с темными бордерами)
     function setAntLightTheme() {
         backgroundColor = "#fafafa"
         panelColor = "#ffffff"
         textColor = "#262626"
-        borderColor = "#d9d9d9"
+        borderColor = "#a6a6a6"  // Сделали темнее
         buttonColor = "#f5f5f5"
         hoverColor = "#40a9ff"
         pressedColor = "#096dd9"
@@ -354,10 +714,10 @@ Window {
     function setBlueTheme() {
         backgroundColor = "#0d1b2a"
         panelColor = "#1b263b"
-        textColor = "#e0e1dd"
+        textColor = "#ffffff"  // Яркий белый для лучшей читаемости
         borderColor = "#415a77"
-        buttonColor = "#415a77"
-        hoverColor = "#778da9"
+        buttonColor = "#2d4159"
+        hoverColor = "#546b8a"
         pressedColor = "#778da9"
         inputColor = "#48cae4"
         outputColor = "#4cc9f0"
@@ -378,10 +738,10 @@ Window {
     function setGreenTheme() {
         backgroundColor = "#1a1f2b"
         panelColor = "#252a34"
-        textColor = "#e8eaee"
+        textColor = "#ffffff"  // Яркий белый для лучшей читаемости
         borderColor = "#3a506b"
-        buttonColor = "#3a506b"
-        hoverColor = "#5c7da5"
+        buttonColor = "#2c3648"
+        hoverColor = "#4a617d"
         pressedColor = "#5c7da5"
         inputColor = "#38b000"
         outputColor = "#70e000"
@@ -402,10 +762,10 @@ Window {
     function setPurpleTheme() {
         backgroundColor = "#1a1a2e"
         panelColor = "#16213e"
-        textColor = "#e6e6e6"
+        textColor = "#ffffff"  // Яркий белый для лучшей читаемости
         borderColor = "#393e46"
-        buttonColor = "#393e46"
-        hoverColor = "#6d6d6d"
+        buttonColor = "#2a2f38"
+        hoverColor = "#51565f"
         pressedColor = "#6d6d6d"
         inputColor = "#9c27b0"
         outputColor = "#4a148c"
@@ -426,10 +786,10 @@ Window {
     function setOrangeTheme() {
         backgroundColor = "#2d1b00"
         panelColor = "#3d2800"
-        textColor = "#fff3e0"
+        textColor = "#ffffff"  // Яркий белый для лучшей читаемости
         borderColor = "#6b4f23"
-        buttonColor = "#6b4f23"
-        hoverColor = "#8d6e63"
+        buttonColor = "#4d3a1c"
+        hoverColor = "#7a6038"
         pressedColor = "#8d6e63"
         inputColor = "#ff6f00"
         outputColor = "#ff9800"
@@ -442,6 +802,30 @@ Window {
         endColor = "#ffb300"
         debugTableColor = "#3d2800"
         debugTableBorderColor = "#ff6f00"
+        translucentColor = "#80000000"
+        saveSettings()
+    }
+
+    // Новая тема "Пурпурный туман" (темная с фиолетовыми акцентами)
+    function setPurpleMistTheme() {
+        backgroundColor = "#0f0b1a"
+        panelColor = "#1a1529"
+        textColor = "#f0e6ff"  // Светло-фиолетовый текст для лучшей читаемости
+        borderColor = "#3a2c5c"
+        buttonColor = "#2a1f45"
+        hoverColor = "#4a3a6c"
+        pressedColor = "#5a4a7c"
+        inputColor = "#9d4edd"
+        outputColor = "#5a189a"
+        actionColor = "#7b2cbf"
+        counterColor = "#ff006e"
+        precondColor = "#ff9e00"
+        postcondColor = "#c77dff"
+        condColor = "#38b000"
+        startColor = "#7b2cbf"
+        endColor = "#ff9e00"
+        debugTableColor = "#1a1529"
+        debugTableBorderColor = "#9d4edd"
         translucentColor = "#80000000"
         saveSettings()
     }
@@ -565,22 +949,23 @@ Window {
             main.debugMode = false;
             variablesModel.clear();
             currentDebugBlockId = -1;
-            errorBlockIds = []; // Clear error highlight on debug finish
+            errorBlockIds = [];
         }
 
         onAlgorithmLoaded: (algorithm) => {
             console.log("Получен сигнал algorithmLoaded, количество блоков:", algorithm.length)
             main.debugStartBlockId = -1
-            main.errorBlockIds = []; // Clear error highlight on new algorithm load
+            main.errorBlockIds = [];
             if (algorithm && algorithm.length > 0) {
                 loadAlgorithm(algorithm, container)
+                main.updateFlowArrows();
             }
         }
 
         onErrorOccurred: (errorMessage) => {
             console.log("Ошибка:", errorMessage)
             otvet.text = otvet.text + "\n" + "Ошибка: " + errorMessage
-            errorBlockIds = []; // Clear any existing highlight for runtime errors
+            errorBlockIds = [];
         }
         onFileSaved: (filePath) => {
             otvet.text = otvet.text + "\n" + "Файл сохранен: " + filePath
@@ -588,10 +973,9 @@ Window {
 
         onSyntaxErrorsOccurred: (errors) => {
             console.log("Получены синтаксические ошибки:", errors);
-            // Always append error report, prefixed by a separator
             otvet.text += "\n" + "--- Синтаксические ошибки ---\n";
 
-            main.errorBlockIds = []; // Clear previous highlights
+            main.errorBlockIds = [];
 
             var newErrorBlockIds = [];
             if (errors && errors.length > 0) {
@@ -602,20 +986,29 @@ Window {
                     var errorString = "Ошибка: " + message;
                     if (blockId !== -1) {
                         errorString += " (Блок ID: " + blockId + ")";
-                        newErrorBlockIds.push(blockId); // Collect all error block IDs
+                        newErrorBlockIds.push(blockId);
                     }
                     otvet.text += errorString + "\n";
                 }
-                // If errors were found and debugMode was active, turn it off.
                 if (main.debugMode) {
                     main.debugMode = false;
-                    obrabotka.stopDebugging(); // Explicitly stop debugging from C++ side to clear state
+                    obrabotka.stopDebugging();
                 }
             } else {
-                otvet.text += "Неизвестные синтаксические ошибки (ноль ошибок).\n"; // Added clarifying message for no errors
+                otvet.text += "Неизвестные синтаксические ошибки (ноль ошибок).\n";
             }
-            main.errorBlockIds = newErrorBlockIds; // Assign the new list of error block IDs
-            main.updateBlockHighlight(); // Request repaint for all relevant blocks
+            main.errorBlockIds = newErrorBlockIds;
+            main.updateBlockHighlight();
+        }
+    }
+
+    Connections {
+        target: main
+        function onBlocksZoomLevelChanged() {
+            main.updateFlowArrows();
+        }
+        function onBlockScaleChanged() {
+            main.updateFlowArrows();
         }
     }
 
@@ -628,11 +1021,11 @@ Window {
         onAccepted: {
             var data = main.collectData(0);
             obrabotka.saveAlgorithmToFile(data, saveAsDialog.file);
-            settingsPopup.close();
+            confirmWindow.close();
         }
         onRejected: {
             console.log("Сохранение файла отменено.");
-            settingsPopup.close();
+            confirmWindow.close();
         }
     }
 
@@ -643,16 +1036,16 @@ Window {
         defaultSuffix: "json"
         nameFilters: [ "JSON files (*.json)", "All files (*)" ]
         onAccepted: {
-            var data = main.collectData(0); // Collect current algorithm data
-            if (obrabotka.saveAlgorithmToFile(data, newFileDialog.file)) { // Save current algorithm to the new file
-                obrabotka.createNewInstance(newFileDialog.file); // Launch new instance with the new file
-                Qt.quit(); // Quit current instance
+            var data = main.collectData(0);
+            if (obrabotka.saveAlgorithmToFile(data, newFileDialog.file)) {
+                obrabotka.createNewInstance(newFileDialog.file);
+                Qt.quit();
             }
-            settingsPopup.close();
+            confirmWindow.close();
         }
         onRejected: {
             console.log("Создание нового файла отменено.");
-            settingsPopup.close();
+            confirmWindow.close();
         }
     }
 
@@ -663,35 +1056,35 @@ Window {
         nameFilters: [ "JSON files (*.json)", "All files (*)" ]
         onAccepted: {
             obrabotka.loadAlgorithmFromFile(openDialog.file);
-            settingsPopup.close();
+            confirmWindow.close();
         }
         onRejected: {
             console.log("Открытие файла отменено.");
-            settingsPopup.close();
+            confirmWindow.close();
         }
     }
 
     property string userInputResult: ""
 
-    // Popup для подтверждения операций
-    Popup {
-        id: confirmPopup
+    // Window для подтверждения операций
+    Window {
+        id: confirmWindow
         width: 300
         height: 150
-        modal: true
-        focus: true
-        closePolicy: Popup.NoAutoClose
-        anchors.centerIn: Overlay.overlay
-
-        background: Rectangle {
-            color: panelColor
-            border.color: borderColor
-            border.width: 2
-            radius: 5
-        }
+        modality: Qt.ApplicationModal
+        flags: Qt.Dialog
+        visible: false
+        title: "Подтверждение"
+        color: panelColor
 
         property string operation: ""
         property var callback: null
+
+        function openWindow() {
+            confirmWindow.x = main.x + (main.width - confirmWindow.width) / 2
+            confirmWindow.y = main.y + (main.height - confirmWindow.height) / 2
+            confirmWindow.visible = true
+        }
 
         Column {
             anchors.fill: parent
@@ -702,8 +1095,8 @@ Window {
                 id: popupTitle
                 width: parent.width
                 text: {
-                    if (confirmPopup.operation === "save") return "Сохранить текущую тему?"
-                    else if (confirmPopup.operation === "load") return "Загрузить сохраненную тему?"
+                    if (confirmWindow.operation === "save") return "Сохранить текущую тему?"
+                    else if (confirmWindow.operation === "load") return "Загрузить сохраненную тему?"
                     else return "Подтвердите действие"
                 }
                 color: textColor
@@ -752,10 +1145,10 @@ Window {
                     }
 
                     onClicked: {
-                        if (confirmPopup.callback) {
-                            confirmPopup.callback()
+                        if (confirmWindow.callback) {
+                            confirmWindow.callback()
                         }
-                        confirmPopup.close()
+                        confirmWindow.close()
                     }
                 }
 
@@ -794,7 +1187,7 @@ Window {
                         font.bold: true
                     }
 
-                    onClicked: confirmPopup.close()
+                    onClicked: confirmWindow.close()
                 }
             }
         }
@@ -983,7 +1376,7 @@ Window {
                         }
 
                         onClicked: {
-                            settingsPopup.open()
+                            settingsWindow.openWindow();
                         }
                     }
 
@@ -1149,7 +1542,7 @@ Window {
                         background: Rectangle {
                             id: inputBtnBg
                             color: "transparent"
-                            border.width: 0  // Убираем внешний бордер
+                            border.width: 0
                             radius: 8
 
                             Behavior on color {
@@ -1219,7 +1612,7 @@ Window {
                         background: Rectangle {
                             id: outputBtnBg
                             color: "transparent"
-                            border.width: 0  // Убираем внешний бордер
+                            border.width: 0
                             radius: 8
 
                             Behavior on color {
@@ -1289,7 +1682,7 @@ Window {
                         background: Rectangle {
                             id: actionBtnBg
                             color: "transparent"
-                            border.width: 0  // Убираем внешний бордер
+                            border.width: 0
                             radius: 8
 
                             Behavior on color {
@@ -1352,7 +1745,7 @@ Window {
                         background: Rectangle {
                             id: counterBtnBg
                             color: "transparent"
-                            border.width: 0  // Убираем внешний бордер
+                            border.width: 0
                             radius: 8
 
                             Behavior on color {
@@ -1424,7 +1817,7 @@ Window {
                         background: Rectangle {
                             id: precondBtnBg
                             color: "transparent"
-                            border.width: 0  // Убираем внешний бордер
+                            border.width: 0
                             radius: 8
 
                             Behavior on color {
@@ -1494,7 +1887,7 @@ Window {
                         background: Rectangle {
                             id: postcondBtnBg
                             color: "transparent"
-                            border.width: 0  // Убираем внешний бордер
+                            border.width: 0
                             radius: 8
 
                             Behavior on color {
@@ -1564,7 +1957,7 @@ Window {
                         background: Rectangle {
                             id: condBtnBg
                             color: "transparent"
-                            border.width: 0  // Убираем внешний бордер
+                            border.width: 0
                             radius: 8
 
                             Behavior on color {
@@ -1634,7 +2027,7 @@ Window {
                         background: Rectangle {
                             id: startBtnBg
                             color: "transparent"
-                            border.width: 0  // Убираем внешний бордер
+                            border.width: 0
                             radius: 8
 
                             Behavior on color {
@@ -1696,7 +2089,7 @@ Window {
                         background: Rectangle {
                             id: endBtnBg
                             color: "transparent"
-                            border.width: 0  // Убираем внешний бордер
+                            border.width: 0
                             radius: 8
 
                             Behavior on color {
@@ -1866,6 +2259,7 @@ Window {
                             if (main.activeContainer === container) {
                                 createBlock(main.selectedBlockType)
                                 console.log("Создан блок типа:", main.selectedBlockType, "по клику")
+                                main.updateFlowArrows();
                             }
                         }
                     }
@@ -2254,15 +2648,16 @@ Window {
             case "усл": colorForBlock = condColor; break;
             case "начало": colorForBlock = startColor; break;
             case "конец": colorForBlock = endColor; break;
-            default: colorForBlock = actionColor; break; // Default to action color
+            default: colorForBlock = actionColor; break;
         }
 
         var newBlock = spisok.createObject(main.activeContainer, {
             "blockType": type,
             "uniqueId": main.blockIdCounter,
-            "customColor": colorForBlock // Pass the initial color here
+            "customColor": colorForBlock
         })
         main.blockIdCounter++;
+        main.updateFlowArrows();
     }
 
     function insertBlockAfter(referenceBlock, type) {
@@ -2291,6 +2686,7 @@ Window {
              }
         }
         newBlock.z = referenceIndex + 1;
+        main.updateFlowArrows();
     }
 
     function insertBlockBefore(referenceBlock, type) {
@@ -2319,6 +2715,7 @@ Window {
                 parentContainer.children[i].z = i + 1;
              }
         }
+        main.updateFlowArrows();
     }
 
     Component {
@@ -2335,6 +2732,13 @@ Window {
             property bool hovered: false
             property color customColor: "transparent"
             property bool keyboardFocused: false
+
+            // Свойства для доступа к контейнерам
+            property alias leftContainer: leftContainer
+            property alias rightContainer: rightContainer
+            property alias centerContainer: centerContainer
+            property alias centerContainerCounter: centerContainerCounter
+            property alias centerContainerPost: centerContainerPost
 
             function setTextFields(blockType, input, counterVar, counterFrom, counterTo, counterStep) {
                 if (blockType === "усл" || blockType === "предусл" || blockType === "постусл") {
@@ -2434,10 +2838,9 @@ Window {
                 return result;
             }
 
-            property var _blockCanvasRef: null // Приватное свойство для хранения ссылки на blockCanvas
+            property var _blockCanvasRef: null
             function registerBlockCanvas(canvas) {
                 _blockCanvasRef = canvas;
-                // console.log("BlockCanvas registered for ID:", root.uniqueId, "canvas:", canvas); // Для отладки
             }
 
             function updateBlockColor(newColor) {
@@ -2556,8 +2959,8 @@ Window {
                         }
 
                         onClicked: {
-                            colorPopup.blockItem = root;
-                            colorPopup.open();
+                            colorWindow.blockItem = root;
+                            colorWindow.openWindow();
                         }
                     }
                 }
@@ -2633,7 +3036,6 @@ Window {
                                     fillColor = main.getBlockColor(root.blockType);
                                 }
                                 ctx.fillStyle = fillColor;
-                                // Modified strokeStyle and lineWidth
                                 var isErrorBlock = main.errorBlockIds.includes(root.uniqueId);
                                 ctx.strokeStyle = isErrorBlock ? "red" : (root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : borderColor))
                                 ctx.lineWidth = isErrorBlock ? 5 * blockScale : (root.isDebugHighlighted ? 3 * blockScale : (root.isDebugStart ? 4 * blockScale : 2 * blockScale))
@@ -3063,6 +3465,7 @@ Window {
                             onTapped: {
                                 console.log("Блок удалён правым кликом. ID:", root.uniqueId);
                                 root.destroy()
+                                main.updateFlowArrows();
                             }
                         }
 
@@ -3072,6 +3475,7 @@ Window {
                             onDoubleTapped: {
                                 console.log("Блок удалён двойным кликом. ID:", root.uniqueId);
                                 root.destroy()
+                                main.updateFlowArrows();
                             }
                         }
                     }
@@ -3172,6 +3576,7 @@ Window {
                                         if (main.activeContainer === centerContainerCounter) {
                                             createBlock(main.selectedBlockType)
                                             console.log("Создан блок типа:", main.selectedBlockType, "в теле счетчика")
+                                            main.updateFlowArrows();
                                         }
                                         main.activeContainer = centerContainerCounter
                                     }
@@ -3276,6 +3681,7 @@ Window {
                                         if (main.activeContainer === centerContainer) {
                                             createBlock(main.selectedBlockType)
                                             console.log("Создан блок типа:", main.selectedBlockType, "в цикле")
+                                            main.updateFlowArrows();
                                         }
                                         main.activeContainer = centerContainer
                                     }
@@ -3385,6 +3791,7 @@ Window {
                                             if (main.activeContainer === leftContainer) {
                                                 createBlock(main.selectedBlockType)
                                                 console.log("Создан блок типа:", main.selectedBlockType, "в левой ветке условия")
+                                                main.updateFlowArrows();
                                             }
                                             main.activeContainer = leftContainer
                                         }
@@ -3473,6 +3880,7 @@ Window {
                                             if (main.activeContainer === rightContainer) {
                                                 createBlock(main.selectedBlockType)
                                                 console.log("Создан блок типа:", main.selectedBlockType, "в правой ветке условия")
+                                                main.updateFlowArrows();
                                             }
                                             main.activeContainer = rightContainer
                                         }
@@ -3572,12 +3980,13 @@ Window {
                                     }
                                 }
 
-                                TapHandler {
+                                    TapHandler {
                                     enabled: !main.debugMode
                                     onTapped: {
                                         if (main.activeContainer === centerContainerPost) {
                                             createBlock(main.selectedBlockType)
                                             console.log("Создан блок типа:", main.selectedBlockType, "в постусловии")
+                                            main.updateFlowArrows();
                                         }
                                         main.activeContainer = centerContainerPost
                                     }
@@ -3616,29 +4025,27 @@ Window {
     }
 
     function updateBlockHighlight() {
-        // Вызываем рекурсивную подсветку для всех блоков верхнего уровня
-        var allExistingBlocks = collectAllBlocks(); // Получаем все блоки, включая вложенные
+        var allExistingBlocks = collectAllBlocks();
         for (var i = 0; i < allExistingBlocks.length; i++) {
             var block = allExistingBlocks[i];
             if (block && typeof block.highlightInSelfAndChildren === 'function') {
                 block.highlightInSelfAndChildren(main.currentDebugBlockId);
             }
             if (block && block._blockCanvasRef) {
-                block._blockCanvasRef.requestPaint(); // Request repaint for all blocks to update error highlights
+                block._blockCanvasRef.requestPaint();
             }
         }
     }
 
     onCurrentDebugBlockIdChanged: updateBlockHighlight()
-    onErrorBlockIdsChanged: updateBlockHighlight() // Trigger update when error blocks list changes
+    onErrorBlockIdsChanged: updateBlockHighlight()
 
     function loadAlgorithm(algorithmData, parentContainer) {
-        // Очищаем контейнер
         var children = parentContainer.children
         for (var i = children.length - 1; i >= 0; i--) {
             children[i].destroy();
         }
-        main.blockIdCounter = 0 // Сбросить счетчик ID блоков при загрузке нового алгоритма
+        main.blockIdCounter = 0
 
         function createBlocksRecursive(dataArray, container) {
             for (var i = 0; i < dataArray.length; i++) {
@@ -3646,10 +4053,9 @@ Window {
                 var newBlock = spisok.createObject(container, {
                     "blockType": blockData.type,
                     "uniqueId": blockData.uniqueId,
-                    "customColor": blockData.customColor || "transparent" // Устанавливаем сохраненный цвет
+                    "customColor": blockData.customColor || "transparent"
                 });
 
-                // Присваиваем максимальный ID, чтобы новые блоки не конфликтовали
                 if (blockData.uniqueId >= main.blockIdCounter) {
                     main.blockIdCounter = blockData.uniqueId + 1;
                 }
@@ -3674,60 +4080,60 @@ Window {
             }
         }
         createBlocksRecursive(algorithmData, parentContainer);
+        main.updateFlowArrows();
     }
 
-    // Popup выбора цвета для блоков
-    Popup {
-        id: colorPopup
+    // Window выбора цвета для блоков
+    Window {
+        id: colorWindow
         width: 300
-        height: 450
-        modal: true
-        focus: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        anchors.centerIn: Overlay.overlay
-
-        background: Rectangle {
-            color: panelColor
-            border.color: borderColor
-            border.width: 2
-            radius: 5
-        }
+        height: 400
+        modality: Qt.ApplicationModal
+        flags: Qt.Dialog
+        visible: false
+        title: "Выбор цвета"
+        color: panelColor
 
         property var blockItem: null
 
-        ColumnLayout { // Используем ColumnLayout для лучшего управления компоновкой
+        function openWindow() {
+            colorWindow.x = main.x + (main.width - colorWindow.width) / 2
+            colorWindow.y = main.y + (main.height - colorWindow.height) / 2
+            colorWindow.visible = true
+        }
+
+        ColumnLayout {
             anchors.fill: parent
             anchors.margins: 10
-            spacing: 10
+            spacing: 5
 
             Text {
                 text: "Выберите цвет для блока"
                 color: textColor
                 font.pixelSize: 18
                 font.bold: true
-                Layout.alignment: Qt.AlignHCenter // Используем Layout.alignment вместо anchors
+                Layout.alignment: Qt.AlignHCenter
+                Layout.bottomMargin: 10
             }
 
             Grid {
                 id: colorGrid
-                Component.onCompleted: console.log("colorGrid - onCompleted:", width, height, spacing, columns)
-                width: 280 // Жестко задаем ширину
-                height: 200 // Жестко задаем высоту
-                columns: 6 // Изменено на 6 столбцов
+                width: 280
+                height: 220
+                columns: 6
                 spacing: 5
+                Layout.alignment: Qt.AlignHCenter
 
                 property var colors: [
-                    // Основные цвета
                     "#FF0000", "#00FF00", "#0000FF", "#FFFF00",
                     "#FF00FF", "#00FFFF", "#FFA500", "#800080",
                     "#008000", "#000080", "#A52A2A", "#808080",
                     "#C0C0C0", "#FFC0CB", "#90EE90", "#ADD8E6",
-                    // Дополнительные цвета
                     "#4CAF50", "#FFEB3B", "#FF9800", "#9C27B0",
                     "#673AB7", "#3F51B5", "#2196F3", "#03A9F4",
                     "#00BCD4", "#009688", "#8BC34A", "#CDDC39",
                     "#FFC107", "#FF5722", "#795548", "#607D8B",
-                    "#E91E63", "#F44336", "#9E9E9E", "#424242"
+                    "#E91E63", "#F44336", "#9E9E9e", "#424242"
                 ]
 
                 Repeater {
@@ -3735,7 +4141,6 @@ Window {
 
                     Rectangle {
                         id: colorTile
-                        Component.onCompleted: console.log("Tile created:", colorTile.width, colorTile.height, colorTile.color, modelData, "gridWidth:", colorGrid.width)
                         width: (colorGrid.width - colorGrid.spacing * (colorGrid.columns - 1)) / colorGrid.columns
                         height: width
                         color: modelData
@@ -3747,40 +4152,49 @@ Window {
                         }
                         border.width: colorTileMouseArea.hovered ? 3 : 2
 
-                        Behavior on border.color { ColorAnimation { duration: 100 } }
-                        Behavior on border.width { NumberAnimation { duration: 100 } }
+                        // Анимация наведения и нажатия
+                        scale: colorTileMouseArea.pressed ? 0.85 : (colorTileMouseArea.hovered ? 1.1 : 1.0)
+                        Behavior on scale {
+                            NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.width {
+                            NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                        }
+
+                        // Эффект тени при наведении
+                        layer.enabled: colorTileMouseArea.hovered
+
 
                         MouseArea {
                             id: colorTileMouseArea
                             anchors.fill: parent
                             hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                if (colorPopup.blockItem) {
-                                    colorPopup.blockItem.customColor = modelData;
-                                    if (colorPopup.blockItem._blockCanvasRef) {
-                                        colorPopup.blockItem._blockCanvasRef.requestPaint();
+                                if (colorWindow.blockItem) {
+                                    colorWindow.blockItem.customColor = modelData;
+                                    if (colorWindow.blockItem._blockCanvasRef) {
+                                        colorWindow.blockItem._blockCanvasRef.requestPaint();
                                     } else {
-                                        console.warn("blockCanvas not registered for block ID:", colorPopup.blockItem.uniqueId);
+                                        console.warn("blockCanvas not registered for block ID:", colorWindow.blockItem.uniqueId);
                                     }
                                 }
-                                colorPopup.close();
+                                colorWindow.close();
                             }
                         }
                     }
                 }
             }
 
-            // Spacer, чтобы толкать кнопки вниз
-            Rectangle {
-                Layout.fillHeight: true
-                color: "transparent"
-            }
-
-            RowLayout { // Кнопки в одном ряду
+            RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 40 // Задаем высоту RowLayout
+                Layout.preferredHeight: 40
                 spacing: 10
-                Layout.alignment: Qt.AlignHCenter | Qt.AlignBottom // Комбинируем выравнивание
+                Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 15
 
                 Button {
                     text: "Сбросить цвет"
@@ -3818,15 +4232,15 @@ Window {
                     }
 
                     onClicked: {
-                        if (colorPopup.blockItem) {
-                            colorPopup.blockItem.customColor = main.getBlockColor(colorPopup.blockItem.blockType); // Сбрасываем к цвету по умолчанию для типа блока
-                            if (colorPopup.blockItem._blockCanvasRef) {
-                                colorPopup.blockItem._blockCanvasRef.requestPaint();
+                        if (colorWindow.blockItem) {
+                            colorWindow.blockItem.customColor = main.getBlockColor(colorWindow.blockItem.blockType);
+                            if (colorWindow.blockItem._blockCanvasRef) {
+                                colorWindow.blockItem._blockCanvasRef.requestPaint();
                             }
                         } else {
-                            console.warn("blockCanvas not registered for block ID:", colorPopup.blockItem.uniqueId);
+                            console.warn("blockCanvas not registered for block ID:", colorWindow.blockItem.uniqueId);
                         }
-                        colorPopup.close();
+                        colorWindow.close();
                     }
                 }
 
@@ -3865,34 +4279,33 @@ Window {
                         font.bold: true
                     }
 
-                    onClicked: colorPopup.close()
+                    onClicked: colorWindow.close()
                 }
             }
         }
     }
 
-    // Popup настроек
-    Popup {
-        id: settingsPopup
-        width: 300
-        height: contentItem.implicitHeight
-        padding: 20
-        anchors.centerIn: Overlay.overlay
-        modal: true
-        focus: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    // Window настроек
+    Window {
+        id: settingsWindow
+        width: 350
+        height: 420
+        modality: Qt.ApplicationModal
+        flags: Qt.Dialog
+        visible: false
+        title: "Настройки"
+        color: panelColor
 
-        background: Rectangle {
-            color: panelColor
-            border.color: borderColor
-            border.width: 2
-            radius: 5
+        function openWindow() {
+            settingsWindow.x = main.x + (main.width - settingsWindow.width) / 2
+            settingsWindow.y = main.y + (main.height - settingsWindow.height) / 2
+            settingsWindow.visible = true
         }
 
         Column {
             anchors.fill: parent
             anchors.margins: 10
-            spacing: 10
+            spacing: 8  // Уменьшен spacing между элементами
 
             Text {
                 text: "Настройки"
@@ -3912,16 +4325,16 @@ Window {
             ComboBox {
                 id: themeSelector
                 width: parent.width
-                height: 50
+                height: 45  // Уменьшена высота
                 model: ListModel {
                     id: themeModel
                     ListElement { themeName: "Темная"; themeId: "dark" }
-                    ListElement { themeName: "Светлая"; themeId: "light" }
-                    ListElement { themeName: "Ant Light"; themeId: "ant" }
+                    ListElement { themeName: "Ant Light"; themeId: "ant" }  // Оставлена только Ant Light
                     ListElement { themeName: "Синяя"; themeId: "blue" }
                     ListElement { themeName: "Зеленая"; themeId: "green" }
                     ListElement { themeName: "Фиолетовая"; themeId: "purple" }
                     ListElement { themeName: "Оранжевая"; themeId: "orange" }
+                    ListElement { themeName: "Пурпурный туман"; themeId: "purple_mist" }
                 }
                 currentIndex: 0
 
@@ -3952,7 +4365,7 @@ Window {
                 delegate: ItemDelegate {
                     id: themeDelegateItem
                     width: parent.width
-                    height: 40
+                    height: 35  // Уменьшена высота элемента
                     hoverEnabled: true
                     highlighted: ListView.isCurrentItem
 
@@ -4002,9 +4415,6 @@ Window {
                             case "dark":
                                 resetToDarkTheme();
                                 break;
-                            case "light":
-                                resetToLightTheme();
-                                break;
                             case "ant":
                                 setAntLightTheme();
                                 break;
@@ -4019,6 +4429,9 @@ Window {
                                 break;
                             case "orange":
                                 setOrangeTheme();
+                                break;
+                            case "purple_mist":
+                                setPurpleMistTheme();
                                 break;
                         }
                     }
@@ -4135,12 +4548,14 @@ Window {
                 font.pixelSize: 16
             }
 
-            ColumnLayout { // Изменено с RowLayout на ColumnLayout
+            ColumnLayout {
                 width: parent.width
-                spacing: 10
+                spacing: 5  // Уменьшен spacing между кнопками
 
                 Button {
-                    height: 40
+                    text: "Создать новый"
+                    Layout.fillWidth: true
+                    height: 35  // Уменьшена высота кнопок
                     background: Rectangle {
                         color: {
                             if (parent.pressed) {
@@ -4171,13 +4586,13 @@ Window {
                     }
                     onClicked: {
                         newFileDialog.open();
-                        settingsPopup.close();
+                        settingsWindow.close();
                     }
                 }
                 Button {
                     text: "Открыть"
                     Layout.fillWidth: true
-                    height: 40
+                    height: 35
                     background: Rectangle {
                         color: {
                             if (parent.pressed) {
@@ -4208,13 +4623,13 @@ Window {
                     }
                     onClicked: {
                         openDialog.open();
-                        settingsPopup.close();
+                        settingsWindow.close();
                     }
                 }
                 Button {
                     text: "Сохранить"
                     Layout.fillWidth: true
-                    height: 40
+                    height: 35
                     background: Rectangle {
                         color: {
                             if (parent.pressed) {
@@ -4246,17 +4661,17 @@ Window {
                     onClicked: {
                         if (obrabotka.currentFilePath) {
                             var data = main.collectData(0);
-                            obrabotka.saveAlgorithmToFile(data, Qt.resolvedUrl("file:///" + obrabotka.currentFilePath)); // Convert QString to QUrl
+                            obrabotka.saveAlgorithmToFile(data, Qt.resolvedUrl("file:///" + obrabotka.currentFilePath));
                         } else {
                             saveAsDialog.open();
                         }
-                        settingsPopup.close();
+                        settingsWindow.close();
                     }
                 }
                  Button {
                     text: "Сохранить как..."
                     Layout.fillWidth: true
-                    height: 40
+                    height: 35
                     background: Rectangle {
                         color: {
                             if (parent.pressed) {
@@ -4287,7 +4702,7 @@ Window {
                     }
                     onClicked: {
                         saveAsDialog.open();
-                        settingsPopup.close();
+                        settingsWindow.close();
                     }
                 }
             }
