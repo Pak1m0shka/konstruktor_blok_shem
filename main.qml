@@ -19,12 +19,7 @@ Window {
         id: obrabotka
     }
 
-    // Флаг режима клавиатуры
-    property bool keyboardMode: false
-    property var keyboardFocusItem: null
-    property int currentKeyboardIndex: -1
     property var allBlocks: []
-    property bool isEditingBlock: false
 
     // Стандартные темные цвета (для сброса)
     property color defaultBackgroundColor: "#121212"
@@ -460,123 +455,6 @@ Window {
 
         traverseContainer(container)
         return blocks
-    }
-
-    // Функция активации режима клавиатуры
-    function activateKeyboardMode() {
-        if (keyboardMode) {
-            keyboardMode = false
-            if (keyboardFocusItem) {
-                keyboardFocusItem.keyboardFocused = false
-                keyboardFocusItem = null
-            }
-            otvet.text = otvet.text + "\n" + "Режим управления через клавиатуру выключен"
-        } else {
-            keyboardMode = true
-            isEditingBlock = false
-            allBlocks = collectAllBlocks()
-            currentKeyboardIndex = 0
-
-            if (allBlocks.length > 0) {
-                keyboardFocusItem = allBlocks[currentKeyboardIndex]
-                keyboardFocusItem.keyboardFocused = true
-                otvet.text = otvet.text + "\n" + "Режим управления через клавиатуру активирован. Используйте стрелки для навигации, Enter для редактирования, Insert для выхода."
-                otvet.text = otvet.text + "\n" + "Текущий фокус на блоке ID: " + keyboardFocusItem.uniqueId
-            } else {
-                otvet.text = otvet.text + "\n" + "Нет блоков для управления"
-                keyboardMode = false
-            }
-        }
-    }
-
-    // Функция перемещения фокуса вверх
-    function moveFocusUp() {
-        if (!keyboardMode || isEditingBlock || allBlocks.length === 0) return
-
-        if (keyboardFocusItem) {
-            keyboardFocusItem.keyboardFocused = false
-        }
-
-        currentKeyboardIndex = (currentKeyboardIndex - 1 + allBlocks.length) % allBlocks.length
-        keyboardFocusItem = allBlocks[currentKeyboardIndex]
-        keyboardFocusItem.keyboardFocused = true
-
-        otvet.text = otvet.text + "\n" + "Фокус перемещен на блок ID: " + keyboardFocusItem.uniqueId
-    }
-
-    // Функция перемещения фокуса вниз
-    function moveFocusDown() {
-        if (!keyboardMode || isEditingBlock || allBlocks.length === 0) return
-
-        if (keyboardFocusItem) {
-            keyboardFocusItem.keyboardFocused = false
-        }
-
-        currentKeyboardIndex = (currentKeyboardIndex + 1) % allBlocks.length
-        keyboardFocusItem = allBlocks[currentKeyboardIndex]
-        keyboardFocusItem.keyboardFocused = true
-
-        otvet.text = otvet.text + "\n" + "Фокус перемещен на блок ID: " + keyboardFocusItem.uniqueId
-    }
-
-    // Функция начала редактирования блока
-    function startEditingBlock() {
-        if (!keyboardMode || !keyboardFocusItem || isEditingBlock) return
-
-        var block = keyboardFocusItem
-        isEditingBlock = true
-
-        if (["усл", "предусл", "постусл"].includes(block.blockType)) {
-            block.inputFieldDiamond.forceActiveFocus()
-            block.inputFieldDiamond.selectAll()
-        } else if (block.blockType === "счетчик") {
-            block.counterVarField.forceActiveFocus()
-            block.counterVarField.selectAll()
-        } else if (block.blockType !== "начало" && block.blockType !== "конец") {
-            block.inputField.forceActiveFocus()
-            block.inputField.selectAll()
-        }
-
-        otvet.text = otvet.text + "\n" + "Режим редактирования блока ID: " + block.uniqueId + ". Нажмите Enter для завершения."
-    }
-
-    // Функция завершения редактирования
-    function finishEditing() {
-        if (!keyboardMode || !isEditingBlock) return
-
-        isEditingBlock = false
-        main.forceActiveFocus()
-
-        otvet.text = otvet.text + "\n" + "Редактирование завершено. Используйте стрелки для навигации."
-    }
-
-    // Обработка нажатий клавиш
-    Keys.onPressed: function(event) {
-        if (event.key === Qt.Key_Insert) {
-            activateKeyboardMode()
-            event.accepted = true
-        }
-
-        if (keyboardMode && !isEditingBlock) {
-            switch(event.key) {
-                case Qt.Key_Up:
-                    moveFocusUp()
-                    event.accepted = true
-                    break
-                case Qt.Key_Down:
-                    moveFocusDown()
-                    event.accepted = true
-                    break
-                case Qt.Key_Enter:
-                case Qt.Key_Return:
-                    startEditingBlock()
-                    event.accepted = true
-                    break
-            }
-        } else if (keyboardMode && isEditingBlock && (event.key === Qt.Key_Enter || event.key === Qt.Key_Return)) {
-            finishEditing()
-            event.accepted = true
-        }
     }
 
     function saveSettings() {
@@ -2731,7 +2609,6 @@ Window {
             property bool isDebugStart: main.debugStartBlockId === root.uniqueId
             property bool hovered: false
             property color customColor: "transparent"
-            property bool keyboardFocused: false
 
             // Свойства для доступа к контейнерам
             property alias leftContainer: leftContainer
@@ -3004,18 +2881,6 @@ Window {
                             z: 1
                         }
 
-                        // Красная рамка для режима клавиатуры
-                        Rectangle {
-                            id: keyboardFocusRect
-                            anchors.fill: parent
-                            border.color: "red"
-                            border.width: 4 * blockScale
-                            radius: 5 * blockScale
-                            color: "transparent"
-                            visible: root.keyboardFocused && main.keyboardMode && !main.isEditingBlock
-                            z: 2
-                        }
-
                         Canvas {
                             id: blockCanvas
                             Component.onCompleted: root.registerBlockCanvas(blockCanvas)
@@ -3073,21 +2938,6 @@ Window {
                                     ctx.fillText(root.blockType === "начало" ? "Начало" : "Конец", cx, cy)
                                 }
                             }
-
-                            function getBlockColor(type) {
-                                var colors = {
-                                    "ввод": inputColor,
-                                    "вывод": outputColor,
-                                    "действие": actionColor,
-                                    "усл": condColor,
-                                    "счетчик": counterColor,
-                                    "предусл": precondColor,
-                                    "постусл": postcondColor,
-                                    "начало": startColor,
-                                    "конец": endColor
-                                };
-                                return colors[type] || actionColor;
-                            }
                         }
 
                         TextField {
@@ -3113,12 +2963,6 @@ Window {
                                 color: "transparent";
                                 border.width: 0
                             }
-
-                            onActiveFocusChanged: {
-                                if (!activeFocus && main.isEditingBlock) {
-                                    main.finishEditing();
-                                }
-                            }
                         }
 
                         TextField {
@@ -3142,12 +2986,6 @@ Window {
                             background: Rectangle {
                                 color: "transparent";
                                 border.width: 0
-                            }
-
-                            onActiveFocusChanged: {
-                                if (!activeFocus && main.isEditingBlock) {
-                                    main.finishEditing();
-                                }
                             }
                         }
 
@@ -3193,12 +3031,6 @@ Window {
                                                 ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                             }
                                         }
-
-                                        onActiveFocusChanged: {
-                                            if (!activeFocus && main.isEditingBlock) {
-                                                main.finishEditing();
-                                            }
-                                        }
                                     }
                                 }
 
@@ -3232,12 +3064,6 @@ Window {
 
                                             Behavior on border.color {
                                                 ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                                            }
-                                        }
-
-                                        onActiveFocusChanged: {
-                                            if (!activeFocus && main.isEditingBlock) {
-                                                main.finishEditing();
                                             }
                                         }
                                     }
@@ -3280,12 +3106,6 @@ Window {
                                                 ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                             }
                                         }
-
-                                        onActiveFocusChanged: {
-                                            if (!activeFocus && main.isEditingBlock) {
-                                                main.finishEditing();
-                                            }
-                                        }
                                     }
                                 }
 
@@ -3319,12 +3139,6 @@ Window {
 
                                             Behavior on border.color {
                                                 ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                                            }
-                                        }
-
-                                        onActiveFocusChanged: {
-                                            if (!activeFocus && main.isEditingBlock) {
-                                                main.finishEditing();
                                             }
                                         }
                                     }
@@ -3842,8 +3656,8 @@ Window {
                                                     return Qt.rgba(c.r, c.g, c.b, 1);
                                                 } else return main.activeContainer === rightContainer ? "#9c27b0" : buttonColor
                                             }
-                                            border.color: borderColor
-                                            border.width: 1 * blockScale
+                                            border.color : borderColor
+                                            border.width : 1 * blockScale
                                             radius: width / 2
 
                                             Behavior on color {
@@ -4088,8 +3902,8 @@ Window {
         id: colorWindow
         width: 300
         height: 400
-        modality: Qt.ApplicationModal
-        flags: Qt.Dialog
+        modality: Qt.NonModal
+        flags: Qt.Window
         visible: false
         title: "Выбор цвета"
         color: panelColor
@@ -4289,9 +4103,9 @@ Window {
     Window {
         id: settingsWindow
         width: 350
-        height: 420
-        modality: Qt.ApplicationModal
-        flags: Qt.Dialog
+        height: 470
+        modality: Qt.NonModal
+        flags: Qt.Window
         visible: false
         title: "Настройки"
         color: panelColor
@@ -4540,7 +4354,49 @@ Window {
                 color: borderColor
                 anchors.horizontalCenter: parent.horizontalCenter
             }
+            ColumnLayout{
 
+                width: parent.width
+                spacing: 5
+                // Кнопка справки
+                Button {
+                    id: helpButton
+                    text: "Справка"
+                    Layout.fillWidth: true
+                    height: 35  // Уменьшена высота кнопок
+                    background: Rectangle {
+                        color: {
+                            if (parent.pressed) {
+                                var c = Qt.darker(buttonColor, 1.25);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else if (parent.hovered) {
+                                var c = Qt.lighter(buttonColor, 1.15);
+                                return Qt.rgba(c.r, c.g, c.b, 1);
+                            } else return buttonColor
+                        }
+                        border.color: borderColor
+                        border.width: 1
+                        radius: 5
+
+                        Behavior on color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.color {
+                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                        }
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: textColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+                    onClicked: {
+                        helpWindow.openWindow();
+                    }
+                }
+            }
             Text {
                 text: "Файл"
                 color: textColor
@@ -4705,6 +4561,371 @@ Window {
                         settingsWindow.close();
                     }
                 }
+            }
+        }
+    }
+
+    // Window справки с вкладками
+    Window {
+        id: helpWindow
+        width: 600
+        height: 500
+        modality: Qt.NonModal
+        flags: Qt.Window
+        visible: false
+        title: "Справка"
+        color: panelColor
+
+        function openWindow() {
+            helpWindow.x = main.x + (main.width - helpWindow.width) / 2
+            helpWindow.y = main.y + (main.height - helpWindow.height) / 2
+            helpWindow.visible = true
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 10
+            spacing: 10
+
+            Text {
+                text: "Справка по приложению"
+                color: textColor
+                font.bold: true
+                font.pixelSize: 24
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            TabBar {
+                id: tabBar
+                Layout.fillWidth: true
+                currentIndex: 0
+                background: Rectangle { color: "transparent"; border.width: 0 }
+
+                TabButton {
+                    text: "Как пользоваться"
+                    width: implicitWidth
+
+                    background: Rectangle {
+                        color: parent.checked ? main.buttonColor : main.panelColor
+                        border.color: main.borderColor
+                        border.width: parent.checked ? 1 : 0 // Border only for checked tab
+                        radius: 5
+
+                        Behavior on color {
+                            ColorAnimation { duration: 200; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.width {
+                            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                        }
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: main.textColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+                }
+                TabButton {
+                    text: "Что такое алгоритмы"
+                    width: implicitWidth
+
+                    background: Rectangle {
+                        color: parent.checked ? main.buttonColor : main.panelColor
+                        border.color: main.borderColor
+                        border.width: parent.checked ? 1 : 0
+                        radius: 5
+
+                        Behavior on color {
+                            ColorAnimation { duration: 200; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.width {
+                            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                        }
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: main.textColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+                }
+                TabButton {
+                    text: "Особенности синтаксиса"
+                    width: implicitWidth
+
+                    background: Rectangle {
+                        color: parent.checked ? main.buttonColor : main.panelColor
+                        border.color: main.borderColor
+                        border.width: parent.checked ? 1 : 0
+                        radius: 5
+
+                        Behavior on color {
+                            ColorAnimation { duration: 200; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.width {
+                            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                        }
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: main.textColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+                }
+            }
+
+            StackLayout {
+                id: stackLayout
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                currentIndex: tabBar.currentIndex
+
+                // Вкладка 1: Как пользоваться
+                ScrollView {
+                    id: tab1
+                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+                    clip: true
+
+                    Text {
+                        id: tab1Text
+                        width: stackLayout.width - 20
+                        wrapMode: Text.WordWrap
+                        color: textColor
+                        font.pixelSize: 16
+                        text: "КАК ПОЛЬЗОВАТЬСЯ ПРИЛОЖЕНИЕМ
+1. СОЗДАНИЕ АЛГОРИТМА:
+   • При нажатии на кнопку блока из верхней панели появится блок в активированной области
+   • Выберите тип блока из выпадающего списка и нажмите на активированную область там появится блоки,
+выбранный в выподающего списка
+   • Для добавления блоков в ветки условий или циклов активируйте соответствующую область кнопкой 'A'
+
+2. РЕДАКТИРОВАНИЕ БЛОКОВ:
+   • Правый клик по блоку также удаляет его
+   • Левый клик по блоку начинает ввод в него
+   • Для вставки блока выше/низу используйте кнопки со стрелками на блоке,
+тогда появится блок выбранный в выподающем списке
+   • Для изменения цвета блока нажмите кнопку 'Ц' на блоке
+
+3. РАБОТА С АЛГОРИТМОМ:
+   • 'Запуск' - выполнение алгоритма
+   • 'Отладка' - пошаговое выполнение с просмотром значений переменных
+   • В отладке используйте кнопки 'Назад'/'Вперёд' для навигации
+   • Установите точку начала отладки кнопкой 'О' на блоке
+
+4. УПРАВЛЕНИЕ ФАЙЛАМИ:
+   • 'Создать новый' - создание нового файла алгоритма
+   • 'Открыть' - загрузка существующего алгоритма
+   • 'Сохранить'/'Сохранить как...' - сохранение алгоритма
+
+5. НАСТРОЙКИ:
+   • Выбор темы оформления
+   • Настройка масштаба кнопок и блоков
+   • Все настройки сохраняются автоматически
+
+6. РАБОЧАЯ ОБЛАСТЬ:
+   • Используйте колесико мыши с зажатым Ctrl для масштабирования"
+                    }
+                }
+
+                // Вкладка 2: Что такое алгоритмы
+                ScrollView {
+                    id: tab2
+                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+                    clip: true
+
+                    Text {
+                        id: tab2Text
+                        width: stackLayout.width - 20
+                        wrapMode: Text.WordWrap
+                        color: textColor
+                        font.pixelSize: 16
+                        text: "ЧТО ТАКОЕ АЛГОРИТМЫ
+
+1. ОПРЕДЕЛЕНИЕ:
+   Алгоритм - это конечная последовательность четко определенных инструкций, предназначенных для выполнения конкретной задачи.
+
+2. ТИПЫ БЛОКОВ В ПРИЛОЖЕНИИ:
+
+   • НАЧАЛО/КОНЕЦ:
+     - Начало: точка входа в алгоритм
+     - Конец: точка выхода из алгоритма
+
+   • ВВОД/ВЫВОД:
+     - Ввод: получение данных от пользователя
+     - Вывод: отображение данных пользователю
+
+   • ДЕЙСТВИЕ:
+     - Выполнение операций и присваивание значений
+     - Формат: переменная = выражение
+     - Пример: x = 1 + 1
+
+   • УСЛОВИЕ:
+     - Ветвление алгоритма по условию
+     - Имеет две ветки: 'истина' и 'ложь'
+     - Пример: x > 10
+
+   • СЧЕТЧИК:
+     - Цикл с фиксированным количеством итераций
+     - Формат: переменная = начало to конец step шаг
+     - Пример: i = 1 to 10 step 1
+
+   • ПРЕДУСЛОВИЕ:
+     - Цикл с проверкой условия перед выполнением (while)
+     - Тело выполняется, пока условие истинно
+
+   • ПОСТУСЛОВИЕ:
+     - Цикл с проверкой условия после выполнения (do-while)
+     - Тело выполняется хотя бы один раз
+
+3. СТРУКТУРЫ АЛГОРИТМОВ:
+   • Линейные: последовательное выполнение блоков
+   • Ветвящиеся: использование условий
+   • Циклические: повторение блоков
+
+4. ПРИМЕР ПРОСТОГО АЛГОРИТМА:
+   1. Начало
+   2. Ввод числа n
+   3. Если n > 0
+      • Вывод 'Положительное'
+   4. Иначе
+      • Вывод 'Отрицательное или ноль'
+   5. Конец"
+                    }
+                }
+
+                // Вкладка 3: Особенности синтаксиса
+                ScrollView {
+                    id: tab3
+                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+                    clip: true
+
+                    Text {
+                        id: tab3Text
+                        width: stackLayout.width - 20
+                        wrapMode: Text.WordWrap
+                        color: textColor
+                        font.pixelSize: 16
+                        text: "ОСОБЕННОСТИ СИНТАКСИСА
+
+1. ОБЩИЕ ПРАВИЛА:
+   • Регистр символов имеет значение
+   • Пробелы не влияют на выполнение, но улучшают читаемость
+   • Каждый блок должен быть правильно заполнен
+
+2. ВЫРАЖЕНИЯ В БЛОКАХ:
+
+   • ВВОД:
+     - Укажите имя переменной для ввода
+     - Пример: x
+
+   • ВЫВОД:
+     - Укажите имя переменной или выражение для вывода
+     - Пример: result или 'Результат: ' + result
+
+   • ДЕЙСТВИЕ:
+     - Формат: переменная = выражение
+     - Поддерживаемые операторы:
+       + сложение
+       - вычитание
+       * умножение
+       / деление
+       % остаток от деления
+     - Примеры:
+       x = 10
+       y = x + 5
+       z = (a + b) * 2
+
+   • УСЛОВИЯ:
+     - Поддерживаемые операторы сравнения:
+       > больше
+       < меньше
+       >= больше или равно
+       <= меньше или равно
+       == равно
+       != не равно
+     - Логические операторы:
+       && И (и)
+       || ИЛИ (или)
+       ! НЕ (не)
+     - Примеры:
+       x > 10
+       (age >= 18) && (age <= 65)
+       !found
+
+   • СЧЕТЧИК:
+     - Формат: переменная, шаг, начоло, конец
+3. РАБОТА С ПЕРЕМЕННЫМИ:
+   • Переменные создаются при первом использовании
+   • Типы определяются автоматически:
+     - Числа: 10, 3.14, -5
+     - Строки: 'текст', 'Hello'
+     - Булевы: true, false
+   • Динамическая типизация
+
+4. ОПЕРАЦИИ СО СТРОКАМИ:
+   • Конкатенация: 'Hello ' + 'World'
+   • Длина строки: len(s)
+   • Индексация: s[0], s[-1]
+   • Срезы: s[1:4], s[:5], s[2:]
+
+5. ПРОВЕРКА СИНТАКСИСА:
+   • Приложение проверяет синтаксис перед выполнением
+   • Ошибки выделяются красным цветом
+   • Сообщения об ошибках выводятся в консоль
+
+6. ОГРАНИЧЕНИЯ:
+   • Максимальное количество итераций в циклах: 1000
+   • Вложенность блоков ограничена только памятью
+   • Нет поддержки пользовательских функций"
+                    }
+                }
+            }
+
+            Button {
+                text: "Закрыть"
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredHeight: 40
+                Layout.preferredWidth: 120
+
+                background: Rectangle {
+                    color: {
+                        if (parent.pressed) {
+                            var c = Qt.darker(buttonColor, 1.25);
+                            return Qt.rgba(c.r, c.g, c.b, 1);
+                        } else if (parent.hovered) {
+                            var c = Qt.lighter(buttonColor, 1.15);
+                            return Qt.rgba(c.r, c.g, c.b, 1);
+                        } else return buttonColor
+                    }
+                    border.color: borderColor
+                    border.width: 1
+                    radius: 8
+
+                    Behavior on color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
+                    Behavior on border.color {
+                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                    }
+                }
+
+                contentItem: Text {
+                    text: parent.text
+                    color: textColor
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+
+                onClicked: helpWindow.close()
             }
         }
     }
