@@ -588,7 +588,9 @@ Window {
 
         onSyntaxErrorsOccurred: (errors) => {
             console.log("Получены синтаксические ошибки:", errors);
-            otvet.text = "Синтаксические ошибки:\n"; // Clear and start new error report
+            // Always append error report, prefixed by a separator
+            otvet.text += "\n" + "--- Синтаксические ошибки ---\n";
+
             main.errorBlockIds = []; // Clear previous highlights
 
             var newErrorBlockIds = [];
@@ -604,8 +606,13 @@ Window {
                     }
                     otvet.text += errorString + "\n";
                 }
+                // If errors were found and debugMode was active, turn it off.
+                if (main.debugMode) {
+                    main.debugMode = false;
+                    obrabotka.stopDebugging(); // Explicitly stop debugging from C++ side to clear state
+                }
             } else {
-                otvet.text += "Неизвестные синтаксические ошибки.\n";
+                otvet.text += "Неизвестные синтаксические ошибки (ноль ошибок).\n"; // Added clarifying message for no errors
             }
             main.errorBlockIds = newErrorBlockIds; // Assign the new list of error block IDs
             main.updateBlockHighlight(); // Request repaint for all relevant blocks
