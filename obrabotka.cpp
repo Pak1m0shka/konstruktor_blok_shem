@@ -1524,7 +1524,7 @@ void Obrabotka::saveSettings(const QVariantMap &settings)
         qSettings.setValue(it.key(), it.value());
     }
     qSettings.sync(); // Ensure settings are written to disk
-    qDebug() << "Настройки сохранены с помощью QSettings. Сохраняемые данные:" << settings; // Added logging
+    qDebug() << "Настройки сохранены с помощью QSettings.";
 }
 
 QVariantMap Obrabotka::loadSettings()
@@ -1537,7 +1537,7 @@ QVariantMap Obrabotka::loadSettings()
     for (const QString &key : keys) {
         loadedSettings[key] = qSettings.value(key);
     }
-    qDebug() << "Настройки загружены с помощью QSettings. Загруженные данные:" << loadedSettings; // Added logging
+    qDebug() << "Настройки загружены с помощью QSettings.";
     return loadedSettings;
 }
 

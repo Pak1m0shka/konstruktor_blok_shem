@@ -70,6 +70,7 @@ Window {
     property var savedTheme: null
     property real buttonsZoomLevel: 1.0
     property real blocksZoomLevel: 1.0
+    property string currentThemeId: "dark" // New property to track current theme
     property real blockScale: 1.0
 
     color: backgroundColor
@@ -459,6 +460,7 @@ Window {
 
     function saveSettings() {
         var settings = {
+            "currentThemeId": currentThemeId, // Save current theme ID
             "backgroundColor": backgroundColor,
             "panelColor": panelColor,
             "textColor": textColor,
@@ -488,43 +490,48 @@ Window {
 
     // Функция для применения загруженных настроек темы
     function applyThemeSettings() {
-        console.log("Применяю настройки темы. Полученные initialSettings:", JSON.stringify(initialSettings)); // Added logging
-        if (Object.keys(initialSettings).length > 0) { // Corrected condition
-            // Apply colors
-            if (initialSettings.backgroundColor !== undefined) {
-                backgroundColor = initialSettings.backgroundColor;
-                console.log("Применен backgroundColor:", backgroundColor);
+        if (Object.keys(initialSettings).length > 0 && initialSettings.currentThemeId !== undefined) {
+            // Call the appropriate theme function based on loaded currentThemeId
+            switch (initialSettings.currentThemeId) {
+                case "dark":
+                    resetToDarkTheme();
+                    break;
+                case "light":
+                    resetToLightTheme();
+                    break;
+                case "pure_white":
+                    setPureWhiteTheme();
+                    break;
+                case "ant":
+                    setAntLightTheme();
+                    break;
+                case "blue":
+                    setBlueTheme();
+                    break;
+                case "green":
+                    setGreenTheme();
+                    break;
+                case "purple":
+                    setPurpleTheme();
+                    break;
+                case "orange":
+                    setOrangeTheme();
+                    break;
+                case "purple_mist":
+                    setPurpleMistTheme();
+                    break;
+                default:
+                    resetToDarkTheme(); // Fallback to dark if unknown theme
+                    break;
             }
-            if (initialSettings.panelColor !== undefined) panelColor = initialSettings.panelColor;
-            if (initialSettings.textColor !== undefined) textColor = initialSettings.textColor;
-            if (initialSettings.borderColor !== undefined) borderColor = initialSettings.borderColor;
-            if (initialSettings.buttonColor !== undefined) buttonColor = initialSettings.buttonColor;
-            if (initialSettings.hoverColor !== undefined) hoverColor = initialSettings.hoverColor;
-            if (initialSettings.pressedColor !== undefined) pressedColor = initialSettings.pressedColor;
-            if (initialSettings.inputColor !== undefined) inputColor = initialSettings.inputColor;
-            if (initialSettings.outputColor !== undefined) outputColor = initialSettings.outputColor;
-            if (initialSettings.actionColor !== undefined) actionColor = initialSettings.actionColor;
-            if (initialSettings.counterColor !== undefined) counterColor = initialSettings.counterColor;
-            if (initialSettings.precondColor !== undefined) precondColor = initialSettings.precondColor;
-            if (initialSettings.postcondColor !== undefined) postcondColor = initialSettings.postcondColor;
-            if (initialSettings.condColor !== undefined) condColor = initialSettings.condColor;
-            if (initialSettings.startColor !== undefined) startColor = initialSettings.startColor;
-            if (initialSettings.endColor !== undefined) endColor = initialSettings.endColor;
-            if (initialSettings.debugTableColor !== undefined) debugTableColor = initialSettings.debugTableColor;
-            if (initialSettings.debugTableBorderColor !== undefined) debugTableBorderColor = initialSettings.debugTableBorderColor;
-            if (initialSettings.translucentColor !== undefined) translucentColor = initialSettings.translucentColor;
 
-            // Apply zoom levels
+            // Apply zoom levels (these are still individual)
             if (initialSettings.buttonsZoomLevel !== undefined) buttonsZoomLevel = initialSettings.buttonsZoomLevel;
             if (initialSettings.blocksZoomLevel !== undefined) blocksZoomLevel = initialSettings.blocksZoomLevel;
-
-            console.log("Настройки темы загружены и применены.");
         } else {
-            console.log("Настройки не найдены или пусты, используются стандартные значения.");
-            resetToDarkTheme(); // Apply default dark theme
+            resetToDarkTheme(); // Apply default dark theme (which also sets currentThemeId and saves)
             buttonsZoomLevel = 1.0; // Reset zoom levels
             blocksZoomLevel = 1.0;
-            console.log("Применен backgroundColor по умолчанию:", backgroundColor); // Added logging
         }
     }
 
@@ -560,6 +567,7 @@ Window {
         debugTableColor = "#252525"
         debugTableBorderColor = "#9c27b0"
         translucentColor = "#80000000"
+        currentThemeId = "dark" // Set current theme ID
         saveSettings()
     }
 
@@ -584,6 +592,7 @@ Window {
         debugTableColor = "#ffffff"
         debugTableBorderColor = "#7c3aed"
         translucentColor = "#80000000"
+        currentThemeId = "light" // Set current theme ID
         saveSettings()
     }
 
@@ -608,6 +617,7 @@ Window {
         debugTableColor = "#f8f9fa"
         debugTableBorderColor = "#845ef7"
         translucentColor = "#80000000"
+        currentThemeId = "pure_white" // Set current theme ID
         saveSettings()
     }
 
@@ -632,6 +642,7 @@ Window {
         debugTableColor = "#ffffff"
         debugTableBorderColor = "#1890ff"
         translucentColor = "#80000000"
+        currentThemeId = "ant" // Set current theme ID
         saveSettings()
     }
 
@@ -656,6 +667,7 @@ Window {
         debugTableColor = "#1b263b"
         debugTableBorderColor = "#4361ee"
         translucentColor = "#80000000"
+        currentThemeId = "blue" // Set current theme ID
         saveSettings()
     }
 
@@ -680,6 +692,7 @@ Window {
         debugTableColor = "#252a34"
         debugTableBorderColor = "#38b000"
         translucentColor = "#80000000"
+        currentThemeId = "green" // Set current theme ID
         saveSettings()
     }
 
@@ -704,6 +717,7 @@ Window {
         debugTableColor = "#16213e"
         debugTableBorderColor = "#9c27b0"
         translucentColor = "#80000000"
+        currentThemeId = "purple" // Set current theme ID
         saveSettings()
     }
 
@@ -728,6 +742,7 @@ Window {
         debugTableColor = "#3d2800"
         debugTableBorderColor = "#ff6f00"
         translucentColor = "#80000000"
+        currentThemeId = "orange" // Set current theme ID
         saveSettings()
     }
 
@@ -752,6 +767,7 @@ Window {
         debugTableColor = "#1a1529"
         debugTableBorderColor = "#9d4edd"
         translucentColor = "#80000000"
+        currentThemeId = "purple_mist" // Set current theme ID
         saveSettings()
     }
 
@@ -4151,7 +4167,7 @@ Window {
         id: settingsWindow
         width: 350
         height: 470
-        modality: Qt.ApplicationModal
+        modality: Qt.NonModal
         flags: Qt.Window
         visible: false
         title: "Настройки"
@@ -4161,6 +4177,14 @@ Window {
             settingsWindow.x = main.x + (main.width - settingsWindow.width) / 2
             settingsWindow.y = main.y + (main.height - settingsWindow.height) / 2
             settingsWindow.visible = true
+
+            // Set ComboBox current index based on currentThemeId
+            for (var i = 0; i < themeModel.count; ++i) {
+                if (themeModel.get(i).themeId === main.currentThemeId) {
+                    themeSelector.currentIndex = i;
+                    break;
+                }
+            }
         }
 
         Connections {
@@ -4198,7 +4222,7 @@ Window {
                 model: ListModel {
                     id: themeModel
                     ListElement { themeName: "Темная"; themeId: "dark" }
-                    ListElement { themeName: "Ant Light"; themeId: "ant" }  // Оставлена только Ant Light
+                    ListElement { themeName: "Белая"; themeId: "ant" }
                     ListElement { themeName: "Синяя"; themeId: "blue" }
                     ListElement { themeName: "Зеленая"; themeId: "green" }
                     ListElement { themeName: "Фиолетовая"; themeId: "purple" }
