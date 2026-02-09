@@ -17,6 +17,7 @@
 #include <QJsonArray>
 #include <QFile>
 #include <QProcess>
+#include <QSettings> // Added for settings management
 
 QVariantMap Obrabotka::convertToQmlVariantMap() const {
     QVariantMap map;
@@ -1517,42 +1518,27 @@ QVariantList Obrabotka::loadAlgorithmFromFile(const QUrl& filePath) {
 
 void Obrabotka::saveSettings(const QVariantMap &settings)
 {
-    QFile file("settings.json");
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        qWarning() << "Could not open settings.json for writing";
-        return;
-    }
+    QSettings qSettings; // Defaults to INI format on Linux
 
-    QJsonDocument doc = QJsonDocument::fromVariant(QVariant(settings));
-    file.write(doc.toJson(QJsonDocument::Indented));
-    file.close();
+    for (auto it = settings.constBegin(); it != settings.constEnd(); ++it) {
+        qSettings.setValue(it.key(), it.value());
+    }
+    qSettings.sync(); // Ensure settings are written to disk
+    qDebug() << "Настройки сохранены с помощью QSettings. Сохраняемые данные:" << settings; // Added logging
 }
 
 QVariantMap Obrabotka::loadSettings()
 {
-    QFile file("settings.json");
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning() << "Could not open settings.json for reading";
-        return QVariantMap();
+    QSettings qSettings; // Defaults to INI format on Linux
+    QVariantMap loadedSettings;
+
+    // Retrieve all keys and their values
+    QStringList keys = qSettings.allKeys();
+    for (const QString &key : keys) {
+        loadedSettings[key] = qSettings.value(key);
     }
-
-    QByteArray data = file.readAll();
-    file.close();
-
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
-
-    if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "Error parsing settings.json:" << parseError.errorString();
-        return QVariantMap();
-    }
-
-    if (!doc.isObject()) {
-        qWarning() << "settings.json is not a valid JSON object";
-        return QVariantMap();
-    }
-
-    return doc.object().toVariantMap();
+    qDebug() << "Настройки загружены с помощью QSettings. Загруженные данные:" << loadedSettings; // Added logging
+    return loadedSettings;
 }
 
 QVariantList Obrabotka::checkAlgorithmSyntax(const QVariantList& algorithm) {

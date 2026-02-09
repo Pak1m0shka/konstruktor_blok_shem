@@ -8,8 +8,8 @@ import myObrabotka
 
 Window {
     id: main
-    width: 1000
-    height: 700
+    width: initialSettings.windowWidth !== undefined ? initialSettings.windowWidth : 1000
+    height: initialSettings.windowHeight !== undefined ? initialSettings.windowHeight : 700
     minimumWidth: 800
     minimumHeight: 600
     visible: true
@@ -479,13 +479,60 @@ Window {
             "debugTableBorderColor": debugTableBorderColor,
             "translucentColor": translucentColor,
             "buttonsZoomLevel": buttonsZoomLevel,
-            "blocksZoomLevel": blocksZoomLevel
+            "blocksZoomLevel": blocksZoomLevel,
+            "windowWidth": main.width,
+            "windowHeight": main.height
         }
         obrabotka.saveSettings(settings);
     }
 
+    // Функция для применения загруженных настроек темы
+    function applyThemeSettings() {
+        console.log("Применяю настройки темы. Полученные initialSettings:", JSON.stringify(initialSettings)); // Added logging
+        if (Object.keys(initialSettings).length > 0) { // Corrected condition
+            // Apply colors
+            if (initialSettings.backgroundColor !== undefined) {
+                backgroundColor = initialSettings.backgroundColor;
+                console.log("Применен backgroundColor:", backgroundColor);
+            }
+            if (initialSettings.panelColor !== undefined) panelColor = initialSettings.panelColor;
+            if (initialSettings.textColor !== undefined) textColor = initialSettings.textColor;
+            if (initialSettings.borderColor !== undefined) borderColor = initialSettings.borderColor;
+            if (initialSettings.buttonColor !== undefined) buttonColor = initialSettings.buttonColor;
+            if (initialSettings.hoverColor !== undefined) hoverColor = initialSettings.hoverColor;
+            if (initialSettings.pressedColor !== undefined) pressedColor = initialSettings.pressedColor;
+            if (initialSettings.inputColor !== undefined) inputColor = initialSettings.inputColor;
+            if (initialSettings.outputColor !== undefined) outputColor = initialSettings.outputColor;
+            if (initialSettings.actionColor !== undefined) actionColor = initialSettings.actionColor;
+            if (initialSettings.counterColor !== undefined) counterColor = initialSettings.counterColor;
+            if (initialSettings.precondColor !== undefined) precondColor = initialSettings.precondColor;
+            if (initialSettings.postcondColor !== undefined) postcondColor = initialSettings.postcondColor;
+            if (initialSettings.condColor !== undefined) condColor = initialSettings.condColor;
+            if (initialSettings.startColor !== undefined) startColor = initialSettings.startColor;
+            if (initialSettings.endColor !== undefined) endColor = initialSettings.endColor;
+            if (initialSettings.debugTableColor !== undefined) debugTableColor = initialSettings.debugTableColor;
+            if (initialSettings.debugTableBorderColor !== undefined) debugTableBorderColor = initialSettings.debugTableBorderColor;
+            if (initialSettings.translucentColor !== undefined) translucentColor = initialSettings.translucentColor;
+
+            // Apply zoom levels
+            if (initialSettings.buttonsZoomLevel !== undefined) buttonsZoomLevel = initialSettings.buttonsZoomLevel;
+            if (initialSettings.blocksZoomLevel !== undefined) blocksZoomLevel = initialSettings.blocksZoomLevel;
+
+            console.log("Настройки темы загружены и применены.");
+        } else {
+            console.log("Настройки не найдены или пусты, используются стандартные значения.");
+            resetToDarkTheme(); // Apply default dark theme
+            buttonsZoomLevel = 1.0; // Reset zoom levels
+            blocksZoomLevel = 1.0;
+            console.log("Применен backgroundColor по умолчанию:", backgroundColor); // Added logging
+        }
+    }
+
     // Устанавливаем фокус на окно для обработки клавиш
     Component.onCompleted: {
+        // Apply loaded settings from C++ first
+        applyThemeSettings();
+
         if (obrabotka.currentFilePath) {
             obrabotka.loadAlgorithmFromFile(obrabotka.currentFilePath)
         }
@@ -780,19 +827,19 @@ Window {
 
     Connections {
         target: obrabotka
-        onNeedUserInput: () => {
+        function onNeedUserInput() {
             console.log("QML: Получен запрос на ввод")
             otvet.text = otvet.text + "\n" + "QML: Получен запрос на ввод"
         }
-        onInputProcessed: (result) => {
+        function onInputProcessed(result) {
             console.log("ответ вернулся")
         }
-        onVivod: (otvet_cpp) => {
+        function onVivod(otvet_cpp) {
             console.log("ответ есть")
             console.log(otvet_cpp)
             otvet.text = otvet.text + "\n" + otvet_cpp
         }
-        onDebugging_peremennie: (peremennie) => {
+        function onDebugging_peremennie(peremennie) {
             console.log("Получены переменные от C++ для отображения")
             console.log("Данные (peremennie - QVariantMap):", peremennie)
 
@@ -811,18 +858,18 @@ Window {
             }
         }
 
-        onHighlightBlock: (blockId) => {
+        function onHighlightBlock(blockId) {
             console.log("Получен сигнал highlightBlock с ID:", blockId);
             currentDebugBlockId = blockId;
         }
 
-        onDebugHistoryChanged: (canStepBack, canStepForward) => {
+        function onDebugHistoryChanged(canStepBack, canStepForward) {
             console.log("История отладки изменилась, можно шагать назад:", canStepBack, "можно шагать вперед:", canStepForward);
             main.canStepBack = canStepBack;
             main.canStepForward = canStepForward;
         }
 
-        onDebugFinished: () => {
+        function onDebugFinished() {
             console.log("Отладка завершена");
             main.debugMode = false;
             variablesModel.clear();
@@ -830,7 +877,7 @@ Window {
             errorBlockIds = [];
         }
 
-        onAlgorithmLoaded: (algorithm) => {
+        function onAlgorithmLoaded(algorithm) {
             console.log("Получен сигнал algorithmLoaded, количество блоков:", algorithm.length)
             main.debugStartBlockId = -1
             main.errorBlockIds = [];
@@ -840,16 +887,16 @@ Window {
             }
         }
 
-        onErrorOccurred: (errorMessage) => {
+        function onErrorOccurred(errorMessage) {
             console.log("Ошибка:", errorMessage)
             otvet.text = otvet.text + "\n" + "Ошибка: " + errorMessage
             errorBlockIds = [];
         }
-        onFileSaved: (filePath) => {
+        function onFileSaved(filePath) {
             otvet.text = otvet.text + "\n" + "Файл сохранен: " + filePath
         }
 
-        onSyntaxErrorsOccurred: (errors) => {
+        function onSyntaxErrorsOccurred(errors) {
             console.log("Получены синтаксические ошибки:", errors);
             otvet.text += "\n" + "--- Синтаксические ошибки ---\n";
 
@@ -994,10 +1041,10 @@ Window {
 
                     background: Rectangle {
                         color: {
-                            if (parent.pressed) {
+                            if (!!parent.pressed) {
                                 var c = Qt.darker(buttonColor, 1.25);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                            } else if (parent.hovered) {
+                            } else if (!!parent.hovered) {
                                 var c = Qt.lighter(buttonColor, 1.15);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
@@ -1037,10 +1084,10 @@ Window {
 
                     background: Rectangle {
                         color: {
-                            if (parent.pressed) {
+                            if (!!parent.pressed) {
                                 var c = Qt.darker(buttonColor, 1.25);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                            } else if (parent.hovered) {
+                            } else if (!!parent.hovered) {
                                 var c = Qt.lighter(buttonColor, 1.15);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
@@ -3979,7 +4026,7 @@ Window {
                         }
 
                         // Эффект тени при наведении
-                        layer.enabled: colorTileMouseArea.hovered
+                        layer.enabled: !!colorTileMouseArea.hovered
 
 
                         MouseArea {
@@ -4017,10 +4064,10 @@ Window {
 
                     background: Rectangle {
                         color: {
-                            if (parent.pressed) {
+                            if (!!parent.pressed) {
                                 var c = Qt.darker(buttonColor, 1.25);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                            } else if (parent.hovered) {
+                            } else if (!!parent.hovered) {
                                 var c = Qt.lighter(buttonColor, 1.15);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
@@ -4104,7 +4151,7 @@ Window {
         id: settingsWindow
         width: 350
         height: 470
-        modality: Qt.NonModal
+        modality: Qt.ApplicationModal
         flags: Qt.Window
         visible: false
         title: "Настройки"
@@ -4114,6 +4161,14 @@ Window {
             settingsWindow.x = main.x + (main.width - settingsWindow.width) / 2
             settingsWindow.y = main.y + (main.height - settingsWindow.height) / 2
             settingsWindow.visible = true
+        }
+
+        Connections {
+            target: settingsWindow
+            function onClosing(closeEvent) {
+                main.saveSettings();
+                closeEvent.accepted = true; // Use accepted property
+            }
         }
 
         Column {
@@ -4366,10 +4421,10 @@ Window {
                     height: 35  // Уменьшена высота кнопок
                     background: Rectangle {
                         color: {
-                            if (parent.pressed) {
+                            if (!!parent.pressed) {
                                 var c = Qt.darker(buttonColor, 1.25);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                            } else if (parent.hovered) {
+                            } else if (!!parent.hovered) {
                                 var c = Qt.lighter(buttonColor, 1.15);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
@@ -4414,10 +4469,10 @@ Window {
                     height: 35  // Уменьшена высота кнопок
                     background: Rectangle {
                         color: {
-                            if (parent.pressed) {
+                            if (!!parent.pressed) {
                                 var c = Qt.darker(buttonColor, 1.25);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                            } else if (parent.hovered) {
+                            } else if (!!parent.hovered) {
                                 var c = Qt.lighter(buttonColor, 1.15);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
@@ -4451,10 +4506,10 @@ Window {
                     height: 35
                     background: Rectangle {
                         color: {
-                            if (parent.pressed) {
+                            if (!!parent.pressed) {
                                 var c = Qt.darker(buttonColor, 1.25);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                            } else if (parent.hovered) {
+                            } else if (!!parent.hovered) {
                                 var c = Qt.lighter(buttonColor, 1.15);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
@@ -4488,10 +4543,10 @@ Window {
                     height: 35
                     background: Rectangle {
                         color: {
-                            if (parent.pressed) {
+                            if (!!parent.pressed) {
                                 var c = Qt.darker(buttonColor, 1.25);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                            } else if (parent.hovered) {
+                            } else if (!!parent.hovered) {
                                 var c = Qt.lighter(buttonColor, 1.15);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
@@ -4530,10 +4585,10 @@ Window {
                     height: 35
                     background: Rectangle {
                         color: {
-                            if (parent.pressed) {
+                            if (!!parent.pressed) {
                                 var c = Qt.darker(buttonColor, 1.25);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                            } else if (parent.hovered) {
+                            } else if (!!parent.hovered) {
                                 var c = Qt.lighter(buttonColor, 1.15);
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
