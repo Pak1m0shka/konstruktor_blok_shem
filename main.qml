@@ -2907,13 +2907,14 @@ Window {
 
                 Column {
                     id: contentColumn
-                    width: Math.max(350 * blockScale, childrenRect.width)
+                    width: Math.max(500 * blockScale, childrenRect.width) // Увеличено с 450
                     spacing: 10 * blockScale
 
                     // === ФИГУРА БЛОКА (ОСНОВНАЯ ЧАСТЬ) ===
                     Item {
                         id: shapeItem
-                        width: Math.max(350 * blockScale, parent.width)
+                        width: 400 * blockScale // Увеличено с 350
+
                         height: getDefaultHeight() * blockScale
                         anchors.horizontalCenter: parent.horizontalCenter
 
@@ -3570,18 +3571,20 @@ Window {
                     // === ОБЛАСТЬ ДЛЯ УСЛОВИЯ (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
                     Item {
                         id: conditionWrapper
-                        width: Math.max(parent.width, childrenRect.width)
+                        width: conditionContent.width
+
                         height: visible ? conditionContent.height + 10 * blockScale : 0
                         visible: root.blockType === "усл"
                         anchors.horizontalCenter: parent.horizontalCenter
 
                         Column {
                             id: conditionContent
-                            width: Math.max(600 * blockScale, parent.width)
+                            width: Math.max(700 * blockScale, conditionRow.width) // Увеличено с 600
                             anchors.horizontalCenter: parent.horizontalCenter
                             spacing: 10 * blockScale
 
                             Row {
+                                id: conditionRow
                                 width: Math.max(600 * blockScale, childrenRect.width)
                                 spacing: 20 * blockScale
                                 anchors.horizontalCenter: parent.horizontalCenter
@@ -3589,7 +3592,8 @@ Window {
                                 // Левая ветка (истина)
                                 Rectangle {
                                     id: leftRect
-                                    width: Math.max(280 * blockScale, leftContainer.childrenRect.width + 40 * blockScale)
+                                    width: Math.max(300 * blockScale, leftContainer.width + 40 * blockScale) // Увеличено с 280
+
                                     height: Math.max(160 * blockScale, leftContainer.childrenRect.height + 50 * blockScale)
                                     border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? "#9c27b0" : borderColor)
                                     border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
@@ -3603,7 +3607,8 @@ Window {
                                     Column {
                                         id: leftContainer
                                         objectName: "leftContainer"
-                                        width: Math.max(250 * blockScale, childrenRect.width)
+                                        width: Math.max(280 * blockScale, childrenRect.width) // Увеличено с 250
+
                                         anchors.centerIn: parent
                                         spacing: 10 * blockScale
                                     }
@@ -3678,7 +3683,8 @@ Window {
                                 // Правая ветка (ложь)
                                 Rectangle {
                                     id: rightRect
-                                    width: Math.max(280 * blockScale, rightContainer.childrenRect.width + 40 * blockScale)
+                                    width: Math.max(300 * blockScale, rightContainer.width + 40 * blockScale) // Увеличено с 280
+
                                     height: Math.max(160 * blockScale, rightContainer.childrenRect.height + 50 * blockScale)
                                     border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? "#9c27b0" : borderColor)
                                     border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
@@ -3692,7 +3698,8 @@ Window {
                                     Column {
                                         id: rightContainer
                                         objectName: "rightContainer"
-                                        width: Math.max(250 * blockScale, childrenRect.width)
+                                        width: Math.max(280 * blockScale, childrenRect.width) // Увеличено с 250
+
                                         anchors.centerIn: parent
                                         spacing: 10 * blockScale
                                     }
