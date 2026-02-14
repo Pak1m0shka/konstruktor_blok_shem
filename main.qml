@@ -4357,11 +4357,21 @@ Window {
         visible: false
         title: "Настройки"
         color: panelColor
+
+        Timer {
+            id: focusTimer
+            interval: 100
+            repeat: false
+            onTriggered: {
+                settingsColumn.currentFocusIndex = 0;
+                settingsColumn.focusableItems[settingsColumn.currentFocusIndex].forceActiveFocus();
+                console.log("Settings Window visible. Initial focus set to:", settingsColumn.focusableItems[settingsColumn.currentFocusIndex].id || "No ID", "ActiveFocus:", settingsColumn.focusableItems[settingsColumn.currentFocusIndex].activeFocus);
+            }
+        }
         
         onVisibleChanged: {
             if (visible) {
-                settingsColumn.forceActiveFocus();
-                themeSelector.forceActiveFocus();
+                focusTimer.start(); // Start the pre-declared timer
             }
         }
 
@@ -4394,28 +4404,53 @@ Window {
             anchors.margins: 10
             spacing: 8
 
+
+
             Keys.onPressed: (event) => {
+                console.log("Key Pressed in settingsColumn. Key:", event.key, "ActiveFocus ID:", activeFocus ? activeFocus.id : "none");
                 if (event.key === Qt.Key_Escape) {
                     settingsWindow.close();
                     event.accepted = true;
                     return;
                 }
-                if (activeFocus) {
+
+ else { // No longer wrapped by if (activeFocus)
                     if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
-                        if (activeFocus.hasOwnProperty("clicked")) {
-                             activeFocus.clicked();
-                             event.accepted = true;
-                        } else if (activeFocus === themeSelector) {
-                            themeSelector.popup.open();
-                            event.accepted = true;
+                        var focusedItem = settingsColumn.activeFocusItem;
+                        console.log("Enter/Return pressed. ActiveFocus Item ID:", focusedItem ? focusedItem.id : "none");
+                        if (focusedItem) {
+                            if (focusedItem.hasOwnProperty("clicked")) {
+                                 focusedItem.clicked();
+                                 event.accepted = true;
+                            } else if (focusedItem === themeSelector) {
+                                themeSelector.popup.open();
+                                event.accepted = true;
+                            }
                         }
                     } else if (event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
+                        console.log("Left/Right pressed. ActiveFocus ID:", activeFocus ? activeFocus.id : "none");
                         if (buttonsZoomSlider.activeFocus) {
                             buttonsZoomSlider.value += (event.key === Qt.Key_Right ? 1 : -1) * buttonsZoomSlider.stepSize;
                             event.accepted = true;
                         } else if (blocksZoomSlider.activeFocus) {
                             blocksZoomSlider.value += (event.key === Qt.Key_Right ? 1 : -1) * blocksZoomSlider.stepSize;
                             event.accepted = true;
+                        } else if (themeSelector.activeFocus) { // Left/Right for themeSelector
+                            console.log("themeSelector focused. CurrentIndex:", themeSelector.currentIndex);
+                            event.accepted = true;
+                            var newIndex = themeSelector.currentIndex;
+                            if (event.key === Qt.Key_Left) { // FIX: added this condition for Left arrow
+                                newIndex--;
+                                if (newIndex < 0) {
+                                    newIndex = themeSelector.model.count - 1; // Wrap around to end
+                                }
+                            } else { // Qt.Key_Right
+                                newIndex++;
+                                if (newIndex >= themeSelector.model.count) {
+                                    newIndex = 0; // Wrap around to beginning
+                                }
+                            }
+                            themeSelector.currentIndex = newIndex;
                         }
                     }
                 }
@@ -4526,7 +4561,13 @@ Window {
                     }
                 }
 
+                Keys.onPressed: {
+                    if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                        event.accepted = true; // Consume Up/Down to prevent ComboBox's internal index change
+                    }
+                }
                 onCurrentIndexChanged: {
+                    console.log("themeSelector.onCurrentIndexChanged triggered. New index:", currentIndex);
                     if (currentIndex >= 0) {
                         var themeId = themeModel.get(currentIndex).themeId;
                         switch(themeId) {
@@ -4555,11 +4596,7 @@ Window {
                     }
                 }
 
-                Keys.onPressed: {
-                    if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
-                        event.accepted = true;
-                    }
-                }
+
             }
 
             Text {
