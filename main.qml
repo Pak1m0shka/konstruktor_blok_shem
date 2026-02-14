@@ -2811,6 +2811,110 @@ Window {
                     width: Math.max(500 * blockScale, childrenRect.width) // Увеличено с 450
                     spacing: 10 * blockScale
 
+                    // === ОБЛАСТЬ ДЛЯ ПОСТУСЛОВИЯ (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
+                    Item {
+                        id: postConditionWrapper
+                        width: Math.max(parent.width, childrenRect.width)
+                        height: visible ? postConditionContent.height + 10 * blockScale : 0
+                        visible: root.blockType === "постусл"
+                        anchors.horizontalCenter: parent.horizontalCenter
+
+                        Column {
+                            id: postConditionContent
+                            width: Math.max(400 * blockScale, parent.width)
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 10 * blockScale
+
+                            Rectangle {
+                                id: postRect
+                                width: Math.max(400 * blockScale, centerContainerPost.childrenRect.width + 40 * blockScale)
+                                height: Math.max(160 * blockScale, centerContainerPost.childrenRect.height + 50 * blockScale)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? "#9c27b0" : borderColor)
+                                border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
+                                radius: 5 * blockScale
+                                color: "transparent"
+                                anchors.horizontalCenter: parent.horizontalCenter
+
+                                Behavior on border.color {
+                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                }
+
+                                Column {
+                                    id: centerContainerPost
+                                    objectName: "centerContainerPost"
+                                    width: Math.max(350 * blockScale, childrenRect.width)
+                                    anchors.centerIn: parent
+                                    spacing: 10 * blockScale
+                                }
+
+                                Button {
+                                    id: postActivateBtn
+                                    enabled: !main.debugMode
+                                    anchors.top: parent.top
+                                    anchors.right: parent.right
+                                    anchors.margins: 5 * blockScale
+                                    width: 35 * blockScale
+                                    height: 35 * blockScale
+                                    text: "A"
+                                    hoverEnabled: true
+
+                                    background: Rectangle {
+                                        id: postActivateBg
+                                        color: {
+                                            if (postActivateBtn.pressed) {
+                                                var c = Qt.darker(buttonColor, 1.25);
+                                                return Qt.rgba(c.r, c.g, c.b, 1);
+                                            } else if (postActivateBtn.hovered) {
+                                                var c = Qt.lighter(buttonColor, 1.15);
+                                                return Qt.rgba(c.r, c.g, c.b, 1);
+                                            } else return main.activeContainer === centerContainerPost ? "#9c27b0" : buttonColor
+                                        }
+                                        border.color: borderColor
+                                        border.width: 1 * blockScale
+                                        radius: width / 2
+
+                                        Behavior on color {
+                                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                        }
+                                        Behavior on border.color {
+                                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                        }
+                                    }
+
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: textColor
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: 18 * blockScale
+                                        font.bold: true
+                                    }
+
+                                    onClicked: {
+                                        if (main.activeContainer === centerContainerPost) {
+                                            main.activeContainer = null
+                                            console.log("Область постусловия деактивирована")
+                                        } else {
+                                            main.activeContainer = centerContainerPost
+                                            console.log("Область постусловия активирована")
+                                        }
+                                    }
+                                }
+
+                                    TapHandler {
+                                    enabled: !main.debugMode
+                                    onTapped: {
+                                        if (main.activeContainer === centerContainerPost) {
+                                            createBlock(main.selectedBlockType)
+                                            console.log("Создан блок типа:", main.selectedBlockType, "в постусловии")
+                                            main.updateFlowArrows();
+                                        }
+                                        main.activeContainer = centerContainerPost
+                                    }
+                                }
+                            }
+                        }
+                    }
                     // === ФИГУРА БЛОКА (ОСНОВНАЯ ЧАСТЬ) ===
                     Item {
                         id: shapeItem
@@ -3062,15 +3166,15 @@ Window {
                             visible: root.blockType === "счетчик"
 
                             Row {
-                                spacing: 20 * blockScale
+                                spacing: 10 * blockScale
                                 anchors.horizontalCenter: parent.horizontalCenter
 
                                 Row {
-                                    spacing: 8 * blockScale
+                                    spacing: 5 * blockScale
                                     Text {
                                         text: "Переменная:"
                                         color: textColor
-                                        font.pixelSize: 26 * blockScale
+                                        font.pixelSize: 18 * blockScale
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
                                     }
@@ -3078,12 +3182,12 @@ Window {
                                         id: counterVarField
                                         objectName: "counterVarField"
                                         enabled: !main.debugMode
-                                        width: 70 * blockScale
+                                        width: 50 * blockScale
                                         placeholderText: "i"
                                         color: textColor
                                         placeholderTextColor: "#9e9e9e"
                                         selectByMouse: true
-                                        font.pixelSize: 26 * blockScale
+                                        font.pixelSize: 20 * blockScale
                                         font.bold: true
                                         hoverEnabled: true
 
@@ -3101,11 +3205,11 @@ Window {
                                 }
 
                                 Row {
-                                    spacing: 8 * blockScale
+                                    spacing: 5 * blockScale
                                     Text {
                                         text: "Шаг:"
                                         color: textColor
-                                        font.pixelSize: 26 * blockScale
+                                        font.pixelSize: 18 * blockScale
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
                                     }
@@ -3113,12 +3217,12 @@ Window {
                                         id: counterStepField
                                         objectName: "counterStepField"
                                         enabled: !main.debugMode
-                                        width: 70 * blockScale
+                                        width: 50 * blockScale
                                         placeholderText: "1"
                                         color: textColor
                                         placeholderTextColor: "#9e9e9e"
                                         selectByMouse: true
-                                        font.pixelSize: 26 * blockScale
+                                        font.pixelSize: 20 * blockScale
                                         font.bold: true
                                         hoverEnabled: true
 
@@ -3137,15 +3241,15 @@ Window {
                             }
 
                             Row {
-                                spacing: 20 * blockScale
+                                spacing: 10 * blockScale
                                 anchors.horizontalCenter: parent.horizontalCenter
 
                                 Row {
-                                    spacing: 8 * blockScale
+                                    spacing: 5 * blockScale
                                     Text {
                                         text: "От:"
                                         color: textColor
-                                        font.pixelSize: 26 * blockScale
+                                        font.pixelSize: 18 * blockScale
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
                                     }
@@ -3153,12 +3257,12 @@ Window {
                                         id: counterFromField
                                         objectName: "counterFromField"
                                         enabled: !main.debugMode
-                                        width: 70 * blockScale
+                                        width: 50 * blockScale
                                         placeholderText: "0"
                                         color: textColor
                                         placeholderTextColor: "#9e9e9e"
                                         selectByMouse: true
-                                        font.pixelSize: 26 * blockScale
+                                        font.pixelSize: 20 * blockScale
                                         font.bold: true
                                         hoverEnabled: true
 
@@ -3176,11 +3280,11 @@ Window {
                                 }
 
                                 Row {
-                                    spacing: 8 * blockScale
+                                    spacing: 5 * blockScale
                                     Text {
                                         text: "До:"
                                         color: textColor
-                                        font.pixelSize: 26 * blockScale
+                                        font.pixelSize: 18 * blockScale
                                         font.bold: true
                                         verticalAlignment: Text.AlignVCenter
                                     }
@@ -3188,12 +3292,12 @@ Window {
                                         id: counterToField
                                         objectName: "counterToField"
                                         enabled: !main.debugMode
-                                        width: 70 * blockScale
+                                        width: 50 * blockScale
                                         placeholderText: "10"
                                         color: textColor
                                         placeholderTextColor: "#9e9e9e"
                                         selectByMouse: true
-                                        font.pixelSize: 26 * blockScale
+                                        font.pixelSize: 20 * blockScale
                                         font.bold: true
                                         hoverEnabled: true
 
@@ -3776,110 +3880,7 @@ Window {
                         }
                     }
 
-                    // === ОБЛАСТЬ ДЛЯ ПОСТУСЛОВИЯ (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
-                    Item {
-                        id: postConditionWrapper
-                        width: Math.max(parent.width, childrenRect.width)
-                        height: visible ? postConditionContent.height + 10 * blockScale : 0
-                        visible: root.blockType === "постусл"
-                        anchors.horizontalCenter: parent.horizontalCenter
 
-                        Column {
-                            id: postConditionContent
-                            width: Math.max(400 * blockScale, parent.width)
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 10 * blockScale
-
-                            Rectangle {
-                                id: postRect
-                                width: Math.max(400 * blockScale, centerContainerPost.childrenRect.width + 40 * blockScale)
-                                height: Math.max(160 * blockScale, centerContainerPost.childrenRect.height + 50 * blockScale)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? "#9c27b0" : borderColor)
-                                border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
-                                radius: 5 * blockScale
-                                color: "transparent"
-                                anchors.horizontalCenter: parent.horizontalCenter
-
-                                Behavior on border.color {
-                                    ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                                }
-
-                                Column {
-                                    id: centerContainerPost
-                                    objectName: "centerContainerPost"
-                                    width: Math.max(350 * blockScale, childrenRect.width)
-                                    anchors.centerIn: parent
-                                    spacing: 10 * blockScale
-                                }
-
-                                Button {
-                                    id: postActivateBtn
-                                    enabled: !main.debugMode
-                                    anchors.top: parent.top
-                                    anchors.right: parent.right
-                                    anchors.margins: 5 * blockScale
-                                    width: 35 * blockScale
-                                    height: 35 * blockScale
-                                    text: "A"
-                                    hoverEnabled: true
-
-                                    background: Rectangle {
-                                        id: postActivateBg
-                                        color: {
-                                            if (postActivateBtn.pressed) {
-                                                var c = Qt.darker(buttonColor, 1.25);
-                                                return Qt.rgba(c.r, c.g, c.b, 1);
-                                            } else if (postActivateBtn.hovered) {
-                                                var c = Qt.lighter(buttonColor, 1.15);
-                                                return Qt.rgba(c.r, c.g, c.b, 1);
-                                            } else return main.activeContainer === centerContainerPost ? "#9c27b0" : buttonColor
-                                        }
-                                        border.color: borderColor
-                                        border.width: 1 * blockScale
-                                        radius: width / 2
-
-                                        Behavior on color {
-                                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                                        }
-                                        Behavior on border.color {
-                                            ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                                        }
-                                    }
-
-                                    contentItem: Text {
-                                        text: parent.text
-                                        color: textColor
-                                        horizontalAlignment: Text.AlignHCenter
-                                        verticalAlignment: Text.AlignVCenter
-                                        font.pixelSize: 18 * blockScale
-                                        font.bold: true
-                                    }
-
-                                    onClicked: {
-                                        if (main.activeContainer === centerContainerPost) {
-                                            main.activeContainer = null
-                                            console.log("Область постусловия деактивирована")
-                                        } else {
-                                            main.activeContainer = centerContainerPost
-                                            console.log("Область постусловия активирована")
-                                        }
-                                    }
-                                }
-
-                                    TapHandler {
-                                    enabled: !main.debugMode
-                                    onTapped: {
-                                        if (main.activeContainer === centerContainerPost) {
-                                            createBlock(main.selectedBlockType)
-                                            console.log("Создан блок типа:", main.selectedBlockType, "в постусловии")
-                                            main.updateFlowArrows();
-                                        }
-                                        main.activeContainer = centerContainerPost
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
