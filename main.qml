@@ -2803,107 +2803,8 @@ Window {
             Row {
                 id: contentRow
                 width: Math.max(parent.width, childrenRect.width)
-                spacing: 5 * blockScale
+                spacing: 0
                 anchors.horizontalCenter: parent.horizontalCenter
-
-                Column {
-                    spacing: 2 * blockScale
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    Button {
-                        id: setDebugStartButton
-                        enabled: !main.debugMode && !["начало", "конец"].includes(root.blockType)
-                        width: 30 * blockScale
-                        height: 30 * blockScale
-                        hoverEnabled: true
-
-                        background: Rectangle {
-                            id: debugStartBg
-                            color: {
-                                if (setDebugStartButton.pressed) {
-                                    var c = Qt.darker(buttonColor, 1.25);
-                                    return Qt.rgba(c.r, c.g, c.b, 1);
-                                } else if (setDebugStartButton.hovered) {
-                                    var c = Qt.lighter(buttonColor, 1.15);
-                                    return Qt.rgba(c.r, c.g, c.b, 1);
-                                } else return root.isDebugStart ? "#FF69B4" : buttonColor
-                            }
-                            border.color: borderColor
-                            border.width: 1
-                            radius: 15 * blockScale
-
-                            Behavior on color {
-                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                            }
-                            Behavior on border.color {
-                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                            }
-                        }
-
-                        contentItem: Text {
-                            text: "О"
-                            color: textColor
-                            font.bold: true
-                            font.pixelSize: 18 * blockScale
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        onClicked: {
-                            if (root.isDebugStart) {
-                                main.debugStartBlockId = -1;
-                            } else {
-                                main.debugStartBlockId = root.uniqueId;
-                            }
-                            console.log("Установлен стартовый блок отладки: " + main.debugStartBlockId);
-                        }
-                    }
-
-                    Button {
-                        id: colorButton
-                        enabled: !main.debugMode && !["начало", "конец"].includes(root.blockType)
-                        width: 30 * blockScale
-                        height: 30 * blockScale
-                        hoverEnabled: true
-
-                        background: Rectangle {
-                            id: colorButtonBg
-                            color: {
-                                if (colorButton.pressed) {
-                                    var c = Qt.darker(buttonColor, 1.25);
-                                    return Qt.rgba(c.r, c.g, c.b, 1);
-                                } else if (colorButton.hovered) {
-                                    var c = Qt.lighter(buttonColor, 1.15);
-                                    return Qt.rgba(c.r, c.g, c.b, 1);
-                                } else return buttonColor
-                            }
-                            border.color: borderColor
-                            border.width: 1
-                            radius: 15 * blockScale
-
-                            Behavior on color {
-                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                            }
-                            Behavior on border.color {
-                                ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
-                            }
-                        }
-
-                        contentItem: Text {
-                            text: "Ц"
-                            color: textColor
-                            font.bold: true
-                            font.pixelSize: 18 * blockScale
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        onClicked: {
-                            colorWindow.blockItem = root;
-                            colorWindow.openWindow();
-                        }
-                    }
-                }
 
                 Column {
                     id: contentColumn
@@ -2917,6 +2818,107 @@ Window {
 
                         height: getDefaultHeight() * blockScale
                         anchors.horizontalCenter: parent.horizontalCenter
+
+                        Column {
+                            spacing: 2 * blockScale
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.right: parent.left
+                            anchors.rightMargin: 5 * blockScale
+        
+                            Button {
+                                id: setDebugStartButton
+                                enabled: !main.debugMode && !["начало", "конец"].includes(root.blockType)
+                                width: 30 * blockScale
+                                height: 30 * blockScale
+                                hoverEnabled: true
+        
+                                background: Rectangle {
+                                    id: debugStartBg
+                                    color: {
+                                        if (setDebugStartButton.pressed) {
+                                            var c = Qt.darker(buttonColor, 1.25);
+                                            return Qt.rgba(c.r, c.g, c.b, 1);
+                                        } else if (setDebugStartButton.hovered) {
+                                            var c = Qt.lighter(buttonColor, 1.15);
+                                            return Qt.rgba(c.r, c.g, c.b, 1);
+                                        } else return root.isDebugStart ? "#FF69B4" : buttonColor
+                                    }
+                                    border.color: borderColor
+                                    border.width: 1
+                                    radius: 15 * blockScale
+        
+                                    Behavior on color {
+                                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                    }
+                                    Behavior on border.color {
+                                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                    }
+                                }
+        
+                                contentItem: Text {
+                                    text: "О"
+                                    color: textColor
+                                    font.bold: true
+                                    font.pixelSize: 18 * blockScale
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+        
+                                onClicked: {
+                                    if (root.isDebugStart) {
+                                        main.debugStartBlockId = -1;
+                                    } else {
+                                        main.debugStartBlockId = root.uniqueId;
+                                    }
+                                    console.log("Установлен стартовый блок отладки: " + main.debugStartBlockId);
+                                }
+                            }
+        
+                            Button {
+                                id: colorButton
+                                enabled: !main.debugMode && !["начало", "конец"].includes(root.blockType)
+                                width: 30 * blockScale
+                                height: 30 * blockScale
+                                hoverEnabled: true
+        
+                                background: Rectangle {
+                                    id: colorButtonBg
+                                    color: {
+                                        if (colorButton.pressed) {
+                                            var c = Qt.darker(buttonColor, 1.25);
+                                            return Qt.rgba(c.r, c.g, c.b, 1);
+                                        } else if (colorButton.hovered) {
+                                            var c = Qt.lighter(buttonColor, 1.15);
+                                            return Qt.rgba(c.r, c.g, c.b, 1);
+                                        } else return buttonColor
+                                    }
+                                    border.color: borderColor
+                                    border.width: 1
+                                    radius: 15 * blockScale
+        
+                                    Behavior on color {
+                                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                    }
+                                    Behavior on border.color {
+                                        ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
+                                    }
+                                }
+        
+                                contentItem: Text {
+                                    text: "Ц"
+                                    color: textColor
+                                    font.bold: true
+                                    font.pixelSize: 18 * blockScale
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+        
+                                onClicked: {
+                                    colorWindow.blockItem = root;
+                                    colorWindow.openWindow();
+                                }
+                            }
+                        }
 
                         function getDefaultHeight() {
                             switch (root.blockType) {
