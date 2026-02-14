@@ -30,7 +30,7 @@ Window {
     property color defaultHoverColor: "#616161"
     property color defaultPressedColor: "#757575"
     property color defaultDebugTableColor: "#2d2d2d"
-    property color defaultDebugTableBorderColor: "#9c27b0"
+    property color defaultDebugTableBorderColor: focusColor
     property color defaultTranslucentColor: "#80000000"
 
     // Цвета кнопок спавна блоков (сделаны темнее для лучшей читаемости текста)
@@ -91,7 +91,7 @@ Window {
     property var allConnections: []
     property var arrowComponents: []
 
-    property color focusColor: "#9c27b0"
+    property color focusColor: "orange"
     property color keyboardFocusColor: "orange"
     property bool keyboardMode: false
     property int focusedBlockIndex: -1
@@ -605,7 +605,7 @@ Window {
         startColor = "#1565c0"   // Темнее и контрастнее
         endColor = "#ff8f00"     // Темнее и контрастнее
         debugTableColor = "#252525"
-        debugTableBorderColor = "#9c27b0"
+        debugTableBorderColor = focusColor
         translucentColor = "#80000000"
         currentThemeId = "dark" // Set current theme ID
         saveSettings()
@@ -745,7 +745,7 @@ Window {
         buttonColor = "#2a2f38"
         hoverColor = "#51565f"
         pressedColor = "#6d6d6d"
-        inputColor = "#9c27b0"
+        inputColor = focusColor
         outputColor = "#4a148c"
         actionColor = "#7b1fa2"
         counterColor = "#e91e63"
@@ -755,7 +755,7 @@ Window {
         startColor = "#7b1fa2"
         endColor = "#ff9800"
         debugTableColor = "#16213e"
-        debugTableBorderColor = "#9c27b0"
+        debugTableBorderColor = focusColor
         translucentColor = "#80000000"
         currentThemeId = "purple" // Set current theme ID
         saveSettings()
@@ -834,7 +834,6 @@ Window {
             debugTableBorderColor: debugTableBorderColor,
             translucentColor: translucentColor
         }
-        console.log("Тема сохранена")
     }
 
     // Функция загрузки сохраненной темы
@@ -859,9 +858,6 @@ Window {
             debugTableColor = debugTableColor
             debugTableBorderColor = debugTableBorderColor
             translucentColor = translucentColor
-            console.log("Тема загружена из сохранения")
-        } else {
-            console.log("Нет сохраненной темы")
         }
     }
 
@@ -884,22 +880,15 @@ Window {
     Connections {
         target: obrabotka
         function onNeedUserInput() {
-            console.log("QML: Получен запрос на ввод")
             otvet.text = otvet.text + "\n" + "QML: Получен запрос на ввод"
             vvod.forceActiveFocus()
         }
         function onInputProcessed(result) {
-            console.log("ответ вернулся")
         }
         function onVivod(otvet_cpp) {
-            console.log("ответ есть")
-            console.log(otvet_cpp)
             otvet.text = otvet.text + "\n" + otvet_cpp
         }
         function onDebugging_peremennie(peremennie) {
-            console.log("Получены переменные от C++ для отображения")
-            console.log("Данные (peremennie - QVariantMap):", peremennie)
-
             variablesModel.clear();
 
             if (peremennie && typeof peremennie === 'object') {
@@ -907,27 +896,21 @@ Window {
                 for (var i = 0; i < keys.length; i++) {
                     var name = keys[i];
                     var value = peremennie[name];
-                    console.log("Добавляем переменную:", name, "=", value);
                     variablesModel.append({ name: name, value: String(value) });
                 }
-            } else {
-                console.warn("peremennie не является объектом:", peremennie);
             }
         }
 
         function onHighlightBlock(blockId) {
-            console.log("Получен сигнал highlightBlock с ID:", blockId);
             currentDebugBlockId = blockId;
         }
 
         function onDebugHistoryChanged(canStepBack, canStepForward) {
-            console.log("История отладки изменилась, можно шагать назад:", canStepBack, "можно шагать вперед:", canStepForward);
             main.canStepBack = canStepBack;
             main.canStepForward = canStepForward;
         }
 
         function onDebugFinished() {
-            console.log("Отладка завершена");
             main.debugMode = false;
             variablesModel.clear();
             currentDebugBlockId = -1;
@@ -935,7 +918,6 @@ Window {
         }
 
         function onAlgorithmLoaded(algorithm) {
-            console.log("Получен сигнал algorithmLoaded, количество блоков:", algorithm.length)
             main.debugStartBlockId = -1
             main.errorBlockIds = [];
             if (algorithm && algorithm.length > 0) {
@@ -945,7 +927,6 @@ Window {
         }
 
         function onErrorOccurred(errorMessage) {
-            console.log("Ошибка:", errorMessage)
             otvet.text = otvet.text + "\n" + "Ошибка: " + errorMessage
             errorBlockIds = [];
         }
@@ -954,7 +935,6 @@ Window {
         }
 
         function onSyntaxErrorsOccurred(errors) {
-            console.log("Получены синтаксические ошибки:", errors);
             otvet.text += "\n" + "--- Синтаксические ошибки ---\n";
 
             main.errorBlockIds = [];
@@ -1006,7 +986,6 @@ Window {
             confirmWindow.close();
         }
         onRejected: {
-            console.log("Сохранение файла отменено.");
             confirmWindow.close();
         }
     }
@@ -1026,7 +1005,6 @@ Window {
             confirmWindow.close();
         }
         onRejected: {
-            console.log("Создание нового файла отменено.");
             confirmWindow.close();
         }
     }
@@ -1041,7 +1019,6 @@ Window {
             confirmWindow.close();
         }
         onRejected: {
-            console.log("Открытие файла отменено.");
             confirmWindow.close();
         }
     }
@@ -1241,6 +1218,23 @@ Window {
                             mainLayout.forceActiveFocus();
                         }
                         event.accepted = true;
+                    } else if (event.key === Qt.Key_PageUp || event.key === Qt.Key_PageDown) {
+                        if (blockTypeSelector.model.count > 0) {
+                            var newIndex = blockTypeSelector.currentIndex;
+                            if (event.key === Qt.Key_PageUp) {
+                                newIndex--;
+                                if (newIndex < 0) {
+                                    newIndex = blockTypeSelector.model.count - 1; // Wrap around to end
+                                }
+                            } else { // Qt.Key_PageDown
+                                newIndex++;
+                                if (newIndex >= blockTypeSelector.model.count) {
+                                    newIndex = 0; // Wrap around to beginning
+                                }
+                            }
+                            blockTypeSelector.currentIndex = newIndex;
+                        }
+                        event.accepted = true;
                     } else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_4) {
                         var allBlocks = collectAllBlocks();
                         if (focusedBlockIndex > -1 && allBlocks[focusedBlockIndex]) {
@@ -1405,11 +1399,9 @@ Window {
 
                         onClicked: {
                             if (main.debugMode) {
-                                console.log("Нажата кнопка 'Закончить отладку'");
                                 obrabotka.stopDebugging();
                             } else {
                                 main.debugMode = true;
-                                console.log("Режим отладки включен");
                                 collectData(2);
                             }
                         }
@@ -1492,10 +1484,12 @@ Window {
                         onCurrentIndexChanged: {
                             if (blockTypeSelector.currentIndex >= 0 && blockTypeSelector.currentIndex < blockTypeSelector.model.count) {
                                 main.selectedBlockType = blockTypeSelector.model.get(blockTypeSelector.currentIndex).type;
-                                console.log("Выбран тип блокa (по модели):", main.selectedBlockType);
                             }
                         }
                         currentIndex: 2
+
+                        displayText: currentIndex >= 0 ? model.get(currentIndex).displayName : ""
+
                         background: Rectangle {
                             id: comboBg
                             color: buttonColor
@@ -1539,13 +1533,7 @@ Window {
                                     }
                                 }
                                 Text {
-                                    text: {
-                                        var currentIdx = blockTypeSelector.currentIndex;
-                                        if (currentIdx >= 0 && currentIdx < blockTypeSelector.model.count) {
-                                            return blockTypeSelector.model.get(currentIdx).displayName || "";
-                                        }
-                                        return "";
-                                    }
+                                    text: blockTypeSelector.displayText
                                     color: textColor
                                     verticalAlignment: Text.AlignVCenter
                                     font.pixelSize: 18 * buttonsZoomLevel
@@ -2233,7 +2221,7 @@ Window {
                 id: algorithmArea
                 width: main.debugMode ? (parent.width - debugPanel.width - parent.spacing) : parent.width
                 height: parent.height
-                border.color: main.activeContainer === container ? "#9c27b0" : borderColor
+                border.color: main.activeContainer === container ? focusColor : borderColor
                 border.width: 2
                 radius: 5
                 color: panelColor
@@ -2299,7 +2287,7 @@ Window {
                                 } else if (mainActivateBtn.hovered) {
                                     var c = Qt.lighter(buttonColor, 1.15);
                                     return Qt.rgba(c.r, c.g, c.b, 1);
-                                } else return main.activeContainer === container ? "#9c27b0" : buttonColor
+                                } else return main.activeContainer === container ? focusColor : buttonColor
                             }
                             border.color: borderColor
                             border.width: 1
@@ -2325,10 +2313,8 @@ Window {
                         onClicked: {
                             if (main.activeContainer === container) {
                                 main.activeContainer = null
-                                console.log("Основная область деактивирована")
                             } else {
                                 main.activeContainer = container
-                                console.log("Основная область активирована")
                             }
                         }
                     }
@@ -2338,7 +2324,6 @@ Window {
                         onTapped: {
                             if (main.activeContainer === container) {
                                 createBlock(main.selectedBlockType)
-                                console.log("Создан блок типа:", main.selectedBlockType, "по клику")
                                 main.updateFlowArrows();
                             }
                         }
@@ -2435,7 +2420,6 @@ Window {
 
                             onClicked: {
                                 if (main.debugMode && main.canStepBack) {
-                                    console.log("Отладка: Шаг назад (кнопка)");
                                     obrabotka.debugStepBack();
                                 }
                             }
@@ -2483,7 +2467,6 @@ Window {
 
                             onClicked: {
                                 if (main.debugMode && main.canStepForward) {
-                                    console.log("Отладка: Шаг вперёд (кнопка)");
                                     obrabotka.debugStep();
                                 }
                             }
@@ -2596,7 +2579,6 @@ Window {
                         }
 
                         onClicked: {
-                            console.log("Отладка: Нажата кнопка 'Закрыть'");
                             obrabotka.stopDebugging();
                         }
                     }
@@ -2715,25 +2697,27 @@ Window {
         }
     }
 
+    function getColorForBlock(type) {
+        switch (type) {
+            case "ввод": return inputColor;
+            case "вывод": return outputColor;
+            case "действие": return actionColor;
+            case "счетчик": return counterColor;
+            case "предусл": return precondColor;
+            case "постусл": return postcondColor;
+            case "усл": return condColor;
+            case "начало": return startColor;
+            case "конец": return endColor;
+            default: return actionColor;
+        }
+    }
+
     function createBlock(type) {
         if (!main.activeContainer) {
-            console.warn("Нет активного контейнера!")
             return
         }
 
-        var colorForBlock;
-        switch (type) {
-            case "ввод": colorForBlock = inputColor; break;
-            case "вывод": colorForBlock = outputColor; break;
-            case "действие": colorForBlock = actionColor; break;
-            case "счетчик": colorForBlock = counterColor; break;
-            case "предусл": colorForBlock = precondColor; break;
-            case "постусл": colorForBlock = postcondColor; break;
-            case "усл": colorForBlock = condColor; break;
-            case "начало": colorForBlock = startColor; break;
-            case "конец": colorForBlock = endColor; break;
-            default: colorForBlock = actionColor; break;
-        }
+        var colorForBlock = getColorForBlock(type);
 
         var newBlock = spisok.createObject(main.activeContainer, {
             "blockType": type,
@@ -2746,59 +2730,49 @@ Window {
 
     function insertBlockAfter(referenceBlock, type) {
         var parentContainer = referenceBlock.parent;
-        if (!parentContainer) {
-            console.warn("Не найден родительский контейнер для вставки");
-            return;
-        }
-        var referenceIndex = -1;
-        for (var i = 0; i < parentContainer.children.length; i++) {
-            if (parentContainer.children[i] === referenceBlock) {
-                referenceIndex = i;
-                break;
-            }
-        }
-        if (referenceIndex === -1) {
-            console.error("Ссылочный блок не найден в родительском контейнере!");
-            return;
-        }
-
-        var newBlock = spisok.createObject(parentContainer, { "blockType": type, "uniqueId": main.blockIdCounter++ });
-        newBlock.z = referenceIndex + 2;
-        for(i = referenceIndex + 1; i < parentContainer.children.length; ++i) {
-             if(parentContainer.children[i] !== newBlock) {
-                parentContainer.children[i].z = i + 1;
-             }
-        }
-        newBlock.z = referenceIndex + 1;
+        if (!parentContainer) {  return; }
+        
+        var color = getColorForBlock(type);
+        var newBlock = spisok.createObject(parentContainer, { "blockType": type, "uniqueId": main.blockIdCounter++, "customColor": color });
+        
+        var children = [];
+        for (var i = 0; i < parentContainer.children.length; i++) { children.push(parentContainer.children[i]); }
+        
+        var blockToInsert = children.pop();
+        var referenceIndex = children.indexOf(referenceBlock);
+        
+        if (referenceIndex !== -1) { children.splice(referenceIndex + 1, 0, blockToInsert); } 
+        else { children.push(blockToInsert); }
+        
+        var tempParent = Qt.createQmlObject('import QtQuick 2.0; Item {}', main);
+        children.forEach(function(child){ child.parent = tempParent; });
+        children.forEach(function(child){ child.parent = parentContainer; });
+        tempParent.destroy();
+        
         main.updateFlowArrows();
     }
 
     function insertBlockBefore(referenceBlock, type) {
         var parentContainer = referenceBlock.parent;
-        if (!parentContainer) {
-            console.warn("Не найден родительский контейнер для вставки");
-            return;
-        }
+        if (!parentContainer) {  return; }
+        
+        var color = getColorForBlock(type);
+        var newBlock = spisok.createObject(parentContainer, { "blockType": type, "uniqueId": main.blockIdCounter++, "customColor": color });
 
-        var referenceIndex = -1;
-        for (var i = 0; i < parentContainer.children.length; i++) {
-            if (parentContainer.children[i] === referenceBlock) {
-                referenceIndex = i;
-                break;
-            }
-        }
-        if (referenceIndex === -1) {
-            console.error("Ссылочный блок не найден в родительском контейнере!");
-            return;
-        }
+        var children = [];
+        for (var i = 0; i < parentContainer.children.length; i++) { children.push(parentContainer.children[i]); }
 
-        var newBlock = spisok.createObject(parentContainer, { "blockType": type, "uniqueId": main.blockIdCounter++ });
-        newBlock.z = referenceIndex;
-        for(i = referenceIndex; i < parentContainer.children.length; ++i) {
-             if(parentContainer.children[i] !== newBlock) {
-                parentContainer.children[i].z = i + 1;
-             }
-        }
+        var blockToInsert = children.pop();
+        var referenceIndex = children.indexOf(referenceBlock);
+
+        if (referenceIndex !== -1) { children.splice(referenceIndex, 0, blockToInsert); }
+        else { children.unshift(blockToInsert); }
+
+        var tempParent = Qt.createQmlObject('import QtQuick 2.0; Item {}', main);
+        children.forEach(function(child){ child.parent = tempParent; });
+        children.forEach(function(child){ child.parent = parentContainer; });
+        tempParent.destroy();
+        
         main.updateFlowArrows();
     }
 
@@ -2862,9 +2836,6 @@ Window {
                 }
                 if (fieldToFocus) {
                     fieldToFocus.forceActiveFocus();
-                    console.log("Editing started for block:", root.uniqueId);
-                } else {
-                    console.log("No editable field for block type:", root.blockType);
                 }
             }
 
@@ -2975,8 +2946,6 @@ Window {
                 root.customColor = newColor;
                 if (root._blockCanvasRef) {
                     root._blockCanvasRef.requestPaint();
-                } else {
-                    console.warn("blockCanvas not registered for block ID:", root.uniqueId);
                 }
             }
 
@@ -3017,7 +2986,7 @@ Window {
                                 id: postRect
                                 width: Math.max(400 * blockScale, centerContainerPost.childrenRect.width + 40 * blockScale)
                                 height: Math.max(160 * blockScale, centerContainerPost.childrenRect.height + 50 * blockScale)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? "#9c27b0" : borderColor)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? focusColor : borderColor)
                                 border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
                                 radius: 5 * blockScale
                                 color: "transparent"
@@ -3055,7 +3024,7 @@ Window {
                                             } else if (postActivateBtn.hovered) {
                                                 var c = Qt.lighter(buttonColor, 1.15);
                                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                                            } else return main.activeContainer === centerContainerPost ? "#9c27b0" : buttonColor
+                                            } else return main.activeContainer === centerContainerPost ? focusColor : buttonColor
                                         }
                                         border.color: borderColor
                                         border.width: 1 * blockScale
@@ -3081,10 +3050,8 @@ Window {
                                     onClicked: {
                                         if (main.activeContainer === centerContainerPost) {
                                             main.activeContainer = null
-                                            console.log("Область постусловия деактивирована")
                                         } else {
                                             main.activeContainer = centerContainerPost
-                                            console.log("Область постусловия активирована")
                                         }
                                     }
                                 }
@@ -3094,7 +3061,6 @@ Window {
                                     onTapped: {
                                         if (main.activeContainer === centerContainerPost) {
                                             createBlock(main.selectedBlockType)
-                                            console.log("Создан блок типа:", main.selectedBlockType, "в постусловии")
                                             main.updateFlowArrows();
                                         }
                                         main.activeContainer = centerContainerPost
@@ -3162,7 +3128,6 @@ Window {
                                     } else {
                                         main.debugStartBlockId = root.uniqueId;
                                     }
-                                    console.log("Установлен стартовый блок отладки: " + main.debugStartBlockId);
                                 }
                             }
         
@@ -3565,7 +3530,6 @@ Window {
                                 contentItem: Item {}
 
                                 onClicked: {
-                                    console.log("Кнопка 'Добавить выше' нажата для блока типа:", root.blockType);
                                     main.insertBlockBefore(root, main.selectedBlockType);
                                 }
                             }
@@ -3625,7 +3589,6 @@ Window {
                                 contentItem: Item {}
 
                                 onClicked: {
-                                    console.log("Кнопка 'Добавить ниже' нажата для блока типа:", root.blockType);
                                     main.insertBlockAfter(root, main.selectedBlockType);
                                 }
                             }
@@ -3635,7 +3598,6 @@ Window {
                             enabled: !main.debugMode
                             acceptedButtons: Qt.RightButton
                             onTapped: {
-                                console.log("Блок удалён правым кликом. ID:", root.uniqueId);
                                 root.destroy()
                                 main.updateFlowArrows();
                             }
@@ -3645,7 +3607,6 @@ Window {
                             enabled: !main.debugMode
                             acceptedButtons: Qt.LeftButton
                             onDoubleTapped: {
-                                console.log("Блок удалён двойным кликом. ID:", root.uniqueId);
                                 root.destroy()
                                 main.updateFlowArrows();
                             }
@@ -3670,7 +3631,7 @@ Window {
                                 id: counterRect
                                 width: Math.max(400 * blockScale, centerContainerCounter.childrenRect.width + 40 * blockScale)
                                 height: Math.max(160 * blockScale, centerContainerCounter.childrenRect.height + 50 * blockScale)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? "#9c27b0" : borderColor)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? focusColor : borderColor)
                                 border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
                                 radius: 5 * blockScale
                                 color: "transparent"
@@ -3708,7 +3669,7 @@ Window {
                                             } else if (counterActivateBtn.hovered) {
                                                 var c = Qt.lighter(buttonColor, 1.15);
                                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                                            } else return main.activeContainer === centerContainerCounter ? "#9c27b0" : buttonColor
+                                            } else return main.activeContainer === centerContainerCounter ? focusColor : buttonColor
                                         }
                                         border.color: borderColor
                                         border.width: 1 * blockScale
@@ -3734,10 +3695,8 @@ Window {
                                     onClicked: {
                                         if (main.activeContainer === centerContainerCounter) {
                                             main.activeContainer = null
-                                            console.log("Область тела счетчика деактивирована")
                                         } else {
                                             main.activeContainer = centerContainerCounter
-                                            console.log("Область тела счетчика активирована")
                                         }
                                     }
                                 }
@@ -3747,7 +3706,6 @@ Window {
                                     onTapped: {
                                         if (main.activeContainer === centerContainerCounter) {
                                             createBlock(main.selectedBlockType)
-                                            console.log("Создан блок типа:", main.selectedBlockType, "в теле счетчика")
                                             main.updateFlowArrows();
                                         }
                                         main.activeContainer = centerContainerCounter
@@ -3775,7 +3733,7 @@ Window {
                                 id: cycleRect
                                 width: Math.max(400 * blockScale, centerContainer.childrenRect.width + 40 * blockScale)
                                 height: Math.max(160 * blockScale, centerContainer.childrenRect.height + 50 * blockScale)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? "#9c27b0" : borderColor)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? focusColor : borderColor)
                                 border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
                                 radius: 5 * blockScale
                                 color: "transparent"
@@ -3813,7 +3771,7 @@ Window {
                                             } else if (cycleActivateBtn.hovered) {
                                                 var c = Qt.lighter(buttonColor, 1.15);
                                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                                            } else return main.activeContainer === centerContainer ? "#9c27b0" : buttonColor
+                                            } else return main.activeContainer === centerContainer ? focusColor : buttonColor
                                         }
                                         border.color: borderColor
                                         border.width: 1 * blockScale
@@ -3839,10 +3797,8 @@ Window {
                                     onClicked: {
                                         if (main.activeContainer === centerContainer) {
                                             main.activeContainer = null
-                                            console.log("Область цикла деактивирована")
                                         } else {
                                             main.activeContainer = centerContainer
-                                            console.log("Область цикла активирована")
                                         }
                                     }
                                 }
@@ -3852,7 +3808,6 @@ Window {
                                     onTapped: {
                                         if (main.activeContainer === centerContainer) {
                                             createBlock(main.selectedBlockType)
-                                            console.log("Создан блок типа:", main.selectedBlockType, "в цикле")
                                             main.updateFlowArrows();
                                         }
                                         main.activeContainer = centerContainer
@@ -3889,7 +3844,7 @@ Window {
                                     width: Math.max(300 * blockScale, leftContainer.width + 40 * blockScale) // Увеличено с 280
 
                                     height: Math.max(160 * blockScale, leftContainer.childrenRect.height + 50 * blockScale)
-                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? "#9c27b0" : borderColor)
+                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? focusColor : borderColor)
                                     border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
                                     radius: 5 * blockScale
                                     color: "transparent"
@@ -3927,7 +3882,7 @@ Window {
                                                 } else if (leftActivateBtn.hovered) {
                                                     var c = Qt.lighter(buttonColor, 1.15);
                                                     return Qt.rgba(c.r, c.g, c.b, 1);
-                                                } else return main.activeContainer === leftContainer ? "#9c27b0" : buttonColor
+                                                } else return main.activeContainer === leftContainer ? focusColor : buttonColor
                                             }
                                             border.color: borderColor
                                             border.width: 1 * blockScale
@@ -3953,10 +3908,8 @@ Window {
                                         onClicked: {
                                             if (main.activeContainer === leftContainer) {
                                                 main.activeContainer = null
-                                                console.log("Левая ветка условия деактивирована")
                                             } else {
                                                 main.activeContainer = leftContainer
-                                                console.log("Левая ветка условия активирована")
                                             }
                                         }
                                     }
@@ -3966,7 +3919,6 @@ Window {
                                         onTapped: {
                                             if (main.activeContainer === leftContainer) {
                                                 createBlock(main.selectedBlockType)
-                                                console.log("Создан блок типа:", main.selectedBlockType, "в левой ветке условия")
                                                 main.updateFlowArrows();
                                             }
                                             main.activeContainer = leftContainer
@@ -3980,7 +3932,7 @@ Window {
                                     width: Math.max(300 * blockScale, rightContainer.width + 40 * blockScale) // Увеличено с 280
 
                                     height: Math.max(160 * blockScale, rightContainer.childrenRect.height + 50 * blockScale)
-                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? "#9c27b0" : borderColor)
+                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? focusColor : borderColor)
                                     border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
                                     radius: 5 * blockScale
                                     color: "transparent"
@@ -4018,7 +3970,7 @@ Window {
                                                 } else if (rightActivateBtn.hovered) {
                                                     var c = Qt.lighter(buttonColor, 1.15);
                                                     return Qt.rgba(c.r, c.g, c.b, 1);
-                                                } else return main.activeContainer === rightContainer ? "#9c27b0" : buttonColor
+                                                } else return main.activeContainer === rightContainer ? focusColor : buttonColor
                                             }
                                             border.color : borderColor
                                             border.width : 1 * blockScale
@@ -4044,10 +3996,8 @@ Window {
                                         onClicked: {
                                             if (main.activeContainer === rightContainer) {
                                                 main.activeContainer = null
-                                                console.log("Правая ветка условия деактивирована")
                                             } else {
                                                 main.activeContainer = rightContainer
-                                                console.log("Правая ветка условия активирована")
                                             }
                                         }
                                     }
@@ -4057,7 +4007,6 @@ Window {
                                         onTapped: {
                                             if (main.activeContainer === rightContainer) {
                                                 createBlock(main.selectedBlockType)
-                                                console.log("Создан блок типа:", main.selectedBlockType, "в правой ветке условия")
                                                 main.updateFlowArrows();
                                             }
                                             main.activeContainer = rightContainer
@@ -4088,8 +4037,6 @@ Window {
         }
         var data = processContainer(container)
 
-        console.log("📤 Отправка структуры алгоритма в C++:")
-        console.log(JSON.stringify(data, null, 2))
 
         if(a === 1){
             obrabotka.myPriem(data)
@@ -4245,7 +4192,7 @@ Window {
                     "#FF00FF", "#00FFFF", "#FFA500", "#800080",
                     "#008000", "#000080", "#A52A2A", "#808080",
                     "#C0C0C0", "#FFC0CB", "#90EE90", "#ADD8E6",
-                    "#4CAF50", "#FFEB3B", "#FF9800", "#9C27B0",
+                    "#4CAF50", "#FFEB3B", "#FF9800", focusColor,
                     "#673AB7", "#3F51B5", "#2196F3", "#03A9F4",
                     "#00BCD4", "#009688", "#8BC34A", "#CDDC39",
                     "#FFC107", "#FF5722", "#795548", "#607D8B",
@@ -4297,8 +4244,6 @@ Window {
                                     colorWindow.blockItem.customColor = modelData;
                                     if (colorWindow.blockItem._blockCanvasRef) {
                                         colorWindow.blockItem._blockCanvasRef.requestPaint();
-                                    } else {
-                                        console.warn("blockCanvas not registered for block ID:", colorWindow.blockItem.uniqueId);
                                     }
                                 }
                                 colorWindow.close();
@@ -4356,8 +4301,6 @@ Window {
                             if (colorWindow.blockItem._blockCanvasRef) {
                                 colorWindow.blockItem._blockCanvasRef.requestPaint();
                             }
-                        } else {
-                            console.warn("blockCanvas not registered for block ID:", colorWindow.blockItem.uniqueId);
                         }
                         colorWindow.close();
                     }
@@ -4516,7 +4459,7 @@ Window {
                 background: Rectangle {
                     id: themeComboBg
                     color: buttonColor
-                    border.color: themeSelector.hovered || themeSelector.activeFocus ? "#9c27b0" : borderColor
+                    border.color: themeSelector.hovered || themeSelector.activeFocus ? focusColor : borderColor
                     border.width: 2
                     radius: 8
 
@@ -4750,7 +4693,7 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: parent.activeFocus ? "#9c27b0" : borderColor
+                        border.color: parent.activeFocus ? focusColor : borderColor
                         border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
@@ -4802,7 +4745,7 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: parent.activeFocus ? "#9c27b0" : borderColor
+                        border.color: parent.activeFocus ? focusColor : borderColor
                         border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
@@ -4843,7 +4786,7 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: parent.activeFocus ? "#9c27b0" : borderColor
+                        border.color: parent.activeFocus ? focusColor : borderColor
                         border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
@@ -4884,7 +4827,7 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: parent.activeFocus ? "#9c27b0" : borderColor
+                        border.color: parent.activeFocus ? focusColor : borderColor
                         border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
@@ -4930,7 +4873,7 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: parent.activeFocus ? "#9c27b0" : borderColor
+                        border.color: parent.activeFocus ? focusColor : borderColor
                         border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
@@ -5378,6 +5321,13 @@ Window {
                 function onStartColorChanged() { if (blockType === "начало") miniCanvas.requestPaint() }
                 function onEndColorChanged() { if (blockType === "конец") miniCanvas.requestPaint() }
                 function onBorderColorChanged() { miniCanvas.requestPaint() }
+            }
+            // Добавляем соединение для обновления отрисовки при изменении blockType
+            Connections {
+                target: miniCanvas
+                function onBlockTypeChanged() {
+                    miniCanvas.requestPaint();
+                }
             }
         }
     }
