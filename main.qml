@@ -91,6 +91,8 @@ Window {
     property var allConnections: []
     property var arrowComponents: []
 
+    property color focusColor: "#9c27b0"
+    property color keyboardFocusColor: "orange"
     property bool keyboardMode: false
     property int focusedBlockIndex: -1
     property int activeAreaId: -1 // To keep track of the active container for new blocks
@@ -1181,123 +1183,97 @@ Window {
         focus: true
 
         Keys.onPressed: (event) => {
-            if (main.debugMode) {
-                if (event.key === Qt.Key_Escape) {
-                    obrabotka.stopDebugging();
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_Right) {
-                    obrabotka.debugStep(true); // forward
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_Left) {
-                    obrabotka.debugStep(false); // backward
-                    event.accepted = true;
-                }
-                // In debug mode, we might want to prevent other keyboard shortcuts
-                // but for now, let's not block them, so user can still use F-keys etc.
-            }
-
-            if (event.key === Qt.Key_F1) {
-                runButton.clicked();
-                event.accepted = true;
-                return;
-            }
-            if (event.key === Qt.Key_F2) {
-                debugButton.clicked();
-                event.accepted = true;
-                return;
-            }
-            if (event.key === Qt.Key_F3) {
-                settingsButton.openWindow();
-                event.accepted = true;
-                return;
-            }
-
+            // Global shortcuts
+            if (event.key === Qt.Key_F1) { runButton.clicked(); event.accepted = true; return; }
+            if (event.key === Qt.Key_F2) { debugButton.clicked(); event.accepted = true; return; }
+            if (event.key === Qt.Key_F3) { settingsButton.clicked(); event.accepted = true; return; }
             if (event.key === Qt.Key_Insert) {
                 keyboardMode = !keyboardMode;
+                obrabotka.vivod("Режим клавиатуры " + (keyboardMode ? "включен" : "выключен"));
                 if (keyboardMode) {
-                    obrabotka.vivod("Режим клавиатуры включен");
                     var allBlocks = collectAllBlocks();
-                    if (allBlocks.length > 0) {
-                        focusedBlockIndex = 0;
-                    } else {
-                        focusedBlockIndex = -1;
-                    }
+                    focusedBlockIndex = allBlocks.length > 0 ? 0 : -1;
+                    mainLayout.forceActiveFocus();
                 } else {
-                    obrabotka.vivod("Режим клавиатуры выключен");
                     focusedBlockIndex = -1;
                 }
                 updateKeyboardFocus();
                 event.accepted = true;
-            } else if (keyboardMode) { // All other keyboard events only in keyboard mode
-                if (event.modifiers & Qt.ShiftModifier && event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
-                    if(!isEditing()){
+                return;
+            }
+
+            // Debug-mode specific shortcuts
+            if (main.debugMode) {
+                if (event.key === Qt.Key_Escape) { obrabotka.stopDebugging(); event.accepted = true; return; }
+                if (event.key === Qt.Key_Right) { obrabotka.debugStep(); event.accepted = true; return; }
+                if (event.key === Qt.Key_Left) { obrabotka.debugStepBack(); event.accepted = true; return; }
+                event.accepted = true;
+                return;
+            }
+
+            // Keyboard navigation mode shortcuts
+            if (keyboardMode) {
+                if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
+                    if (isEditing()) {
+                        mainLayout.forceActiveFocus(); // Stop editing
+                    } else if (focusedBlockIndex > -1) {
+                        var allBlocks = collectAllBlocks();
+                        if (allBlocks[focusedBlockIndex]) {
+                            allBlocks[focusedBlockIndex].startEditing();
+                        }
+                    }
+                    event.accepted = true;
+                } else if (!isEditing()) {
+                    // These shortcuts only work when NOT editing a text field
+                    if (event.modifiers & Qt.ShiftModifier && event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
                         var index = event.key - Qt.Key_1;
                         if(blockTypeSelector.model.count > index){
                             blockTypeSelector.currentIndex = index;
                         }
+                        event.accepted = true;
+                    } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                        var allBlocks = collectAllBlocks();
+                        if (allBlocks.length > 0) {
+                            var direction = (event.key === Qt.Key_Up) ? -1 : 1;
+                            var newIndex = (focusedBlockIndex + direction + allBlocks.length) % allBlocks.length;
+                            focusedBlockIndex = newIndex;
+                            updateKeyboardFocus();
+                            mainLayout.forceActiveFocus();
+                        }
+                        event.accepted = true;
+                    } else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_4) {
+                        var allBlocks = collectAllBlocks();
+                        if (focusedBlockIndex > -1 && allBlocks[focusedBlockIndex]) {
+                            var block = allBlocks[focusedBlockIndex];
+                            if (event.key === Qt.Key_1 && block.setDebugStartButton) block.setDebugStartButton.clicked();
+                            if (event.key === Qt.Key_2 && block.colorButton) block.colorButton.clicked();
+                            if (event.key === Qt.Key_3 && block.addAboveButton) block.addAboveButton.clicked();
+                            if (event.key === Qt.Key_4 && block.addBelowButton) block.addBelowButton.clicked();
+                        }
+                        event.accepted = true;
+                    } else if (event.key === Qt.Key_5) {
+                        var allBlocks = collectAllBlocks();
+                        if (focusedBlockIndex > -1 && allBlocks[focusedBlockIndex]) {
+                            var block = allBlocks[focusedBlockIndex];
+                            if (block && block.parent) {
+                                main.activeContainer = block.parent;
+                            }
+                        }
+                        event.accepted = true;
+                    } else if (event.key >= Qt.Key_F4 && event.key <= Qt.Key_F12) {
+                        var blockType = "";
+                        if (event.key === Qt.Key_F4) blockType = "ввод";
+                        else if (event.key === Qt.Key_F5) blockType = "вывод";
+                        else if (event.key === Qt.Key_F6) blockType = "действие";
+                        else if (event.key === Qt.Key_F7) blockType = "счетчик";
+                        else if (event.key === Qt.Key_F8) blockType = "предусл";
+                        else if (event.key === Qt.Key_F9) blockType = "постусл";
+                        else if (event.key === Qt.Key_F10) blockType = "усл";
+                        else if (event.key === Qt.Key_F11) blockType = "начало";
+                        else if (event.key === Qt.Key_F12) blockType = "конец";
+                        if (blockType) createBlock(blockType);
+                        event.accepted = true;
                     }
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
-                    var allBlocks = collectAllBlocks();
-                    if (allBlocks.length === 0) return;
-
-                    var direction = (event.key === Qt.Key_Up) ? -1 : 1;
-                    var newIndex = focusedBlockIndex + direction;
-
-                    if (newIndex >= 0 && newIndex < allBlocks.length) {
-                        focusedBlockIndex = newIndex;
-                        updateKeyboardFocus();
-                    }
-                    event.accepted = true;
-                                                        } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
-                                                            console.log("Enter pressed. isEditing():", isEditing(), "focusedBlockIndex:", focusedBlockIndex);
-                                                            if (isEditing()) {
-                                                                mainLayout.focus = true; // Stop editing
-                                                                console.log("Editing, removed focus.");
-                                                            } else if (focusedBlockIndex > -1) {
-                                                                var allBlocks = collectAllBlocks();
-                                                                if (allBlocks[focusedBlockIndex]) {
-                                                                    allBlocks[focusedBlockIndex].startEditing();
-                                                                }
-                                                            }
-                                                            event.accepted = true;
-                            } else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_4) {
-                    var allBlocks = collectAllBlocks();
-                    if (focusedBlockIndex === -1 || !allBlocks[focusedBlockIndex]) return;
-                    var block = allBlocks[focusedBlockIndex];
-
-                    if (event.key === Qt.Key_1 && block.setDebugStartButton) block.setDebugStartButton.clicked();
-                    if (event.key === Qt.Key_2 && block.colorButton) block.colorButton.clicked();
-                    if (event.key === Qt.Key_3 && block.addAboveButton) block.addAboveButton.clicked();
-                    if (event.key === Qt.Key_4 && block.addBelowButton) block.addBelowButton.clicked();
-
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_5) {
-                    var allBlocks = collectAllBlocks();
-                    if (focusedBlockIndex === -1 || !allBlocks[focusedBlockIndex]) return;
-                    var block = allBlocks[focusedBlockIndex];
-
-                    if (block && block.parent) {
-                        main.activeContainer = block.parent;
-                        console.log("Активная область установлена на родителя блока: " + block.parent);
-                    }
-                    event.accepted = true;
-                } else if (event.key >= Qt.Key_F4 && event.key <= Qt.Key_F12) {
-                    var blockType = "";
-                    if (event.key === Qt.Key_F4) blockType = "ввод";
-                    else if (event.key === Qt.Key_F5) blockType = "вывод";
-                    else if (event.key === Qt.Key_F6) blockType = "действие";
-                    else if (event.key === Qt.Key_F7) blockType = "счетчик";
-                    else if (event.key === Qt.Key_F8) blockType = "предусл";
-                    else if (event.key === Qt.Key_F9) blockType = "постусл";
-                    else if (event.key === Qt.Key_F10) blockType = "усл";
-                    else if (event.key === Qt.Key_F11) blockType = "начало";
-                    else if (event.key === Qt.Key_F12) blockType = "конец";
-
-                    if (blockType) {
-                        createBlock(blockType);
-                    }
-                    event.accepted = true;
                 }
             }
         }
@@ -2699,7 +2675,10 @@ Window {
                 hoverEnabled: true
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 150
-                onClicked: obrabotka.userInputReceived(vvod.text)
+                onClicked: {
+                    obrabotka.userInputReceived(vvod.text);
+                    vvod.clear();
+                }
 
                 background: Rectangle {
                     id: sendButtonBg
@@ -3281,7 +3260,7 @@ Window {
                                 }
                                 ctx.fillStyle = fillColor;
                                 var isErrorBlock = main.errorBlockIds.includes(root.uniqueId);
-                                ctx.strokeStyle = root.isKeyboardFocused ? "#9c27b0" : (isErrorBlock ? "red" : (root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : borderColor)))
+                                ctx.strokeStyle = root.isKeyboardFocused ? "orange" : (isErrorBlock ? "red" : (root.isDebugHighlighted ? "yellow" : (root.isDebugStart ? "#FF69B4" : borderColor)))
                                 ctx.lineWidth = root.isKeyboardFocused ? 4 * blockScale : (isErrorBlock ? 5 * blockScale : (root.isDebugHighlighted ? 3 * blockScale : (root.isDebugStart ? 4 * blockScale : 2 * blockScale)))
                                 if (["ввод", "вывод"].includes(root.blockType)) {
                                     ctx.moveTo(s, 0);
@@ -4242,15 +4221,20 @@ Window {
                     } else if (event.key === Qt.Key_Down) {
                         newIndex = currentIndex + colorGrid.columns;
                         if (newIndex >= colorGrid.children.length) newIndex = currentIndex;
-                    } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
-                        if (currentIndex !== -1 && colorGrid.children[currentIndex]) {
-                            colorGrid.children[currentIndex].colorTileMouseArea.clicked();
-                        }
-                        event.accepted = true;
-                        return;
-                    }
-                    
-                    if(newIndex !== currentIndex) {
+                                                                    } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
+                                                                        if (currentIndex !== -1) {
+                                                                            var currentTile = colorRepeater.itemAt(currentIndex);
+                                                                            if (currentTile) {
+                                                                                // Directly apply the color and close, same as onClicked
+                                                                                if (colorWindow.blockItem) {
+                                                                                    colorWindow.blockItem.updateBlockColor(currentTile.color);
+                                                                                }
+                                                                                colorWindow.close();
+                                                                            }
+                                                                        }
+                                                                        event.accepted = true;
+                                                                        return;
+                                                                    }                    if(newIndex !== currentIndex) {
                         currentIndex = newIndex;
                         event.accepted = true;
                     }
@@ -4269,10 +4253,12 @@ Window {
                 ]
 
                 Repeater {
+                    id: colorRepeater
                     model: colorGrid.colors
 
                     Rectangle {
                         id: colorTile
+                        property alias tileMouseArea: colorTileMouseArea
                         width: (colorGrid.width - colorGrid.spacing * (colorGrid.columns - 1)) / colorGrid.columns
                         height: width
                         color: modelData
@@ -4511,7 +4497,7 @@ Window {
             ComboBox {
                 id: themeSelector
                 focusPolicy: Qt.StrongFocus
-                KeyNavigation.up: helpButton
+                KeyNavigation.up: saveAsFileButton
                 KeyNavigation.down: buttonsZoomSlider
                 width: parent.width
                 height: 45
@@ -4530,7 +4516,7 @@ Window {
                 background: Rectangle {
                     id: themeComboBg
                     color: buttonColor
-                    border.color: themeSelector.hovered || themeSelector.activeFocus ? Qt.lighter(borderColor, 1.3) : borderColor
+                    border.color: themeSelector.hovered || themeSelector.activeFocus ? "#9c27b0" : borderColor
                     border.width: 2
                     radius: 8
 
@@ -4623,6 +4609,12 @@ Window {
                                 setPurpleMistTheme();
                                 break;
                         }
+                    }
+                }
+
+                Keys.onPressed: {
+                    if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                        event.accepted = true;
                     }
                 }
             }
@@ -4745,7 +4737,7 @@ Window {
                     text: "Справка"
                     focusPolicy: Qt.StrongFocus
                     KeyNavigation.up: blocksZoomSlider
-                    KeyNavigation.down: themeSelector
+                    KeyNavigation.down: newFileButton
                     Layout.fillWidth: true
                     height: 35
                     background: Rectangle {
@@ -4758,8 +4750,8 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: borderColor
-                        border.width: 1
+                        border.color: parent.activeFocus ? "#9c27b0" : borderColor
+                        border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
                         Behavior on color {
@@ -4793,7 +4785,11 @@ Window {
                 spacing: 5  // Уменьшен spacing между кнопками
 
                 Button {
+                    id: newFileButton
                     text: "Создать новый"
+                    focusPolicy: Qt.StrongFocus
+                    KeyNavigation.up: helpButton
+                    KeyNavigation.down: openFileButton
                     Layout.fillWidth: true
                     height: 35  // Уменьшена высота кнопок
                     background: Rectangle {
@@ -4806,8 +4802,8 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: borderColor
-                        border.width: 1
+                        border.color: parent.activeFocus ? "#9c27b0" : borderColor
+                        border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
                         Behavior on color {
@@ -4830,7 +4826,11 @@ Window {
                     }
                 }
                 Button {
+                    id: openFileButton
                     text: "Открыть"
+                    focusPolicy: Qt.StrongFocus
+                    KeyNavigation.up: newFileButton
+                    KeyNavigation.down: saveFileButton
                     Layout.fillWidth: true
                     height: 35
                     background: Rectangle {
@@ -4843,8 +4843,8 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: borderColor
-                        border.width: 1
+                        border.color: parent.activeFocus ? "#9c27b0" : borderColor
+                        border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
                         Behavior on color {
@@ -4867,7 +4867,11 @@ Window {
                     }
                 }
                 Button {
+                    id: saveFileButton
                     text: "Сохранить"
+                    focusPolicy: Qt.StrongFocus
+                    KeyNavigation.up: openFileButton
+                    KeyNavigation.down: saveAsFileButton
                     Layout.fillWidth: true
                     height: 35
                     background: Rectangle {
@@ -4880,8 +4884,8 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: borderColor
-                        border.width: 1
+                        border.color: parent.activeFocus ? "#9c27b0" : borderColor
+                        border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
                         Behavior on color {
@@ -4909,7 +4913,11 @@ Window {
                     }
                 }
                  Button {
+                    id: saveAsFileButton
                     text: "Сохранить как..."
+                    focusPolicy: Qt.StrongFocus
+                    KeyNavigation.up: saveFileButton
+                    KeyNavigation.down: themeSelector
                     Layout.fillWidth: true
                     height: 35
                     background: Rectangle {
@@ -4922,8 +4930,8 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: borderColor
-                        border.width: 1
+                        border.color: parent.activeFocus ? "#9c27b0" : borderColor
+                        border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
                         Behavior on color {
