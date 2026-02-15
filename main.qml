@@ -1201,6 +1201,18 @@ Window {
                         }
                     }
                     event.accepted = true;
+                }else if (event.key === Qt.Key_Delete) {
+                    var allBlocks = collectAllBlocks();
+                    if (focusedBlockIndex > -1 && allBlocks[focusedBlockIndex]) {
+                        allBlocks[focusedBlockIndex].destroy();
+                        // Обновляем индекс фокуса
+                        if (focusedBlockIndex >= allBlocks.length - 1) {
+                            focusedBlockIndex = Math.max(0, allBlocks.length - 2);
+                        }
+                        main.updateFlowArrows();
+                        updateKeyboardFocus();
+                    }
+                    event.accepted = true;
                 } else if (!isEditing()) {
                     // These shortcuts only work when NOT editing a text field
                     if (event.modifiers & Qt.ShiftModifier && event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
