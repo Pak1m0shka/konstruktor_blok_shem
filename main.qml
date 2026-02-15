@@ -2227,6 +2227,10 @@ Window {
                 radius: 5
                 color: panelColor
 
+                Behavior on width {
+                    NumberAnimation { duration: 300; easing.type: Easing.InOutQuad }
+                }
+
                 Behavior on border.color {
                     ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                 }
@@ -2965,6 +2969,7 @@ Window {
 
                 Column {
                     id: contentColumn
+                    width: 500 * blockScale
                     spacing: 10 * blockScale
 
                     // === ОБЛАСТЬ ДЛЯ ПОСТУСЛОВИЯ (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
@@ -3831,7 +3836,7 @@ Window {
                             spacing: 10 * blockScale
 
                             Row {
-                                id: conditionRow
+                                width: parent.width
                                 spacing: 20 * blockScale
                                 anchors.horizontalCenter: parent.horizontalCenter
 
@@ -4499,7 +4504,7 @@ Window {
                 background: Rectangle {
                     id: themeComboBg
                     color: buttonColor
-                    border.color: themeSelector.hovered ? focusColor : borderColor
+                    border.color: themeSelector.hovered ? Qt.lighter(borderColor, 1.5) : borderColor
                     border.width: 2
                     radius: 8
 
@@ -4707,7 +4712,7 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: parent.activeFocus ? focusColor : borderColor
+                        border.color: parent.activeFocus ? activeAreaColor : borderColor
                         border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
@@ -4726,6 +4731,7 @@ Window {
                         font.bold: true
                     }
                     onClicked: {
+                        settingsWindow.close();
                         helpWindow.openWindow();
                     }
                 }
@@ -4757,7 +4763,7 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: parent.activeFocus ? focusColor : borderColor
+                        border.color: parent.activeFocus ? activeAreaColor : borderColor
                         border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
@@ -4796,7 +4802,7 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: parent.activeFocus ? focusColor : borderColor
+                        border.color: parent.activeFocus ? activeAreaColor : borderColor
                         border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
@@ -4835,7 +4841,7 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: parent.activeFocus ? focusColor : borderColor
+                        border.color: parent.activeFocus ? activeAreaColor : borderColor
                         border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
@@ -4879,7 +4885,7 @@ Window {
                                 return Qt.rgba(c.r, c.g, c.b, 1);
                             } else return buttonColor
                         }
-                        border.color: parent.activeFocus ? focusColor : borderColor
+                        border.color: parent.activeFocus ? activeAreaColor : borderColor
                         border.width: parent.activeFocus ? 2 : 1
                         radius: 5
 
@@ -4909,7 +4915,7 @@ Window {
     // Window справки с вкладками
     Window {
         id: helpWindow
-        width: 600
+        width: 800
         height: 500
         modality: Qt.NonModal
         flags: Qt.Window
@@ -4929,10 +4935,10 @@ Window {
             focus: true
             Keys.onPressed: (event) => {
                 if (event.key === Qt.Key_Escape) {
-                    helpWindow.close();
                     if (settingsWindow.visible) {
-                        settingsWindow.requestActivate();
+                        settingsColumn.forceActiveFocus();
                     }
+                    helpWindow.close();
                     event.accepted = true;
                     return;
                 }
