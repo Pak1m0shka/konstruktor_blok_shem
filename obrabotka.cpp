@@ -39,11 +39,11 @@ Obrabotka::Obrabotka(QObject *parent) : QObject(parent) {}
 // Функции для работы с типами
 Obrabotka::VariableType Obrabotka::determineType(const QVariant& value) {
     switch (value.typeId()) {
-        case QMetaType::Int:
-        case QMetaType::Double: return Numeric;
-        case QMetaType::QString: return String;
-        case QMetaType::Bool: return Boolean;
-        default: return Unknown;
+    case QMetaType::Int:
+    case QMetaType::Double: return Numeric;
+    case QMetaType::QString: return String;
+    case QMetaType::Bool: return Boolean;
+    default: return Unknown;
     }
 }
 
@@ -85,7 +85,7 @@ bool Obrabotka::isInteger(double value) {
 // Функции операций
 QVariant Obrabotka::addValues(const QVariant& left, const QVariant& right) {
     qDebug() << "addValues called with left:" << left << "type:" << typeToString(determineType(left))
-             << ", right:" << right << "type:" << typeToString(determineType(right));
+    << ", right:" << right << "type:" << typeToString(determineType(right));
     VariableType leftType = determineType(left);
     VariableType rightType = determineType(right);
 
@@ -570,7 +570,7 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens) {
         setError("Ошибка: Несоответствующая открывающая скобка.");
         return QVariant();
     }
-    
+
     // Новая логика предварительной обработки токенов
     for (int i = 0; i < tokens.size(); ++i) {
         QString token = tokens[i].trimmed(); // Удаляем пробелы для надежности
@@ -619,7 +619,7 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens) {
         }
     }
     // Конец новой логики предварительной обработки токенов
-    
+
     for (int i = 1; i < tokens.size() - 1; ) {
         if (tokens[i] == "*" || tokens[i] == "/" || tokens[i] == "%" ) {
             QVariant leftVal, rightVal;
@@ -1255,8 +1255,8 @@ int Obrabotka::findNextBlockId(int currentId, bool& wasLoop) {
 
     if (type == "усл") {
         return evaluateCondition(content)
-               ? (currentBlock["trueBranch"].value<QVariantList>().isEmpty() ? nextSequentialId : currentBlock["trueBranch"].value<QVariantList>().first().value<QVariantMap>()["uniqueId"].toInt())
-               : (currentBlock["falseBranch"].value<QVariantList>().isEmpty() ? nextSequentialId : currentBlock["falseBranch"].value<QVariantList>().first().value<QVariantMap>()["uniqueId"].toInt());
+        ? (currentBlock["trueBranch"].value<QVariantList>().isEmpty() ? nextSequentialId : currentBlock["trueBranch"].value<QVariantList>().first().value<QVariantMap>()["uniqueId"].toInt())
+        : (currentBlock["falseBranch"].value<QVariantList>().isEmpty() ? nextSequentialId : currentBlock["falseBranch"].value<QVariantList>().first().value<QVariantMap>()["uniqueId"].toInt());
     } else if (type == "счетчик") {
         wasLoop = true;
         QString varName;
@@ -1328,7 +1328,7 @@ void Obrabotka::startDebugging(QVariantList algorithm, int startBlockId) {
             if (type != "усл" && type != "счетчик" && type != "предусл" && type != "постусл") {
                 executeDebugBlock(block);
             }
-            
+
             bool wasLoopUnused;
             blockToRun = findNextBlockId(blockToRun, wasLoopUnused);
         }
@@ -1360,17 +1360,17 @@ void Obrabotka::debugStep() {
     }
     clearError();
     int idOfBlockToExecute = m_currentDebugBlockId;
-    
+
     QVariantMap currentBlock = m_blockMap.value(idOfBlockToExecute);
     QString type = currentBlock["type"].toString();
 
     if (type != "усл" && type != "счетчик" && type != "предусл" && type != "постусл") {
-         executeDebugBlock(currentBlock);
+        executeDebugBlock(currentBlock);
     }
-    
+
     bool wasLoop = false;
     int nextBlockId = findNextBlockId(idOfBlockToExecute, wasLoop);
-    
+
     // For post-condition loops, the logic is different on the first entry vs. subsequent entries.
     // The findNextBlockId is simplified for the silent run, but needs to be more robust here.
     if (type == "постусл" && !wasLoop) {

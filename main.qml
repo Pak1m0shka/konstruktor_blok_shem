@@ -2736,31 +2736,31 @@ Window {
     function insertBlockAfter(referenceBlock, type) {
         var parentContainer = referenceBlock.parent;
         if (!parentContainer) {  return; }
-        
+
         var color = getColorForBlock(type);
         var newBlock = spisok.createObject(parentContainer, { "blockType": type, "uniqueId": main.blockIdCounter++, "customColor": color });
-        
+
         var children = [];
         for (var i = 0; i < parentContainer.children.length; i++) { children.push(parentContainer.children[i]); }
-        
+
         var blockToInsert = children.pop();
         var referenceIndex = children.indexOf(referenceBlock);
-        
-        if (referenceIndex !== -1) { children.splice(referenceIndex + 1, 0, blockToInsert); } 
+
+        if (referenceIndex !== -1) { children.splice(referenceIndex + 1, 0, blockToInsert); }
         else { children.push(blockToInsert); }
-        
+
         var tempParent = Qt.createQmlObject('import QtQuick 2.0; Item {}', main);
         children.forEach(function(child){ child.parent = tempParent; });
         children.forEach(function(child){ child.parent = parentContainer; });
         tempParent.destroy();
-        
+
         main.updateFlowArrows();
     }
 
     function insertBlockBefore(referenceBlock, type) {
         var parentContainer = referenceBlock.parent;
         if (!parentContainer) {  return; }
-        
+
         var color = getColorForBlock(type);
         var newBlock = spisok.createObject(parentContainer, { "blockType": type, "uniqueId": main.blockIdCounter++, "customColor": color });
 
@@ -2777,7 +2777,7 @@ Window {
         children.forEach(function(child){ child.parent = tempParent; });
         children.forEach(function(child){ child.parent = parentContainer; });
         tempParent.destroy();
-        
+
         main.updateFlowArrows();
     }
 
@@ -2816,7 +2816,7 @@ Window {
             property alias counterFromField: counterFromField
             property alias counterToField: counterToField
             property alias counterStepField: counterStepField
-            
+
             property alias setDebugStartButton: setDebugStartButton
             property alias colorButton: colorButton
             property alias addAboveButton: addAboveButton
@@ -3086,14 +3086,14 @@ Window {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.right: parent.left
                             anchors.rightMargin: 5 * blockScale
-        
+
                             Button {
                                 id: setDebugStartButton
                                 enabled: !main.debugMode && !["начало", "конец"].includes(root.blockType)
                                 width: 30 * blockScale
                                 height: 30 * blockScale
                                 hoverEnabled: true
-        
+
                                 background: Rectangle {
                                     id: debugStartBg
                                     color: {
@@ -3108,7 +3108,7 @@ Window {
                                     border.color: borderColor
                                     border.width: 1
                                     radius: 15 * blockScale
-        
+
                                     Behavior on color {
                                         ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                     }
@@ -3116,7 +3116,7 @@ Window {
                                         ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                     }
                                 }
-        
+
                                 contentItem: Text {
                                     text: "О"
                                     color: textColor
@@ -3125,7 +3125,7 @@ Window {
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
                                 }
-        
+
                                 onClicked: {
                                     if (root.isDebugStart) {
                                         main.debugStartBlockId = -1;
@@ -3134,14 +3134,14 @@ Window {
                                     }
                                 }
                             }
-        
+
                             Button {
                                 id: colorButton
                                 enabled: !main.debugMode && !["начало", "конец"].includes(root.blockType)
                                 width: 30 * blockScale
                                 height: 30 * blockScale
                                 hoverEnabled: true
-        
+
                                 background: Rectangle {
                                     id: colorButtonBg
                                     color: {
@@ -3156,7 +3156,7 @@ Window {
                                     border.color: borderColor
                                     border.width: 1
                                     radius: 15 * blockScale
-        
+
                                     Behavior on color {
                                         ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                     }
@@ -3164,7 +3164,7 @@ Window {
                                         ColorAnimation { duration: 400; easing.type: Easing.OutCubic }
                                     }
                                 }
-        
+
                                 contentItem: Text {
                                     text: "Ц"
                                     color: textColor
@@ -3173,7 +3173,7 @@ Window {
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
                                 }
-        
+
                                 onClicked: {
                                     colorWindow.blockItem = root;
                                     colorWindow.openWindow();
@@ -4127,7 +4127,7 @@ Window {
             colorGrid.currentIndex = 0
             colorGrid.forceActiveFocus()
         }
-        
+
 
 
         ColumnLayout {
@@ -4152,7 +4152,7 @@ Window {
                 spacing: 5
                 Layout.alignment: Qt.AlignHCenter
                 property int currentIndex: -1
-                
+
                 Keys.onPressed: (event) => {
                     if (event.key === Qt.Key_Escape) {
                         colorWindow.close();
