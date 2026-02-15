@@ -92,6 +92,7 @@ Window {
     property var arrowComponents: []
 
     property color focusColor: "orange"
+    property color activeAreaColor: "purple"
     property color keyboardFocusColor: "orange"
     property bool keyboardMode: false
     property int focusedBlockIndex: -1
@@ -2221,7 +2222,7 @@ Window {
                 id: algorithmArea
                 width: main.debugMode ? (parent.width - debugPanel.width - parent.spacing) : parent.width
                 height: parent.height
-                border.color: main.activeContainer === container ? inputColor : borderColor
+                border.color: main.activeContainer === container ? activeAreaColor : borderColor
                 border.width: 2
                 radius: 5
                 color: panelColor
@@ -2287,7 +2288,7 @@ Window {
                                 } else if (mainActivateBtn.hovered) {
                                     var c = Qt.lighter(buttonColor, 1.15);
                                     return Qt.rgba(c.r, c.g, c.b, 1);
-                                } else return main.activeContainer === container ? focusColor : buttonColor
+                                } else return main.activeContainer === container ? activeAreaColor : buttonColor
                             }
                             border.color: borderColor
                             border.width: 1
@@ -2778,11 +2779,11 @@ Window {
 
     Component {
         id: spisok
-        Item {
-            id: root
-            width: Math.max(childrenRect.width, 350) * blockScale
-            anchors.horizontalCenter: parent.horizontalCenter
-            implicitHeight: contentColumn.implicitHeight * blockScale
+                    Item {
+                        id: root
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        implicitWidth: Math.max(contentRow.implicitWidth, 350 * blockScale)
+                        implicitHeight: contentColumn.implicitHeight * blockScale
             property string blockType: "действие"
             property bool isDebugHighlighted: false
             property int uniqueId: -1
@@ -2959,13 +2960,11 @@ Window {
 
             Row {
                 id: contentRow
-                width: Math.max(parent.width, childrenRect.width)
                 spacing: 0
                 anchors.horizontalCenter: parent.horizontalCenter
 
                 Column {
                     id: contentColumn
-                    width: Math.max(500 * blockScale, childrenRect.width) // Увеличено с 450
                     spacing: 10 * blockScale
 
                     // === ОБЛАСТЬ ДЛЯ ПОСТУСЛОВИЯ (РАСПОЛОЖЕНА ПОД ФИГУРОЙ) ===
@@ -2986,7 +2985,7 @@ Window {
                                 id: postRect
                                 width: Math.max(400 * blockScale, centerContainerPost.childrenRect.width + 40 * blockScale)
                                 height: Math.max(160 * blockScale, centerContainerPost.childrenRect.height + 50 * blockScale)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? inputColor : borderColor)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerPost ? activeAreaColor : borderColor)
                                 border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
                                 radius: 5 * blockScale
                                 color: "transparent"
@@ -3024,7 +3023,7 @@ Window {
                                             } else if (postActivateBtn.hovered) {
                                                 var c = Qt.lighter(buttonColor, 1.15);
                                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                                            } else return main.activeContainer === centerContainerPost ? inputColor : buttonColor
+                                            } else return main.activeContainer === centerContainerPost ? activeAreaColor : buttonColor
                                         }
                                         border.color: borderColor
                                         border.width: 1 * blockScale
@@ -3631,7 +3630,7 @@ Window {
                                 id: counterRect
                                 width: Math.max(400 * blockScale, centerContainerCounter.childrenRect.width + 40 * blockScale)
                                 height: Math.max(160 * blockScale, centerContainerCounter.childrenRect.height + 50 * blockScale)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? inputColor : borderColor)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainerCounter ? activeAreaColor : borderColor)
                                 border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
                                 radius: 5 * blockScale
                                 color: "transparent"
@@ -3669,7 +3668,7 @@ Window {
                                             } else if (counterActivateBtn.hovered) {
                                                 var c = Qt.lighter(buttonColor, 1.15);
                                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                                            } else return main.activeContainer === centerContainerCounter ? inputColor : buttonColor
+                                            } else return main.activeContainer === centerContainerCounter ? activeAreaColor : buttonColor
                                         }
                                         border.color: borderColor
                                         border.width: 1 * blockScale
@@ -3733,7 +3732,7 @@ Window {
                                 id: cycleRect
                                 width: Math.max(400 * blockScale, centerContainer.childrenRect.width + 40 * blockScale)
                                 height: Math.max(160 * blockScale, centerContainer.childrenRect.height + 50 * blockScale)
-                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? inputColor : borderColor)
+                                border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === centerContainer ? activeAreaColor : borderColor)
                                 border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
                                 radius: 5 * blockScale
                                 color: "transparent"
@@ -3771,7 +3770,7 @@ Window {
                                             } else if (cycleActivateBtn.hovered) {
                                                 var c = Qt.lighter(buttonColor, 1.15);
                                                 return Qt.rgba(c.r, c.g, c.b, 1);
-                                            } else return main.activeContainer === centerContainer ? inputColor : buttonColor
+                                            } else return main.activeContainer === centerContainer ? activeAreaColor : buttonColor
                                         }
                                         border.color: borderColor
                                         border.width: 1 * blockScale
@@ -3828,13 +3827,11 @@ Window {
 
                         Column {
                             id: conditionContent
-                            width: Math.max(700 * blockScale, conditionRow.width) // Увеличено с 600
                             anchors.horizontalCenter: parent.horizontalCenter
                             spacing: 10 * blockScale
 
                             Row {
                                 id: conditionRow
-                                width: Math.max(600 * blockScale, childrenRect.width)
                                 spacing: 20 * blockScale
                                 anchors.horizontalCenter: parent.horizontalCenter
 
@@ -3844,7 +3841,7 @@ Window {
                                     width: Math.max(300 * blockScale, leftContainer.width + 40 * blockScale) // Увеличено с 280
 
                                     height: Math.max(160 * blockScale, leftContainer.childrenRect.height + 50 * blockScale)
-                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? inputColor : borderColor)
+                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === leftContainer ? activeAreaColor : borderColor)
                                     border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
                                     radius: 5 * blockScale
                                     color: "transparent"
@@ -3882,7 +3879,7 @@ Window {
                                                 } else if (leftActivateBtn.hovered) {
                                                     var c = Qt.lighter(buttonColor, 1.15);
                                                     return Qt.rgba(c.r, c.g, c.b, 1);
-                                                } else return main.activeContainer === leftContainer ? inputColor : buttonColor
+                                                } else return main.activeContainer === leftContainer ? activeAreaColor : buttonColor
                                             }
                                             border.color: borderColor
                                             border.width: 1 * blockScale
@@ -3932,7 +3929,7 @@ Window {
                                     width: Math.max(300 * blockScale, rightContainer.width + 40 * blockScale) // Увеличено с 280
 
                                     height: Math.max(160 * blockScale, rightContainer.childrenRect.height + 50 * blockScale)
-                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? inputColor : borderColor)
+                                    border.color: root.isDebugHighlighted ? "yellow" : (main.activeContainer === rightContainer ? activeAreaColor : borderColor)
                                     border.width: root.isDebugHighlighted ? 4 * blockScale : 2 * blockScale
                                     radius: 5 * blockScale
                                     color: "transparent"
@@ -3970,7 +3967,7 @@ Window {
                                                 } else if (rightActivateBtn.hovered) {
                                                     var c = Qt.lighter(buttonColor, 1.15);
                                                     return Qt.rgba(c.r, c.g, c.b, 1);
-                                                } else return main.activeContainer === rightContainer ? inputColor : buttonColor
+                                                } else return main.activeContainer === rightContainer ? activeAreaColor : buttonColor
                                             }
                                             border.color : borderColor
                                             border.width : 1 * blockScale
@@ -4352,7 +4349,7 @@ Window {
         id: settingsWindow
         width: 350
         height: 470
-        modality: Qt.ApplicationModal
+        modality: Qt.NonModal
         flags: Qt.Dialog
         visible: false
         title: "Настройки"
@@ -4966,7 +4963,7 @@ Window {
                     background: Rectangle {
                         color: parent.checked ? main.buttonColor : main.panelColor
                         border.color: main.borderColor
-                        border.width: parent.checked ? 1 : 0 // Border only for checked tab
+                        border.width: 1 // Border only for checked tab
                         radius: 5
 
                         Behavior on color {
@@ -4992,7 +4989,7 @@ Window {
                     background: Rectangle {
                         color: parent.checked ? main.buttonColor : main.panelColor
                         border.color: main.borderColor
-                        border.width: parent.checked ? 1 : 0
+                        border.width: 1
                         radius: 5
 
                         Behavior on color {
@@ -5018,7 +5015,7 @@ Window {
                     background: Rectangle {
                         color: parent.checked ? main.buttonColor : main.panelColor
                         border.color: main.borderColor
-                        border.width: parent.checked ? 1 : 0
+                        border.width: 1
                         radius: 5
 
                         Behavior on color {
