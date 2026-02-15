@@ -2346,7 +2346,7 @@ Window {
                     State {
                         name: "debugInactive"
                         when: !main.debugMode
-                        PropertyChanges { target: debugPanel; width: 0; opacity: 0; visible: false }
+                        PropertyChanges { target: debugPanel; width: 0; opacity: 0 }
                     }
                 ]
 
@@ -4928,6 +4928,15 @@ Window {
             id: helpColumn
             focus: true
             Keys.onPressed: (event) => {
+                if (event.key === Qt.Key_Escape) {
+                    helpWindow.close();
+                    if (settingsWindow.visible) {
+                        settingsWindow.requestActivate();
+                    }
+                    event.accepted = true;
+                    return;
+                }
+
                 if (main.keyboardMode) {
                     if (event.key === Qt.Key_Right) {
                         tabBar.currentIndex = (tabBar.currentIndex + 1) % tabBar.count;
@@ -5010,6 +5019,32 @@ Window {
                 }
                 TabButton {
                     text: "Особенности синтаксиса"
+                    width: implicitWidth
+
+                    background: Rectangle {
+                        color: parent.checked ? main.buttonColor : main.panelColor
+                        border.color: main.borderColor
+                        border.width: 1
+                        radius: 5
+
+                        Behavior on color {
+                            ColorAnimation { duration: 200; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on border.width {
+                            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                        }
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: main.textColor
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                    }
+                }
+                TabButton {
+                    text: "Режим клавиатуры"
                     width: implicitWidth
 
                     background: Rectangle {
@@ -5239,6 +5274,54 @@ Window {
    • Максимальное количество итераций в циклах: 1000
    • Вложенность блоков ограничена только памятью
    • Нет поддержки пользовательских функций"
+                    }
+                }
+
+                // Вкладка 4: Режим клавиатуры
+                ScrollView {
+                    id: tab4
+                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+                    clip: true
+
+                    Text {
+                        id: tab4Text
+                        width: stackLayout.width - 20
+                        wrapMode: Text.WordWrap
+                        color: textColor
+                        font.pixelSize: 16
+                        text: "РЕЖИМ КЛАВИАТУРЫ
+
+1. АКТИВАЦИЯ И ОСНОВЫ:
+   • `Insert`: Включить/выключить режим клавиатуры.
+   • В этом режиме элементы, на которых можно сфокусироваться, будут подсвечиваться оранжевой рамкой.
+
+2. ОБЩАЯ НАВИГАЦИЯ:
+   • `Стрелки Вверх/Вниз`: Перемещение фокуса между блоками в основном алгоритме или между элементами в окне настроек.
+   • `Стрелки Влево/Вправо`: Перемещение между вкладками в окне справки.
+   • `Escape`: Закрыть текущее активное окно (настройки, справка, выбор цвета).
+
+3. РАБОТА С БЛОКАМИ:
+   • `Стрелки Вверх/Вниз`: Выбрать (сфокусироваться) на предыдущем/следующем блоке.
+   • `Enter`: Начать редактирование текста внутри сфокусированного блока. Повторное нажатие `Enter` завершит редактирование.
+   • `F4` - `F12`: Создать блок соответствующего типа в активной области.
+   • `PageUp`/`PageDown`: Переключение типа создаваемого блока в выпадающем списке на главной панели.
+   • `1`: Установить/снять точку начала отладки на сфокусированном блоке.
+   • `2`: Открыть окно выбора цвета для сфокусированного блока.
+   • `3`: Вставить блок над сфокусированным блоком.
+   • `4`: Вставить блок под сфокусированным блоком.
+   • `5`: Активировать контейнер, в котором находится сфокусированный блок (для добавления новых блоков).
+
+4. ОКНО НАСТРОЕК:
+   • `Стрелки Вверх/Вниз`: Перемещение фокуса между элементами (слайдеры, кнопки).
+   • `Стрелки Влево/Вправо`: Изменение значения на сфокусированном слайдере.
+   • `PageUp`/`PageDown`: Переключение темы в выпадающем списке.
+   • `Enter`: Нажать на сфокусированную кнопку.
+
+5. ОТЛАДКА:
+   • `Стрелка Вправо`: Шаг вперёд.
+   • `Стрелка Влево`: Шаг назад.
+   • `Escape`: Завершить сессию отладки.
+"
                     }
                 }
             }
