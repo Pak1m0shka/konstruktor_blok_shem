@@ -4352,26 +4352,23 @@ Window {
         id: settingsWindow
         width: 350
         height: 470
-        modality: Qt.NonModal
+        modality: Qt.ApplicationModal
         flags: Qt.Dialog
         visible: false
         title: "Настройки"
         color: panelColor
 
-        Timer {
-            id: focusTimer
-            interval: 100
-            repeat: false
-            onTriggered: {
-                settingsColumn.currentFocusIndex = 0;
-                settingsColumn.focusableItems[settingsColumn.currentFocusIndex].forceActiveFocus();
-                console.log("Settings Window visible. Initial focus set to:", settingsColumn.focusableItems[settingsColumn.currentFocusIndex].id || "No ID", "ActiveFocus:", settingsColumn.focusableItems[settingsColumn.currentFocusIndex].activeFocus);
-            }
-        }
-        
         onVisibleChanged: {
             if (visible) {
-                focusTimer.start(); // Start the pre-declared timer
+                if (main.keyboardMode) {
+                    settingsColumn.currentFocusIndex = 0;
+                    if (settingsColumn.focusableItems.length > 0) {
+                        settingsColumn.focusableItems[0].forceActiveFocus();
+                    }
+                } else {
+                    settingsColumn.currentFocusIndex = -1;
+                    mainLayout.forceActiveFocus();
+                }
             }
         }
 
@@ -4380,7 +4377,6 @@ Window {
             settingsWindow.y = main.y + (main.height - settingsWindow.height) / 2
             settingsWindow.visible = true
 
-            // Set ComboBox current index based on currentThemeId
             for (var i = 0; i < themeModel.count; ++i) {
                 if (themeModel.get(i).themeId === main.currentThemeId) {
                     themeSelector.currentIndex = i;
@@ -4393,7 +4389,7 @@ Window {
             target: settingsWindow
             function onClosing(closeEvent) {
                 main.saveSettings();
-                closeEvent.accepted = true; // Use accepted property
+                closeEvent.accepted = true;
             }
         }
 
@@ -4404,53 +4400,67 @@ Window {
             anchors.margins: 10
             spacing: 8
 
-
+            property int currentFocusIndex: -1
+            property var focusableItems: [
+                buttonsZoomSlider,
+                blocksZoomSlider,
+                helpButton,
+                newFileButton,
+                openFileButton,
+                saveFileButton,
+                saveAsFileButton
+            ]
 
             Keys.onPressed: (event) => {
-                console.log("Key Pressed in settingsColumn. Key:", event.key, "ActiveFocus ID:", activeFocus ? activeFocus.id : "none");
                 if (event.key === Qt.Key_Escape) {
                     settingsWindow.close();
                     event.accepted = true;
                     return;
                 }
 
- else { // No longer wrapped by if (activeFocus)
-                    if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
-                        var focusedItem = settingsColumn.activeFocusItem;
-                        console.log("Enter/Return pressed. ActiveFocus Item ID:", focusedItem ? focusedItem.id : "none");
-                        if (focusedItem) {
-                            if (focusedItem.hasOwnProperty("clicked")) {
-                                 focusedItem.clicked();
-                                 event.accepted = true;
-                            } else if (focusedItem === themeSelector) {
-                                themeSelector.popup.open();
-                                event.accepted = true;
-                            }
+                if (!main.keyboardMode) {
+                    return;
+                }
+
+                if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                    var direction = (event.key === Qt.Key_Up) ? -1 : 1;
+                    if (focusableItems.length === 0) return;
+
+                    if (currentFocusIndex === -1) {
+                        currentFocusIndex = 0;
+                    } else {
+                        currentFocusIndex = (currentFocusIndex + direction + focusableItems.length) % focusableItems.length;
+                    }
+                    focusableItems[currentFocusIndex].forceActiveFocus();
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_PageUp || event.key === Qt.Key_PageDown) {
+                    var newThemeIndex = themeSelector.currentIndex;
+                    if (event.key === Qt.Key_PageUp) {
+                        newThemeIndex--;
+                        if (newThemeIndex < 0) newThemeIndex = themeSelector.model.count - 1;
+                    } else { // PageDown
+                        newThemeIndex++;
+                        if (newThemeIndex >= themeSelector.model.count) newThemeIndex = 0;
+                    }
+                    themeSelector.currentIndex = newThemeIndex;
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
+                    if (currentFocusIndex !== -1) {
+                        var focusedItem = focusableItems[currentFocusIndex];
+                        if (focusedItem && focusedItem.hasOwnProperty("clicked")) {
+                             focusedItem.clicked();
+                             event.accepted = true;
                         }
-                    } else if (event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
-                        console.log("Left/Right pressed. ActiveFocus ID:", activeFocus ? activeFocus.id : "none");
-                        if (buttonsZoomSlider.activeFocus) {
+                    }
+                } else if (event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
+                     if (currentFocusIndex !== -1) {
+                        var focusedItem = focusableItems[currentFocusIndex];
+                        if (focusedItem && focusedItem === buttonsZoomSlider) {
                             buttonsZoomSlider.value += (event.key === Qt.Key_Right ? 1 : -1) * buttonsZoomSlider.stepSize;
                             event.accepted = true;
-                        } else if (blocksZoomSlider.activeFocus) {
+                        } else if (focusedItem && focusedItem === blocksZoomSlider) {
                             blocksZoomSlider.value += (event.key === Qt.Key_Right ? 1 : -1) * blocksZoomSlider.stepSize;
                             event.accepted = true;
-                        } else if (themeSelector.activeFocus) { // Left/Right for themeSelector
-                            console.log("themeSelector focused. CurrentIndex:", themeSelector.currentIndex);
-                            event.accepted = true;
-                            var newIndex = themeSelector.currentIndex;
-                            if (event.key === Qt.Key_Left) { // FIX: added this condition for Left arrow
-                                newIndex--;
-                                if (newIndex < 0) {
-                                    newIndex = themeSelector.model.count - 1; // Wrap around to end
-                                }
-                            } else { // Qt.Key_Right
-                                newIndex++;
-                                if (newIndex >= themeSelector.model.count) {
-                                    newIndex = 0; // Wrap around to beginning
-                                }
-                            }
-                            themeSelector.currentIndex = newIndex;
                         }
                     }
                 }
@@ -4474,9 +4484,7 @@ Window {
 
             ComboBox {
                 id: themeSelector
-                focusPolicy: Qt.StrongFocus
-                KeyNavigation.up: saveAsFileButton
-                KeyNavigation.down: buttonsZoomSlider
+                focusPolicy: Qt.NoFocus
                 width: parent.width
                 height: 45
                 model: ListModel {
@@ -4494,7 +4502,7 @@ Window {
                 background: Rectangle {
                     id: themeComboBg
                     color: buttonColor
-                    border.color: themeSelector.hovered || themeSelector.activeFocus ? focusColor : borderColor
+                    border.color: themeSelector.hovered ? focusColor : borderColor
                     border.width: 2
                     radius: 8
 
@@ -4561,42 +4569,20 @@ Window {
                     }
                 }
 
-                Keys.onPressed: {
-                    if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
-                        event.accepted = true; // Consume Up/Down to prevent ComboBox's internal index change
-                    }
-                }
                 onCurrentIndexChanged: {
-                    console.log("themeSelector.onCurrentIndexChanged triggered. New index:", currentIndex);
                     if (currentIndex >= 0) {
                         var themeId = themeModel.get(currentIndex).themeId;
                         switch(themeId) {
-                            case "dark":
-                                resetToDarkTheme();
-                                break;
-                            case "ant":
-                                setAntLightTheme();
-                                break;
-                            case "blue":
-                                setBlueTheme();
-                                break;
-                            case "green":
-                                setGreenTheme();
-                                break;
-                            case "purple":
-                                setPurpleTheme();
-                                break;
-                            case "orange":
-                                setOrangeTheme();
-                                break;
-                            case "purple_mist":
-                                setPurpleMistTheme();
-                                break;
+                            case "dark": resetToDarkTheme(); break;
+                            case "ant": setAntLightTheme(); break;
+                            case "blue": setBlueTheme(); break;
+                            case "green": setGreenTheme(); break;
+                            case "purple": setPurpleTheme(); break;
+                            case "orange": setOrangeTheme(); break;
+                            case "purple_mist": setPurpleMistTheme(); break;
                         }
                     }
                 }
-
-
             }
 
             Text {
@@ -4607,9 +4593,7 @@ Window {
 
             Slider {
                 id: buttonsZoomSlider
-                focusPolicy: Qt.StrongFocus
-                KeyNavigation.up: themeSelector
-                KeyNavigation.down: blocksZoomSlider
+                focusPolicy: main.keyboardMode ? Qt.StrongFocus : Qt.NoFocus
                 width: parent.width
                 from: 0.5
                 to: 2.0
@@ -4644,8 +4628,8 @@ Window {
                     implicitWidth: 20
                     implicitHeight: 20
                     radius: 10
-                    color: parent.pressed ? pressedColor : (parent.hovered || parent.parent.activeFocus ? Qt.lighter(buttonColor, 1.3) : buttonColor)
-                    border.color: borderColor
+                    color: parent.pressed ? pressedColor : (parent.hovered ? Qt.lighter(buttonColor, 1.3) : buttonColor)
+                    border.color: parent.activeFocus ? focusColor : borderColor
                     border.width: 2
                 }
             }
@@ -4658,9 +4642,7 @@ Window {
 
             Slider {
                 id: blocksZoomSlider
-                focusPolicy: Qt.StrongFocus
-                KeyNavigation.up: buttonsZoomSlider
-                KeyNavigation.down: helpButton
+                focusPolicy: main.keyboardMode ? Qt.StrongFocus : Qt.NoFocus
                 width: parent.width
                 from: 0.5
                 to: 2.0
@@ -4695,8 +4677,8 @@ Window {
                     implicitWidth: 20
                     implicitHeight: 20
                     radius: 10
-                    color: parent.pressed ? pressedColor : (parent.hovered || parent.parent.activeFocus ? Qt.lighter(buttonColor, 1.3) : buttonColor)
-                    border.color: borderColor
+                    color: parent.pressed ? pressedColor : (parent.hovered ? Qt.lighter(buttonColor, 1.3) : buttonColor)
+                    border.color: parent.activeFocus ? focusColor : borderColor
                     border.width: 2
                 }
             }
@@ -4715,9 +4697,7 @@ Window {
                 Button {
                     id: helpButton
                     text: "Справка"
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.up: blocksZoomSlider
-                    KeyNavigation.down: newFileButton
+                    focusPolicy: main.keyboardMode ? Qt.StrongFocus : Qt.NoFocus
                     Layout.fillWidth: true
                     height: 35
                     background: Rectangle {
@@ -4762,16 +4742,14 @@ Window {
 
             ColumnLayout {
                 width: parent.width
-                spacing: 5  // Уменьшен spacing между кнопками
+                spacing: 5
 
                 Button {
                     id: newFileButton
                     text: "Создать новый"
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.up: helpButton
-                    KeyNavigation.down: openFileButton
+                    focusPolicy: main.keyboardMode ? Qt.StrongFocus : Qt.NoFocus
                     Layout.fillWidth: true
-                    height: 35  // Уменьшена высота кнопок
+                    height: 35
                     background: Rectangle {
                         color: {
                             if (!!parent.pressed) {
@@ -4808,9 +4786,7 @@ Window {
                 Button {
                     id: openFileButton
                     text: "Открыть"
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.up: newFileButton
-                    KeyNavigation.down: saveFileButton
+                    focusPolicy: main.keyboardMode ? Qt.StrongFocus : Qt.NoFocus
                     Layout.fillWidth: true
                     height: 35
                     background: Rectangle {
@@ -4849,9 +4825,7 @@ Window {
                 Button {
                     id: saveFileButton
                     text: "Сохранить"
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.up: openFileButton
-                    KeyNavigation.down: saveAsFileButton
+                    focusPolicy: main.keyboardMode ? Qt.StrongFocus : Qt.NoFocus
                     Layout.fillWidth: true
                     height: 35
                     background: Rectangle {
@@ -4895,9 +4869,7 @@ Window {
                  Button {
                     id: saveAsFileButton
                     text: "Сохранить как..."
-                    focusPolicy: Qt.StrongFocus
-                    KeyNavigation.up: saveFileButton
-                    KeyNavigation.down: themeSelector
+                    focusPolicy: main.keyboardMode ? Qt.StrongFocus : Qt.NoFocus
                     Layout.fillWidth: true
                     height: 35
                     background: Rectangle {
