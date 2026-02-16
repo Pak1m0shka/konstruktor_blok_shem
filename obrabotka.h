@@ -48,7 +48,7 @@ private:
         VariableInfo(const QVariant& v, const QString& t) : value(v), type(t) {}
     };
 
-    enum VariableType { Unknown, Numeric, String, Boolean };
+    enum VariableType { Unknown, Numeric, String, Boolean, Array };
 
     QMap<QString, VariableInfo> peremennieMap;
     QString vvod_peremennich_polsovatela;
@@ -112,10 +112,7 @@ private:
     QVariant divideValues(const QVariant& left, const QVariant& right);
     QVariant moduloValues(const QVariant& left, const QVariant& right);
     bool compareValues(const QVariant& left, const QVariant& right, const QString& op);
-    QVariant stringLength(const QString& str);
-    QVariant stringIndex(const QString& str, int index);
-    QVariant stringSlice(const QString& str, int start, int end);
-    QVariant parseStringOperation(const QString& expr);
+    void executeMethod(const QString& targetName, const QString& methodName, const QVariantList& args);
 
     // Функции для отладки
     void saveDebugState(int finishedBlockId);

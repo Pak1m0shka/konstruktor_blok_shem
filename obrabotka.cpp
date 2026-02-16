@@ -26,7 +26,13 @@ QVariantMap Obrabotka::convertToQmlVariantMap() const
 {
     QVariantMap map;
     for (auto it = peremennieMap.constBegin(); it != peremennieMap.constEnd(); ++it) {
-        map[it.key()] = it.value().value;
+        QVariant value = it.value().value;
+        if (value.canConvert<QVariantList>()) {
+            QJsonDocument doc(QJsonArray::fromVariantList(value.toList()));
+            map[it.key()] = doc.toJson(QJsonDocument::Compact);
+        } else {
+            map[it.key()] = value; // Keep original QVariant for non-array types
+        }
     }
     return map;
 }
@@ -57,6 +63,7 @@ Obrabotka::VariableType Obrabotka::determineType(const QVariant& value)
     case QMetaType::Double: return Numeric;
     case QMetaType::QString: return String;
     case QMetaType::Bool: return Boolean;
+    case QMetaType::QVariantList: return Array; // Handle QVariantList for arrays
     default: return Unknown;
     }
 }
@@ -68,6 +75,7 @@ QString Obrabotka::typeToString(VariableType type)
     case Numeric: return "numeric";
     case String: return "string";
     case Boolean: return "bool";
+    case Array: return "array"; // Handle Array type
     default: return "unknown";
     }
 }
@@ -253,83 +261,89 @@ bool Obrabotka::compareValues(const QVariant& left, const QVariant& right, const
 // ОПЕРАЦИИ СО СТРОКАМИ
 // ============================================================================
 
-// Возвращает длину строки
-QVariant Obrabotka::stringLength(const QString& str)
-{
-    return QVariant(str.length());
-}
 
-// Возвращает символ строки по индексу (поддерживает отрицательные индексы)
-QVariant Obrabotka::stringIndex(const QString& str, int index)
-{
-    int len = str.length();
-    if (index < 0) {
-        index = len + index;
-    }
-    if (index < 0 || index >= len) {
-        setError("Ошибка: Индекс строки выходит за границы.");
-        return QVariant();
-    }
-    return QVariant(QString(str[index]));
-}
 
-// Возвращает срез строки по диапазону индексов (поддерживает отрицательные индексы и пустые границы)
-QVariant Obrabotka::stringSlice(const QString& str, int start, int end)
-{
-    int len = str.length();
-    if (start < 0) {
-        start = len + start;
-    }
-    if (end < 0) {
-        end = len + end;
-    }
-    start = qMax(0, start);
-    end = qMin(len, end);
-    if (start >= end) {
-        return QVariant("");
-    }
-    return QVariant(str.mid(start, end - start));
-}
+void Obrabotka::executeMethod(const QString& targetName, const QString& methodName, const QVariantList& args) {
+    clearError();
+    qDebug() << "executeMethod: target=" << targetName << ", method=" << methodName << ", args=" << args;
 
-// Парсит и выполняет строковые операции: len(), индексация [], срез [:]
-QVariant Obrabotka::parseStringOperation(const QString& expr)
-{
-    QString trimmed = expr.trimmed();
+    // First, resolve the targetName. It could be a simple variable or an array element (a[1])
+    QVariant targetVar;
+    QString actualTargetVarName;
+    int targetArrayIndex = -1; // -1 for simple variable, >=0 for array element
 
-    // len(переменная)
-    QRegularExpression lenRegex(R"(len\s*\(\s*(\w+)\s*\))");
-    QRegularExpressionMatch lenMatch = lenRegex.match(trimmed);
-    if (lenMatch.hasMatch()) {
-        QString varName = lenMatch.captured(1);
-        QVariant value = getValue(varName);
-        return stringLength(value.toString());
-    }
+    static QRegularExpression arrayAccessRegex(R"(^(\w+)\s*\[(.+)\]$)");
+    QRegularExpressionMatch arrayAccessMatch = arrayAccessRegex.match(targetName);
+    if (arrayAccessMatch.hasMatch()) {
+        actualTargetVarName = arrayAccessMatch.captured(1);
+        QString indexExpr = arrayAccessMatch.captured(2);
 
-    // переменная[индекс]
-    QRegularExpression indexRegex(R"((\w+)\s*\[\s*(\-?\d+)\s*\])");
-    QRegularExpressionMatch indexMatch = indexRegex.match(trimmed);
-    if (indexMatch.hasMatch()) {
-        QString varName = indexMatch.captured(1);
-        int index = indexMatch.captured(2).toInt();
-        QVariant value = getValue(varName);
-        return stringIndex(value.toString(), index);
+        QVariant tempArray = getValue(actualTargetVarName);
+        if (m_hasError) return;
+
+        if (determineType(tempArray) != Array) {
+            setError("Переменная '" + actualTargetVarName + "' не является массивом. Невозможно вызвать метод на элементе.");
+            return;
+        }
+
+        QVariant indexVal = parseExpression(indexExpr);
+        if (m_hasError) return;
+
+        if (determineType(indexVal) != Numeric) {
+            setError("Индекс массива должен быть числом.");
+            return;
+        }
+
+        QVariantList list = tempArray.toList();
+        int index = indexVal.toInt();
+
+        if (index < 0) {
+            index = list.size() + index;
+        }
+
+        if (index < 0 || index >= list.size()) {
+            setError("Индекс массива '" + QString::number(index) + "' выходит за границы.");
+            return;
+        }
+        targetVar = list.at(index);
+        targetArrayIndex = index;
+
+    } else {
+        actualTargetVarName = targetName;
+        targetVar = getValue(actualTargetVarName);
+        if (m_hasError) return;
     }
 
-    // переменная[начало:конец]
-    QRegularExpression sliceRegex(R"((\w+)\s*\[\s*(\-?\d*)\s*:\s*(\-?\d*)\s*\])");
-    QRegularExpressionMatch sliceMatch = sliceRegex.match(trimmed);
-    if (sliceMatch.hasMatch()) {
-        QString varName = sliceMatch.captured(1);
-        QString startStr = sliceMatch.captured(2);
-        QString endStr = sliceMatch.captured(3);
-        QVariant value = getValue(varName);
-        QString str = value.toString();
-        int start = startStr.isEmpty() ? 0 : startStr.toInt();
-        int end = endStr.isEmpty() ? str.length() : endStr.toInt();
-        return stringSlice(str, start, end);
-    }
+    if (methodName == "append") {
+        if (determineType(targetVar) == Array) {
+            if (args.count() != 1) {
+                setError("Метод 'append()' принимает 1 аргумент.");
+                return;
+            }
+            QVariantList list = targetVar.toList();
+            list.append(args.first());
 
-    return QVariant();
+            if (targetArrayIndex != -1) { // Method called on array element (e.g., a[1].append(val))
+                // This means targetVar itself was an array, and we are appending to it.
+                // We need to get the parent array, modify the element, and set the parent array.
+                QVariant parentArray = getValue(actualTargetVarName);
+                if (determineType(parentArray) != Array) {
+                    setError("Внутренняя ошибка: родитель не является массивом.");
+                    return;
+                }
+                QVariantList parentList = parentArray.toList();
+                parentList[targetArrayIndex] = list; // Update the element at index with the new list
+                setValue(actualTargetVarName, QVariant(parentList), "array");
+            } else { // Method called on a simple array variable (e.g., a.append(val))
+                setValue(actualTargetVarName, QVariant(list), "array");
+            }
+            qInfo() << "Элемент добавлен в массив '" << actualTargetVarName << "'. Новое значение: " << list;
+        } else {
+            setError("Метод 'append()' может быть вызван только для массивов.");
+        }
+    } else {
+        setError("Метод '" + methodName + "' не поддерживается.");
+    }
 }
 
 // ============================================================================
@@ -690,16 +704,7 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens)
             continue;
         }
 
-        // Строковые операции (len, индексация, срез)
-        QVariant stringOpResult = parseStringOperation(token);
-        if (stringOpResult.isValid()) {
-            if (stringOpResult.typeId() == QMetaType::QString) {
-                tokens[i] = "\"" + stringOpResult.toString() + "\"";
-            } else {
-                tokens[i] = stringOpResult.toString();
-            }
-            continue;
-        }
+
 
         // Переменные заменяем на их значения
         QVariant varValue = getValue(token);
@@ -818,6 +823,102 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens)
 // Парсит и вычисляет арифметическое выражение
 QVariant Obrabotka::parseExpression(const QString& expr)
 {
+    QString trimmed = expr.trimmed();
+
+    // 1. Array Literal: [1, 2, "hello"] or []
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        QJsonParseError err;
+        QJsonDocument doc = QJsonDocument::fromJson(trimmed.toUtf8(), &err);
+        if (err.error == QJsonParseError::NoError && doc.isArray()) {
+            return doc.array().toVariantList();
+        } else {
+            setError("Ошибка синтаксиса в определении массива: " + err.errorString());
+            return QVariant();
+        }
+    }
+
+    // 2. Array Access: a[1] or myArray[index_expression] (handles nested access like a[1][1])
+    // This regex captures the expression leading up to the last array bracket and the content within that bracket.
+    // Example: For `a[1][1]`, it captures `a[1]` as `baseExpr` and `1` as `indexExpr`.
+    // The `baseExpr` is then recursively parsed.
+    static QRegularExpression arrayAccessRegex(R"((.+?)\s*\[((?:[^\[\]]+|\[[^\[\]]*\])*)\]$)");
+    QRegularExpressionMatch arrayAccessMatch = arrayAccessRegex.match(trimmed);
+    if (arrayAccessMatch.hasMatch()) {
+        QString baseExpr = arrayAccessMatch.captured(1);
+        QString indexExpr = arrayAccessMatch.captured(2);
+
+        QVariant baseValue = parseExpression(baseExpr); // Recursively evaluate the base expression
+        if (m_hasError) return QVariant();
+
+        if (determineType(baseValue) != Array) {
+            setError("Базовое выражение '" + baseExpr + "' не является массивом.");
+            return QVariant();
+        }
+
+        QVariant indexVal = parseExpression(indexExpr); // Evaluate the index expression
+        if (m_hasError) return QVariant();
+
+        if (determineType(indexVal) != Numeric) {
+            setError("Индекс массива должен быть числом.");
+            return QVariant();
+        }
+
+        QVariantList list = baseValue.toList();
+        int index = indexVal.toInt();
+
+        // Handle negative indexing (Python style)
+        if (index < 0) {
+            index = list.size() + index;
+        }
+
+        if (index < 0 || index >= list.size()) {
+            setError("Индекс массива '" + QString::number(index) + "' выходит за границы.");
+            return QVariant();
+        }
+        return list.at(index);
+    }
+
+    // 3. len(argument) function call
+    static QRegularExpression lenFuncRegex(R"(^len\s*\((.*)\)$)");
+    QRegularExpressionMatch lenFuncMatch = lenFuncRegex.match(trimmed);
+    if (lenFuncMatch.hasMatch()) {
+        QString argumentExpr = lenFuncMatch.captured(1).trimmed();
+        qDebug() << "parseExpression: Detected len() call with argument expression:" << argumentExpr;
+        QVariant evaluatedArg = parseExpression(argumentExpr);
+        qDebug() << "parseExpression: Evaluated argument for len():" << evaluatedArg;
+        if (m_hasError) return QVariant();
+
+        VariableType argType = determineType(evaluatedArg);
+        if (argType == Array) {
+            qDebug() << "parseExpression: len() returning array size:" << evaluatedArg.toList().size();
+            return evaluatedArg.toList().size();
+        } else if (argType == String) {
+            qDebug() << "parseExpression: len() returning string length:" << evaluatedArg.toString().length();
+            return evaluatedArg.toString().length();
+        } else {
+            setError("Функция 'len()' может быть применена только к массивам или строкам.");
+            return QVariant();
+        }
+    }
+    
+    // 4. Handle simple variable name or a bare literal directly
+    double num;
+    if (canConvertToNumber(trimmed, num)) { // Numeric literal
+        return QVariant(num);
+    }
+    if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length() >= 2) { // String literal
+        return QVariant(trimmed.mid(1, trimmed.length() - 2));
+    }
+    if (trimmed.toLower() == "true") return QVariant(true); // Boolean literal
+    if (trimmed.toLower() == "false") return QVariant(false); // Boolean literal
+    
+    // If it's none of the above, assume it's a variable name
+    if (peremennieMap.contains(trimmed)) {
+        return getValue(trimmed);
+    }
+
+    // If it's not a simple literal, variable, array literal/access, or len() call,
+    // then it must be a complex arithmetic/logical expression.
     QStringList tokens = tokenize(expr);
     return evaluateTokens(tokens);
 }
@@ -831,14 +932,42 @@ void Obrabotka::deistvie(QString vvod)
 {
     clearError();
     qDebug() << "deistvie input:" << vvod;
-    vvod.remove(QRegularExpression("\\s+"));
-    int equalsPos = vvod.indexOf('=');
+    QString trimmedVvod = vvod.trimmed();
+
+    // 1. Check for method calls (e.g., a.append(2) or a[1].append(2))
+    // This regex matches: (variable_or_array_access).methodName(args)
+    static QRegularExpression methodCallRegex(R"(^(.+?)\s*\.\s*(\w+)\s*\((.*)\)\s*$)");
+    QRegularExpressionMatch methodCallMatch = methodCallRegex.match(trimmedVvod);
+    if (methodCallMatch.hasMatch()) {
+        QString targetExpr = methodCallMatch.captured(1).trimmed(); // 'a' or 'a[1]'
+        QString methodName = methodCallMatch.captured(2).trimmed(); // 'append'
+        QString argsExpr = methodCallMatch.captured(3).trimmed();   // '2' or 'arg1, arg2'
+
+        QVariantList args;
+        if (!argsExpr.isEmpty()) {
+            // Simple argument parsing: split by comma, evaluate each part
+            QStringList argParts = argsExpr.split(',');
+            for (const QString& part : argParts) {
+                QVariant argValue = parseExpression(part.trimmed());
+                if (m_hasError) return;
+                args.append(argValue);
+            }
+        }
+        
+        executeMethod(targetExpr, methodName, args);
+        return; // Method call handled, no further assignment processing
+    }
+
+    // 2. Proceed with assignment logic if not a method call
+    int equalsPos = trimmedVvod.indexOf('=');
     if (equalsPos == -1) {
+        setError("В действии отсутствует оператор присваивания '=' или неверный вызов метода.");
         return;
     }
-    QString left = vvod.left(equalsPos);
-    QString right = vvod.mid(equalsPos + 1);
+    QString left = trimmedVvod.left(equalsPos).trimmed();
+    QString right = trimmedVvod.mid(equalsPos + 1).trimmed();
     if (left.isEmpty() || right.isEmpty()) {
+        setError("Левая или правая часть присваивания не может быть пустой.");
         return;
     }
     QVariant result = parseExpression(right);
@@ -846,8 +975,52 @@ void Obrabotka::deistvie(QString vvod)
         qDebug() << "deistvie: Ошибка при разборе выражения:" << m_errorMessage;
         return;
     }
-    setValue(left, result);
-    qInfo() << "Присвоено переменной" << left << "значение:" << result;
+
+    // Check if left-hand side is an array access (e.g., myArray[0])
+    static QRegularExpression arrayAccessRegex(R"(^(\w+)\s*\[(.+)\]$)");
+    QRegularExpressionMatch arrayAccessMatch = arrayAccessRegex.match(left);
+    if (arrayAccessMatch.hasMatch()) {
+        QString varName = arrayAccessMatch.captured(1);
+        QString indexExpr = arrayAccessMatch.captured(2);
+
+        QVariant arrayVar = getValue(varName); // Get the existing array
+        if (m_hasError) return; // Error if arrayVar was not found and getValue created a 0
+        
+        if (determineType(arrayVar) != Array) {
+            setError("Переменная '" + varName + "' не является массивом. Невозможно присвоить элемент по индексу.");
+            return;
+        }
+
+        QVariant indexVal = parseExpression(indexExpr); // Evaluate the index expression
+        if (m_hasError) return;
+
+        if (determineType(indexVal) != Numeric) {
+            setError("Индекс массива должен быть числом.");
+            return;
+        }
+
+        QVariantList list = arrayVar.toList();
+        int index = indexVal.toInt();
+
+        // Handle negative indexing (Python style)
+        if (index < 0) {
+            index = list.size() + index;
+        }
+
+        if (index < 0 || index >= list.size()) {
+            setError("Индекс массива '" + QString::number(index) + "' выходит за границы. Размер массива: " + QString::number(list.size()));
+            return;
+        }
+        
+        list[index] = result; // Update the element
+        setValue(varName, QVariant(list), "array"); // Store the modified list back
+        qInfo() << "Присвоено элементу массива" << varName << "[" << index << "] значение:" << result;
+
+    } else {
+        // Simple variable assignment
+        setValue(left, result);
+        qInfo() << "Присвоено переменной" << left << "значение:" << result;
+    }
 }
 
 // ============================================================================
@@ -1829,7 +2002,11 @@ QVariantList Obrabotka::checkAlgorithmSyntax(const QVariantList& algorithm)
             QString trimmedContent = content.trimmed();
             int equalsPos = trimmedContent.indexOf('=');
             if (equalsPos == -1) {
-                addSyntaxError("В действии отсутствует оператор присваивания '='.", blockId, allErrors);
+                // Check if it's a method call without assignment (e.g. a.append(1))
+                static QRegularExpression methodCallRegex(R"(^(.+?)\s*\.\s*(\w+)\s*\((.*)\)\s*$)");
+                if (!methodCallRegex.match(trimmedContent).hasMatch()) {
+                    addSyntaxError("В действии отсутствует оператор присваивания '=' или неверный вызов метода.", blockId, allErrors);
+                }
             } else {
                 QString left = trimmedContent.left(equalsPos).trimmed();
                 QString right = trimmedContent.mid(equalsPos + 1).trimmed();
