@@ -114,6 +114,11 @@ private:
     bool compareValues(const QVariant& left, const QVariant& right, const QString& op);
     void executeMethod(const QString& targetName, const QString& methodName, const QVariantList& args);
 
+    // Новые функции для работы со встроенными функциями (len, int, str)
+    QVariant callBuiltinFunction(const QString& funcName, const QVariantList& args);
+    QVariant stringToInt(const QVariant& arg);
+    QVariant anyToString(const QVariant& arg);
+
     // Функции для отладки
     void saveDebugState(int finishedBlockId);
     bool hasMoreBlocks();
