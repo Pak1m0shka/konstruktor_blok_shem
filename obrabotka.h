@@ -1,3 +1,4 @@
+// obrabotka.h
 #ifndef OBRABOTKA_H
 #define OBRABOTKA_H
 
@@ -36,7 +37,6 @@ public:
     Q_INVOKABLE void saveSettings(const QVariantMap &settings);
     Q_INVOKABLE QVariantMap loadSettings();
 
-    // Новая функция для проверки синтаксиса алгоритма
     Q_INVOKABLE QVariantList checkAlgorithmSyntax(const QVariantList& algorithm);
 
 private:
@@ -59,7 +59,6 @@ private:
     bool m_hasError = false;
     QString m_errorMessage;
 
-    // Новая система отладки
     bool m_debugging = false;
     QVariantList m_currentAlgorithm;
     QMap<int, QVariantMap> m_blockMap;
@@ -85,11 +84,9 @@ private:
     void setError(const QString& message);
     void clearError();
 
-    // Новые функции для проверки синтаксиса
     void addSyntaxError(const QString& message, int blockId, QVariantList& errors);
     bool validateExpressionSyntax(const QString& expression, int blockId, QVariantList& errors, bool isConditionalContext = false);
 
-    // Функции-помощники
     VariableType determineType(const QVariant& value);
     VariableType determineTypeFromString(const QString& value);
     QString typeToString(VariableType type);
@@ -114,20 +111,21 @@ private:
     bool compareValues(const QVariant& left, const QVariant& right, const QString& op);
     void executeMethod(const QString& targetName, const QString& methodName, const QVariantList& args);
 
-    // Новые функции для работы со встроенными функциями (len, int, str)
+    // Встроенные функции и работа со строками/массивами
     QVariant callBuiltinFunction(const QString& funcName, const QVariantList& args);
     QVariant stringToInt(const QVariant& arg);
     QVariant anyToString(const QVariant& arg);
+    QVariant getStringIndexedValue(const QString& str, int index);
+    QVariant getStringSlice(const QString& str, const QVariant& start, const QVariant& end, const QVariant& step);
+    QVariant getArraySlice(const QVariantList& list, const QVariant& start, const QVariant& end, const QVariant& step);
 
-    // Функции для отладки
+    // Отладка
     void saveDebugState(int finishedBlockId);
     bool hasMoreBlocks();
     void sendCurrentState(int highlightId);
     void executeDebugBlock(const QVariantMap& block);
     int findNextBlockId(int currentId, bool& wasLoop);
 
-
-    // Конвертация и восстановление состояния
     QVariantMap convertToQmlVariantMap() const;
     void restoreStateFromVariantMap(const QVariantMap& state);
     void internal_cleanup();
@@ -145,7 +143,7 @@ signals:
     void newAlgorithmSignal();
     void currentFilePathChanged();
     void fileSaved(const QString &filePath);
-    void syntaxErrorsOccurred(const QVariantList& errors); // New signal
+    void syntaxErrorsOccurred(const QVariantList& errors);
 };
 
 #endif // OBRABOTKA_H

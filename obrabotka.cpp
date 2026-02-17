@@ -1,3 +1,4 @@
+// obrabotka.cpp
 #include "obrabotka.h"
 #include <QQmlEngine>
 #include <QDebug>
@@ -63,7 +64,7 @@ Obrabotka::VariableType Obrabotka::determineType(const QVariant& value)
     case QMetaType::Double: return Numeric;
     case QMetaType::QString: return String;
     case QMetaType::Bool: return Boolean;
-    case QMetaType::QVariantList: return Array; // Handle QVariantList for arrays
+    case QMetaType::QVariantList: return Array;
     default: return Unknown;
     }
 }
@@ -75,7 +76,7 @@ QString Obrabotka::typeToString(VariableType type)
     case Numeric: return "numeric";
     case String: return "string";
     case Boolean: return "bool";
-    case Array: return "array"; // Handle Array type
+    case Array: return "array";
     default: return "unknown";
     }
 }
@@ -258,19 +259,293 @@ bool Obrabotka::compareValues(const QVariant& left, const QVariant& right, const
 }
 
 // ============================================================================
-// ОПЕРАЦИИ СО СТРОКАМИ
+// ОПЕРАЦИИ СО СТРОКАМИ И МАССИВАМИ (СРЕЗЫ)
 // ============================================================================
 
+// Возвращает символ строки по индексу с поддержкой отрицательных индексов
+QVariant Obrabotka::getStringIndexedValue(const QString& str, int index)
+{
+    clearError();
+    int len = str.length();
 
+    if (index < 0) {
+        index = len + index;
+    }
+
+    if (index < 0 || index >= len) {
+        setError("Ошибка: Индекс строки " + QString::number(index) + " выходит за границы (длина " + QString::number(len) + ").");
+        return QVariant();
+    }
+
+    return QVariant(QString(str.at(index)));
+}
+
+// Возвращает срез строки с поддержкой отрицательных индексов и шага, как в Python
+QVariant Obrabotka::getStringSlice(const QString& str, const QVariant& startVar, const QVariant& endVar, const QVariant& stepVar)
+{
+    clearError();
+    int len = str.length();
+
+    int step = 1;
+    if (stepVar.isValid() && !stepVar.isNull()) {
+        bool ok;
+        int st = stepVar.toInt(&ok);
+        if (!ok) {
+            setError("Ошибка: Шаг среза должен быть числом.");
+            return QVariant();
+        }
+        step = st;
+        if (step == 0) {
+            setError("Ошибка: Шаг среза не может быть равен нулю.");
+            return QVariant();
+        }
+    }
+
+    int start, end;
+    if (step > 0) {
+        // По умолчанию для положительного шага
+        start = 0;
+        end = len;
+        if (startVar.isValid() && !startVar.isNull()) {
+            bool ok;
+            int s = startVar.toInt(&ok);
+            if (!ok) {
+                setError("Ошибка: Начальный индекс среза должен быть числом.");
+                return QVariant();
+            }
+            start = s;
+        }
+        if (endVar.isValid() && !endVar.isNull()) {
+            bool ok;
+            int e = endVar.toInt(&ok);
+            if (!ok) {
+                setError("Ошибка: Конечный индекс среза должен быть числом.");
+                return QVariant();
+            }
+            end = e;
+        }
+    } else {
+        // По умолчанию для отрицательного шага
+        start = len - 1;
+        end = -len - 1; // после нормализации станет -1
+        if (startVar.isValid() && !startVar.isNull()) {
+            bool ok;
+            int s = startVar.toInt(&ok);
+            if (!ok) {
+                setError("Ошибка: Начальный индекс среза должен быть числом.");
+                return QVariant();
+            }
+            start = s;
+        }
+        if (endVar.isValid() && !endVar.isNull()) {
+            bool ok;
+            int e = endVar.toInt(&ok);
+            if (!ok) {
+                setError("Ошибка: Конечный индекс среза должен быть числом.");
+                return QVariant();
+            }
+            end = e;
+        }
+    }
+
+    // Нормализация отрицательных индексов
+    if (start < 0) start = len + start;
+    if (end < 0) end = len + end;
+
+    // Корректировка границ в зависимости от шага
+    if (step > 0) {
+        start = qMax(0, start);
+        end = qMin(len, end);
+    } else {
+        start = qMin(len - 1, start);
+        end = qMax(-1, end);
+    }
+
+    QString result;
+    if (step > 0) {
+        for (int i = start; i < end; i += step) {
+            if (i >= 0 && i < len) result.append(str.at(i));
+        }
+    } else {
+        for (int i = start; i > end; i += step) {
+            if (i >= 0 && i < len) result.append(str.at(i));
+        }
+    }
+
+    return QVariant(result);
+}
+
+// Возвращает срез массива (списка) с поддержкой отрицательных индексов и шага
+QVariant Obrabotka::getArraySlice(const QVariantList& list, const QVariant& startVar, const QVariant& endVar, const QVariant& stepVar)
+{
+    clearError();
+    int len = list.size();
+
+    int step = 1;
+    if (stepVar.isValid() && !stepVar.isNull()) {
+        bool ok;
+        int st = stepVar.toInt(&ok);
+        if (!ok) {
+            setError("Ошибка: Шаг среза должен быть числом.");
+            return QVariant();
+        }
+        step = st;
+        if (step == 0) {
+            setError("Ошибка: Шаг среза не может быть равен нулю.");
+            return QVariant();
+        }
+    }
+
+    int start, end;
+    if (step > 0) {
+        start = 0;
+        end = len;
+        if (startVar.isValid() && !startVar.isNull()) {
+            bool ok;
+            int s = startVar.toInt(&ok);
+            if (!ok) {
+                setError("Ошибка: Начальный индекс среза должен быть числом.");
+                return QVariant();
+            }
+            start = s;
+        }
+        if (endVar.isValid() && !endVar.isNull()) {
+            bool ok;
+            int e = endVar.toInt(&ok);
+            if (!ok) {
+                setError("Ошибка: Конечный индекс среза должен быть числом.");
+                return QVariant();
+            }
+            end = e;
+        }
+    } else {
+        start = len - 1;
+        end = -len - 1;
+        if (startVar.isValid() && !startVar.isNull()) {
+            bool ok;
+            int s = startVar.toInt(&ok);
+            if (!ok) {
+                setError("Ошибка: Начальный индекс среза должен быть числом.");
+                return QVariant();
+            }
+            start = s;
+        }
+        if (endVar.isValid() && !endVar.isNull()) {
+            bool ok;
+            int e = endVar.toInt(&ok);
+            if (!ok) {
+                setError("Ошибка: Конечный индекс среза должен быть числом.");
+                return QVariant();
+            }
+            end = e;
+        }
+    }
+
+    if (start < 0) start = len + start;
+    if (end < 0) end = len + end;
+
+    if (step > 0) {
+        start = qMax(0, start);
+        end = qMin(len, end);
+    } else {
+        start = qMin(len - 1, start);
+        end = qMax(-1, end);
+    }
+
+    QVariantList result;
+    if (step > 0) {
+        for (int i = start; i < end; i += step) {
+            if (i >= 0 && i < len) result.append(list.at(i));
+        }
+    } else {
+        for (int i = start; i > end; i += step) {
+            if (i >= 0 && i < len) result.append(list.at(i));
+        }
+    }
+
+    return QVariant(result);
+}
+
+// ============================================================================
+// ВСТРОЕННЫЕ ФУНКЦИИ (len, int, str)
+// ============================================================================
+
+// Преобразует QVariant в целое число (если возможно)
+QVariant Obrabotka::stringToInt(const QVariant& arg)
+{
+    clearError();
+    bool ok;
+    double doubleVal = arg.toDouble(&ok);
+    if (!ok) {
+        setError("Ошибка: Невозможно преобразовать '" + arg.toString() + "' в число.");
+        return QVariant();
+    }
+    if (!isInteger(doubleVal)) {
+        setError("Ошибка: Невозможно преобразовать '" + arg.toString() + "' в целое число (найдено нецелое число).");
+        return QVariant();
+    }
+    return QVariant(static_cast<int>(doubleVal));
+}
+
+// Преобразует QVariant в строковое представление (для массивов — JSON)
+QVariant Obrabotka::anyToString(const QVariant& arg)
+{
+    clearError();
+    if (arg.typeId() == QMetaType::QVariantList) {
+        QJsonDocument doc(QJsonArray::fromVariantList(arg.toList()));
+        return QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
+    }
+    return arg.toString();
+}
+
+// Универсальный обработчик для вызова встроенных функций
+QVariant Obrabotka::callBuiltinFunction(const QString& funcName, const QVariantList& args)
+{
+    clearError();
+    if (funcName == "len") {
+        if (args.count() != 1) {
+            setError("Функция 'len()' принимает 1 аргумент.");
+            return QVariant();
+        }
+        QVariant arg = args.first();
+        VariableType argType = determineType(arg);
+        if (argType == Array) {
+            return arg.toList().size();
+        } else if (argType == String) {
+            return arg.toString().length();
+        } else {
+            setError("Функция 'len()' может быть применена только к массивам или строкам.");
+            return QVariant();
+        }
+    } else if (funcName == "int") {
+        if (args.count() != 1) {
+            setError("Функция 'int()' принимает 1 аргумент.");
+            return QVariant();
+        }
+        return stringToInt(args.first());
+    } else if (funcName == "str") {
+        if (args.count() != 1) {
+            setError("Функция 'str()' принимает 1 аргумент.");
+            return QVariant();
+        }
+        return anyToString(args.first());
+    } else {
+        setError("Неизвестная встроенная функция: '" + funcName + "'.");
+        return QVariant();
+    }
+}
+
+// ============================================================================
+// МЕТОДЫ ДЛЯ РАБОТЫ С МАССИВАМИ (APPEND)
+// ============================================================================
 
 void Obrabotka::executeMethod(const QString& targetName, const QString& methodName, const QVariantList& args) {
     clearError();
     qDebug() << "executeMethod: target=" << targetName << ", method=" << methodName << ", args=" << args;
 
-    // First, resolve the targetName. It could be a simple variable or an array element (a[1])
     QVariant targetVar;
     QString actualTargetVarName;
-    int targetArrayIndex = -1; // -1 for simple variable, >=0 for array element
+    int targetArrayIndex = -1;
 
     static QRegularExpression arrayAccessRegex(R"(^(\w+)\s*\[(.+)\]$)");
     QRegularExpressionMatch arrayAccessMatch = arrayAccessRegex.match(targetName);
@@ -323,18 +598,16 @@ void Obrabotka::executeMethod(const QString& targetName, const QString& methodNa
             QVariantList list = targetVar.toList();
             list.append(args.first());
 
-            if (targetArrayIndex != -1) { // Method called on array element (e.g., a[1].append(val))
-                // This means targetVar itself was an array, and we are appending to it.
-                // We need to get the parent array, modify the element, and set the parent array.
+            if (targetArrayIndex != -1) {
                 QVariant parentArray = getValue(actualTargetVarName);
                 if (determineType(parentArray) != Array) {
                     setError("Внутренняя ошибка: родитель не является массивом.");
                     return;
                 }
                 QVariantList parentList = parentArray.toList();
-                parentList[targetArrayIndex] = list; // Update the element at index with the new list
+                parentList[targetArrayIndex] = list;
                 setValue(actualTargetVarName, QVariant(parentList), "array");
-            } else { // Method called on a simple array variable (e.g., a.append(val))
+            } else {
                 setValue(actualTargetVarName, QVariant(list), "array");
             }
             qInfo() << "Элемент добавлен в массив '" << actualTargetVarName << "'. Новое значение: " << list;
@@ -347,82 +620,9 @@ void Obrabotka::executeMethod(const QString& targetName, const QString& methodNa
 }
 
 // ============================================================================
-// ВСТРОЕННЫЕ ФУНКЦИИ (len, int, str)
-// ============================================================================
-
-// Преобразует QVariant в целое число (если возможно)
-QVariant Obrabotka::stringToInt(const QVariant& arg)
-{
-    clearError();
-    bool ok;
-    // Attempt to convert to double first to handle decimal strings, then to int
-    double doubleVal = arg.toDouble(&ok);
-    if (!ok) {
-        setError("Ошибка: Невозможно преобразовать '" + arg.toString() + "' в число.");
-        return QVariant();
-    }
-    // Check if it's an integer value, otherwise raise an error as Python's int() does not convert floats with decimal parts
-    if (!isInteger(doubleVal)) {
-        setError("Ошибка: Невозможно преобразовать '" + arg.toString() + "' в целое число (найдено нецелое число).");
-        return QVariant();
-    }
-    return QVariant(static_cast<int>(doubleVal));
-}
-
-// Преобразует QVariant в строковое представление
-QVariant Obrabotka::anyToString(const QVariant& arg)
-{
-    clearError();
-    // Для QVariantList (массивов) сериализуем в JSON-строку
-    if (arg.typeId() == QMetaType::QVariantList) {
-        QJsonDocument doc(QJsonArray::fromVariantList(arg.toList()));
-        return doc.toJson(QJsonDocument::Compact);
-    }
-    return QVariant(arg.toString());
-}
-
-// Универсальный обработчик для вызова встроенных функций
-QVariant Obrabotka::callBuiltinFunction(const QString& funcName, const QVariantList& args)
-{
-    clearError();
-    if (funcName == "len") {
-        if (args.count() != 1) {
-            setError("Функция 'len()' принимает 1 аргумент.");
-            return QVariant();
-        }
-        QVariant arg = args.first();
-        VariableType argType = determineType(arg);
-        if (argType == Array) {
-            return arg.toList().size();
-        } else if (argType == String) {
-            return arg.toString().length();
-        } else {
-            setError("Функция 'len()' может быть применена только к массивам или строкам.");
-            return QVariant();
-        }
-    } else if (funcName == "int") {
-        if (args.count() != 1) {
-            setError("Функция 'int()' принимает 1 аргумент.");
-            return QVariant();
-        }
-        return stringToInt(args.first());
-    } else if (funcName == "str") {
-        if (args.count() != 1) {
-            setError("Функция 'str()' принимает 1 аргумент.");
-            return QVariant();
-        }
-        return anyToString(args.first());
-    } else {
-        setError("Неизвестная встроенная функция: '" + funcName + "'.");
-        return QVariant();
-    }
-}
-
-// ============================================================================
 // СИНТАКСИЧЕСКИЙ АНАЛИЗ
 // ============================================================================
 
-// Добавляет ошибку синтаксиса в список ошибок с указанием ID блока
 void Obrabotka::addSyntaxError(const QString& message, int blockId, QVariantList& errors)
 {
     QVariantMap error;
@@ -432,7 +632,6 @@ void Obrabotka::addSyntaxError(const QString& message, int blockId, QVariantList
     qDebug() << "Syntax Error (Block ID:" << blockId << "):" << message;
 }
 
-// Проверяет синтаксис выражения: баланс скобок, кавычек, корректность операторов
 bool Obrabotka::validateExpressionSyntax(const QString& expression, int blockId, QVariantList& errors, bool isConditionalContext)
 {
     bool hasLocalErrors = false;
@@ -444,7 +643,6 @@ bool Obrabotka::validateExpressionSyntax(const QString& expression, int blockId,
         return !hasLocalErrors;
     }
 
-    // Проверка использования = вместо == в условиях
     if (isConditionalContext) {
         if (expr.contains('=')) {
             if (!expr.contains("==") && !expr.contains(">=") && !expr.contains("<=") && !expr.contains("!=")) {
@@ -454,11 +652,8 @@ bool Obrabotka::validateExpressionSyntax(const QString& expression, int blockId,
         }
     }
 
-    // Проверка баланса скобок и кавычек
     QStack<QChar> stack;
-    QMap<QChar, QChar> matchingBrackets = {
-        {'(', ')'}, {'[', ']'}
-    };
+    QMap<QChar, QChar> matchingBrackets = {{'(', ')'}, {'[', ']'}};
     bool inString = false;
     for (int i = 0; i < expr.length(); ++i) {
         QChar ch = expr[i];
@@ -492,14 +687,12 @@ bool Obrabotka::validateExpressionSyntax(const QString& expression, int blockId,
         hasLocalErrors = true;
     }
 
-    // Проверка повторяющихся операторов (++, --, ** и т.д.)
     QRegularExpression doubleOpRegex(R"([+\-*/%]{2})");
     if (expr.contains(doubleOpRegex)) {
         addSyntaxError("Обнаружен повторяющийся оператор (например, ++, --, **).", blockId, errors);
         hasLocalErrors = true;
     }
 
-    // Проверка операторов в начале/конце выражения (кроме унарного минуса)
     QString operators = "+-*/%";
     bool leadingOpError = false;
     bool trailingOpError = false;
@@ -530,7 +723,6 @@ bool Obrabotka::validateExpressionSyntax(const QString& expression, int blockId,
         hasLocalErrors = true;
     }
 
-    // Проверка двух операторов подряд (с учетом унарного минуса)
     QRegularExpression invalidOpSequence(R"([+\-*/%]\s*[+\-*/%])");
     QString tempCodeForOpCheck = expr;
     tempCodeForOpCheck.replace(QRegularExpression(R"(-\s*\d+)"), "1");
@@ -547,7 +739,6 @@ bool Obrabotka::validateExpressionSyntax(const QString& expression, int blockId,
 // ОБРАБОТКА ОШИБОК
 // ============================================================================
 
-// Устанавливает флаг ошибки и сохраняет сообщение об ошибке
 void Obrabotka::setError(const QString& message)
 {
     m_hasError = true;
@@ -556,7 +747,6 @@ void Obrabotka::setError(const QString& message)
     emit errorOccurred(message);
 }
 
-// Сбрасывает флаг ошибки и очищает сообщение
 void Obrabotka::clearError()
 {
     m_hasError = false;
@@ -567,7 +757,6 @@ void Obrabotka::clearError()
 // БЛОК ВВОДА ДАННЫХ
 // ============================================================================
 
-// Запрашивает ввод от пользователя (синхронная блокирующая операция)
 int Obrabotka::requestUserInput()
 {
     qDebug() << "C++: Запрашиваем ввод пользователя";
@@ -577,7 +766,6 @@ int Obrabotka::requestUserInput()
     return 1;
 }
 
-// Обрабатывает полученный от пользователя ввод
 void Obrabotka::userInputReceived(const QString &input)
 {
     qDebug() << "C++: Получен ввод:" << input;
@@ -589,7 +777,6 @@ void Obrabotka::userInputReceived(const QString &input)
     }
 }
 
-// Выполняет операцию ввода: запрашивает значение и сохраняет в переменную с автоматическим определением типа
 void Obrabotka::vvod(const QString& variableName)
 {
     if (!requestUserInput()) {
@@ -624,7 +811,6 @@ void Obrabotka::vvod(const QString& variableName)
 // БЛОК ВЫВОДА ДАННЫХ
 // ============================================================================
 
-// Выполняет операцию вывода значения переменной
 void Obrabotka::vivodim_functionod(QString peremen)
 {
     qDebug() << "запуск вывода!";
@@ -639,7 +825,6 @@ void Obrabotka::vivodim_functionod(QString peremen)
 // РАБОТА С ПЕРЕМЕННЫМИ
 // ============================================================================
 
-// Возвращает значение переменной по имени (создает переменную со значением 0, если не существует)
 QVariant Obrabotka::getValue(const QString& name)
 {
     if (peremennieMap.contains(name)) {
@@ -650,7 +835,6 @@ QVariant Obrabotka::getValue(const QString& name)
     return QVariant(0);
 }
 
-// Возвращает тип переменной по имени
 QString Obrabotka::getType(const QString& name)
 {
     if (peremennieMap.contains(name)) {
@@ -659,7 +843,6 @@ QString Obrabotka::getType(const QString& name)
     return "unknown";
 }
 
-// Устанавливает значение и тип переменной
 void Obrabotka::setValue(const QString& name, const QVariant& value, const QString& type)
 {
     QString actualType = type;
@@ -673,7 +856,6 @@ void Obrabotka::setValue(const QString& name, const QVariant& value, const QStri
 // ТОКЕНИЗАЦИЯ И ВЫЧИСЛЕНИЕ ВЫРАЖЕНИЙ
 // ============================================================================
 
-// Разбивает выражение на токены (числа, переменные, операторы, скобки, строки)
 QStringList Obrabotka::tokenize(const QString& expr)
 {
     QStringList tokens;
@@ -717,13 +899,11 @@ QStringList Obrabotka::tokenize(const QString& expr)
     return tokens;
 }
 
-// Вычисляет значение выражения по списку токенов (с обработкой скобок и приоритета операторов)
 QVariant Obrabotka::evaluateTokens(QStringList& tokens)
 {
     clearError();
     std::stack<int> bracketStack;
 
-    // Обработка вложенных скобок
     for (int i = 0; i < tokens.size(); i++) {
         if (tokens[i] == "(") {
             bracketStack.push(i);
@@ -753,32 +933,25 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens)
         return QVariant();
     }
 
-    // Предварительная обработка токенов: замена переменных, строковых операций и литералов
     for (int i = 0; i < tokens.size(); ++i) {
         QString token = tokens[i].trimmed();
 
-        // Пропускаем операторы и скобки
         if (token == "(" || token == ")" || token == "+" || token == "-" || token == "*" ||
             token == "/" || token == "%" || token == "&&" || token == "||" || token == "!" ||
             token == ">=" || token == "<=" || token == "!=" || token == "==" || token == ">" || token == "<") {
             continue;
         }
 
-        // Строковые литералы оставляем как есть
         if (token.startsWith('"') && token.endsWith('"') && token.length() >= 2) {
             continue;
         }
 
-        // Числовые литералы стандартизируем
         double num;
         if (canConvertToNumber(token, num)) {
             tokens[i] = QVariant(num).toString();
             continue;
         }
 
-
-
-        // Переменные заменяем на их значения
         QVariant varValue = getValue(token);
         if (varValue.typeId() == QMetaType::QString) {
             tokens[i] = "\"" + varValue.toString() + "\"";
@@ -786,10 +959,9 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens)
             tokens[i] = varValue.toString();
         }
     }
-    qDebug() << "evaluateTokens: Tokens after pre-processing:" << tokens;
-    qDebug() << "evaluateTokens: Tokens after pre-processing:" << tokens; // ADDED DEBUG
 
-    // Выполнение умножения, деления и модуля (приоритет 1)
+    qDebug() << "evaluateTokens: Tokens after pre-processing:" << tokens;
+
     for (int i = 1; i < tokens.size() - 1; ) {
         if (tokens[i] == "*" || tokens[i] == "/" || tokens[i] == "%") {
             QVariant leftVal, rightVal;
@@ -797,8 +969,9 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens)
             if (tokens[i-1].length() >= 2 && tokens[i-1].startsWith('"') && tokens[i-1].endsWith('"')) {
                 leftVal = QVariant(tokens[i-1].mid(1, tokens[i-1].length() - 2));
             } else {
-                double num;
-                if (canConvertToNumber(tokens[i-1], num)) {
+                bool ok;
+                double num = tokens[i-1].toDouble(&ok);
+                if (ok) {
                     leftVal = QVariant(num);
                 } else {
                     leftVal = getValue(tokens[i-1]);
@@ -808,8 +981,9 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens)
             if (tokens[i+1].length() >= 2 && tokens[i+1].startsWith('"') && tokens[i+1].endsWith('"')) {
                 rightVal = QVariant(tokens[i+1].mid(1, tokens[i+1].length() - 2));
             } else {
-                double num;
-                if (canConvertToNumber(tokens[i+1], num)) {
+                bool ok;
+                double num = tokens[i+1].toDouble(&ok);
+                if (ok) {
                     rightVal = QVariant(num);
                 } else {
                     rightVal = getValue(tokens[i+1]);
@@ -833,10 +1007,9 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens)
             i++;
         }
     }
-    qDebug() << "evaluateTokens: Tokens after mul/div/mod:" << tokens;
-    qDebug() << "evaluateTokens: Tokens after mul/div/mod:" << tokens; // ADDED DEBUG
 
-    // Выполнение сложения и вычитания (приоритет 2)
+    qDebug() << "evaluateTokens: Tokens after mul/div/mod:" << tokens;
+
     for (int i = 1; i < tokens.size() - 1; ) {
         if (tokens[i] == "+" || tokens[i] == "-") {
             QVariant leftVal, rightVal;
@@ -844,8 +1017,9 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens)
             if (tokens[i-1].length() >= 2 && tokens[i-1].startsWith('"') && tokens[i-1].endsWith('"')) {
                 leftVal = QVariant(tokens[i-1].mid(1, tokens[i-1].length() - 2));
             } else {
-                double num;
-                if (canConvertToNumber(tokens[i-1], num)) {
+                bool ok;
+                double num = tokens[i-1].toDouble(&ok);
+                if (ok) {
                     leftVal = QVariant(num);
                 } else {
                     leftVal = getValue(tokens[i-1]);
@@ -855,8 +1029,9 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens)
             if (tokens[i+1].length() >= 2 && tokens[i+1].startsWith('"') && tokens[i+1].endsWith('"')) {
                 rightVal = QVariant(tokens[i+1].mid(1, tokens[i+1].length() - 2));
             } else {
-                double num;
-                if (canConvertToNumber(tokens[i+1], num)) {
+                bool ok;
+                double num = tokens[i+1].toDouble(&ok);
+                if (ok) {
                     rightVal = QVariant(num);
                 } else {
                     rightVal = getValue(tokens[i+1]);
@@ -878,10 +1053,9 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens)
             i++;
         }
     }
-    qDebug() << "evaluateTokens: Tokens after add/sub:" << tokens;
-    qDebug() << "evaluateTokens: Tokens after add/sub:" << tokens; // ADDED DEBUG
 
-    // Проверка корректности результата
+    qDebug() << "evaluateTokens: Tokens after add/sub:" << tokens;
+
     if (tokens.size() != 1) {
         setError("Ошибка: Некорректное выражение.");
         return QVariant();
@@ -898,95 +1072,251 @@ QVariant Obrabotka::evaluateTokens(QStringList& tokens)
     return QVariant(resultStr);
 }
 
-// Парсит и вычисляет арифметическое выражение
+// ============================================================================
+// ПАРСИНГ ВЫРАЖЕНИЙ (С ПОДДЕРЖКОЙ СРЕЗОВ И ДВУМЕРНЫХ МАССИВОВ)
+// ============================================================================
+
 QVariant Obrabotka::parseExpression(const QString& expr)
 {
     QString currentExpr = expr.trimmed();
-    clearError(); // Clear errors for this evaluation
+    clearError();
+    qDebug() << "parseExpression: Initial expr:" << expr << ", currentExpr (trimmed):" << currentExpr;
 
-    // Loop to pre-process and replace complex sub-expressions (array access, built-in functions)
-    // with their evaluated values until no more such patterns are found.
-    // This allows tokenize and evaluateTokens to work on simpler arithmetic expressions.
-    int iterationLimit = 100; // Prevent infinite loops for malformed expressions
+    int iterationLimit = 100;
     while (iterationLimit-- > 0) {
         bool changed = false;
 
-        // --- 1. Handle Array Access (e.g., a[1], myArray[index_expression]) ---
-        // Need to find the innermost or rightmost array access first to evaluate correctly.
-        // Example: a[1][2] -> evaluate a[1] first, then result[2]
-        // This regex looks for a [...] pattern
-        // The inner part `[^\[\]]*` allows for simple indices or expressions without nested brackets
-        // We need to match the *outermost* one for the recursive parsing strategy
-        static QRegularExpression arrayAccessParseRegex(R"(([\w.\"\'\[\]]+?)\s*\[((?:[^\[\]]+|\[[^\[\]]*\])*?)\])");
-        QRegularExpressionMatch arrayAccessMatch = arrayAccessParseRegex.match(currentExpr);
-        if (arrayAccessMatch.hasMatch()) {
-            QString fullMatch = arrayAccessMatch.captured(0); // e.g., "a[1]"
-            QString baseExpr = arrayAccessMatch.captured(1);  // e.g., "a"
-            QString indexExpr = arrayAccessMatch.captured(2); // e.g., "1"
+        // --- Обработка литералов массивов (должна быть первой, чтобы не путать с доступом по индексу) ---
+        if (currentExpr.startsWith('[') && currentExpr.endsWith(']')) {
+            qDebug() << "parseExpression: Handling array literal:" << currentExpr;
+            QString innerContent = currentExpr.mid(1, currentExpr.length() - 2).trimmed();
+            QVariantList resultList;
+            if (innerContent.isEmpty()) {
+                return resultList;
+            }
 
-            // Recursively evaluate the base expression and the index
-            QVariant baseValue = parseExpression(baseExpr);
+            QStringList elements;
+            int balance = 0;
+            int lastSplitPos = 0;
+            bool inStringLiteral = false;
+
+            for (int i = 0; i < innerContent.length(); ++i) {
+                QChar ch = innerContent.at(i);
+                if (ch == '"') {
+                    inStringLiteral = !inStringLiteral;
+                } else if (!inStringLiteral) {
+                    if (ch == '[') balance++;
+                    else if (ch == ']') balance--;
+                    else if (ch == ',' && balance == 0) {
+                        elements.append(innerContent.mid(lastSplitPos, i - lastSplitPos).trimmed());
+                        lastSplitPos = i + 1;
+                    }
+                }
+            }
+            elements.append(innerContent.mid(lastSplitPos).trimmed());
+
+            for (const QString& elementExpr : elements) {
+                if (elementExpr.isEmpty()) {
+                    setError("Ошибка: Неверный синтаксис в литерале массива (пустой элемент или лишняя запятая): " + currentExpr);
+                    return QVariant();
+                }
+                QVariant evaluatedElement = parseExpression(elementExpr);
+                if (m_hasError) return QVariant();
+                resultList.append(evaluatedElement);
+            }
+            return resultList;
+        }
+
+        // --- НОВАЯ ОБРАБОТКА МНОГОМЕРНЫХ ИНДЕКСОВ (например, a[1][2]) ---
+        static QRegularExpression multiIndexRegex(R"((\w+)((?:\[[^\[\]]*\])+))");
+        QRegularExpressionMatch multiMatch = multiIndexRegex.match(currentExpr);
+        if (multiMatch.hasMatch()) {
+            QString fullMatch = multiMatch.captured(0);
+            QString baseExpr = multiMatch.captured(1);
+            QString indicesStr = multiMatch.captured(2);
+
+            QVariant current = parseExpression(baseExpr);
             if (m_hasError) return QVariant();
 
-            QVariant indexValue = parseExpression(indexExpr);
-            if (m_hasError) return QVariant();
+            // Разбираем indicesStr на отдельные индексы
+            int pos = 0;
+            while (pos < indicesStr.length()) {
+                if (indicesStr[pos] != '[') {
+                    setError("Ожидался '[' в многомерном индексе");
+                    return QVariant();
+                }
+                int endPos = indicesStr.indexOf(']', pos);
+                if (endPos == -1) {
+                    setError("Незакрытая скобка в индексе");
+                    return QVariant();
+                }
+                QString indexExpr = indicesStr.mid(pos + 1, endPos - pos - 1);
+                QVariant indexValue = parseExpression(indexExpr);
+                if (m_hasError) return QVariant();
 
-            if (determineType(baseValue) != Array) {
-                setError("Ошибка: " + baseExpr + " не является массивом при доступе по индексу.");
-                return QVariant();
+                if (determineType(indexValue) != Numeric) {
+                    setError("Индекс должен быть числом");
+                    return QVariant();
+                }
+                int index = indexValue.toInt();
+
+                VariableType baseType = determineType(current);
+                if (baseType == Array) {
+                    QVariantList list = current.toList();
+                    if (index < 0) index = list.size() + index;
+                    if (index < 0 || index >= list.size()) {
+                        setError("Индекс вне диапазона");
+                        return QVariant();
+                    }
+                    current = list.at(index);
+                } else if (baseType == String) {
+                    QString str = current.toString();
+                    current = getStringIndexedValue(str, index);
+                    if (m_hasError) return QVariant();
+                } else {
+                    setError("Попытка индексации не массива и не строки");
+                    return QVariant();
+                }
+                pos = endPos + 1;
             }
-            if (determineType(indexValue) != Numeric) {
-                setError("Ошибка: Индекс массива должен быть числом, получено: " + indexValue.toString());
-                return QVariant();
-            }
 
-            QVariantList list = baseValue.toList();
-            int index = indexValue.toInt();
-
-            // Handle negative indexing
-            if (index < 0) {
-                index = list.size() + index;
-            }
-
-            if (index < 0 || index >= list.size()) {
-                setError("Ошибка: Индекс массива " + QString::number(index) + " выходит за границы (размер " + QString::number(list.size()) + ").");
-                return QVariant();
-            }
-
-            QVariant result = list.at(index);
+            // Замена fullMatch на строковое представление current
             QString replacementStr;
-            // Use determineType for consistency to check if it's a String
-            if (determineType(result) == String) {
-                // Ensure string literals are quoted once
-                replacementStr = "\"" + result.toString() + "\"";
+            if (determineType(current) == String) {
+                replacementStr = "\"" + current.toString() + "\"";
+            } else if (determineType(current) == Array) {
+                replacementStr = QString::fromUtf8(QJsonDocument::fromVariant(current).toJson(QJsonDocument::Compact));
             } else {
-                replacementStr = result.toString();
+                replacementStr = current.toString();
             }
             currentExpr.replace(fullMatch, replacementStr);
             changed = true;
-            if (m_hasError) return QVariant(); // Check for error from anyToString
-            continue; // Re-evaluate the expression from start
+            qDebug() << "parseExpression: After multi-index replacement:" << currentExpr;
+            continue;
         }
 
-        // --- 2. Handle Built-in Function Calls (e.g., len(a), int("10"), str(5)) ---
+        // --- Обработка срезов и доступа по индексу (одиночный) ---
+        static QRegularExpression arrayAccessParseRegex(R"(([\w.\"\'\(\)\[\]\+\-, ]+?)\s*\[((?:[^\[\]]+|\[[^\[\]]*\])*?)\])");
+        QRegularExpressionMatch arrayAccessMatch = arrayAccessParseRegex.match(currentExpr);
+        if (arrayAccessMatch.hasMatch()) {
+            QString fullMatch = arrayAccessMatch.captured(0);
+            QString baseExpr = arrayAccessMatch.captured(1);
+            QString indexExpr = arrayAccessMatch.captured(2);
+
+            // Проверяем, является ли это срезом (содержит двоеточие)
+            if (indexExpr.contains(':')) {
+                // Срез: разбираем на части
+                QStringList parts = indexExpr.split(':', Qt::KeepEmptyParts);
+                while (parts.size() < 3) parts.append(QString()); // дополняем до трёх
+                QString startStr = parts[0].trimmed();
+                QString endStr = parts[1].trimmed();
+                QString stepStr = parts[2].trimmed();
+
+                QVariant startVar = startStr.isEmpty() ? QVariant() : parseExpression(startStr);
+                if (m_hasError) return QVariant();
+                QVariant endVar = endStr.isEmpty() ? QVariant() : parseExpression(endStr);
+                if (m_hasError) return QVariant();
+                QVariant stepVar = stepStr.isEmpty() ? QVariant() : parseExpression(stepStr);
+                if (m_hasError) return QVariant();
+
+                // Вычисляем базовое выражение
+                QVariant baseValue = parseExpression(baseExpr);
+                if (m_hasError) return QVariant();
+
+                VariableType baseType = determineType(baseValue);
+                QVariant result;
+                QString replacementStr;
+
+                if (baseType == Array) {
+                    result = getArraySlice(baseValue.toList(), startVar, endVar, stepVar);
+                } else if (baseType == String) {
+                    result = getStringSlice(baseValue.toString(), startVar, endVar, stepVar);
+                } else {
+                    setError("Ошибка: Срез можно применять только к массиву или строке.");
+                    return QVariant();
+                }
+                if (m_hasError) return QVariant();
+
+                // Формируем строку для замены
+                if (determineType(result) == String) {
+                    replacementStr = "\"" + result.toString() + "\"";
+                } else if (determineType(result) == Array) {
+                    // Для массива вставляем литерал (JSON без кавычек)
+                    replacementStr = QString::fromUtf8(QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact));
+                } else {
+                    replacementStr = result.toString();
+                }
+                currentExpr.replace(fullMatch, replacementStr);
+                changed = true;
+                qDebug() << "parseExpression: After slice replacement:" << currentExpr;
+                continue;
+            }
+            else {
+                // Обычный доступ по индексу
+                QVariant baseValue = parseExpression(baseExpr);
+                if (m_hasError) return QVariant();
+
+                QVariant indexValue = parseExpression(indexExpr);
+                if (m_hasError) return QVariant();
+
+                if (determineType(indexValue) != Numeric) {
+                    setError("Ошибка: Индекс для доступа должен быть числом, получено: " + indexValue.toString());
+                    return QVariant();
+                }
+
+                int index = indexValue.toInt();
+                VariableType baseType = determineType(baseValue);
+                QVariant result;
+                QString replacementStr;
+
+                if (baseType == Array) {
+                    QVariantList list = baseValue.toList();
+                    if (index < 0) index = list.size() + index;
+                    if (index < 0 || index >= list.size()) {
+                        setError("Ошибка: Индекс массива " + QString::number(index) + " выходит за границы (размер " + QString::number(list.size()) + ").");
+                        return QVariant();
+                    }
+                    result = list.at(index);
+                } else if (baseType == String) {
+                    QString str = baseValue.toString();
+                    result = getStringIndexedValue(str, index);
+                    if (m_hasError) return QVariant();
+                } else {
+                    setError("Ошибка: " + baseExpr + " не является массивом или строкой при доступе по индексу.");
+                    return QVariant();
+                }
+
+                if (determineType(result) == String) {
+                    replacementStr = "\"" + result.toString() + "\"";
+                } else if (determineType(result) == Array) {
+                    // Для массива вставляем литерал
+                    replacementStr = QString::fromUtf8(QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact));
+                } else {
+                    replacementStr = result.toString();
+                }
+                currentExpr.replace(fullMatch, replacementStr);
+                changed = true;
+                qDebug() << "parseExpression: After array access replacement:" << currentExpr;
+                continue;
+            }
+        }
+
+        // --- Обработка встроенных функций (len, int, str) ---
         static QRegularExpression builtinFuncParseRegex(R"((len|int|str)\s*\(([^()]*?(?:\([^()]*\)[^()]*?)*)\))");
         QRegularExpressionMatch builtinFuncMatch = builtinFuncParseRegex.match(currentExpr);
         if (builtinFuncMatch.hasMatch()) {
-            QString fullMatch = builtinFuncMatch.captured(0); // e.g., "len(a)"
-            QString funcName = builtinFuncMatch.captured(1);  // e.g., "len"
-            QString argsExpr = builtinFuncMatch.captured(2);  // e.g., "a" or "1,2"
+            QString fullMatch = builtinFuncMatch.captured(0);
+            QString funcName = builtinFuncMatch.captured(1);
+            QString argsExpr = builtinFuncMatch.captured(2);
 
             QVariantList evaluatedArgs;
             if (!argsExpr.isEmpty()) {
-                // Manually split arguments by comma, respecting parentheses for nested calls
                 int balance = 0;
                 int lastSplitPos = 0;
                 for (int i = 0; i < argsExpr.length(); ++i) {
-                    if (argsExpr.at(i) == '(') {
-                        balance++;
-                    } else if (argsExpr.at(i) == ')') {
-                        balance--;
-                    } else if (argsExpr.at(i) == ',' && balance == 0) {
+                    if (argsExpr.at(i) == '(') balance++;
+                    else if (argsExpr.at(i) == ')') balance--;
+                    else if (argsExpr.at(i) == ',' && balance == 0) {
                         QString argPart = argsExpr.mid(lastSplitPos, i - lastSplitPos).trimmed();
                         evaluatedArgs.append(parseExpression(argPart));
                         if (m_hasError) return QVariant();
@@ -994,32 +1324,30 @@ QVariant Obrabotka::parseExpression(const QString& expr)
                     }
                 }
                 QString lastArgPart = argsExpr.mid(lastSplitPos).trimmed();
-                if (!lastArgPart.isEmpty()) { // Ensure there's actually content
+                if (!lastArgPart.isEmpty()) {
                     evaluatedArgs.append(parseExpression(lastArgPart));
                     if (m_hasError) return QVariant();
                 }
             }
-            
+
             QVariant funcResult = callBuiltinFunction(funcName, evaluatedArgs);
             if (m_hasError) return QVariant();
-            
+
             QString replacementStr;
-            // Use determineType for consistency to check if it's a String
             if (determineType(funcResult) == String) {
-                // Ensure string literals are quoted once
                 replacementStr = "\"" + funcResult.toString() + "\"";
+            } else if (determineType(funcResult) == Array) {
+                replacementStr = QString::fromUtf8(QJsonDocument::fromVariant(funcResult).toJson(QJsonDocument::Compact));
             } else {
                 replacementStr = funcResult.toString();
             }
             currentExpr.replace(fullMatch, replacementStr);
             changed = true;
-            if (m_hasError) return QVariant(); // Check for error from anyToString
-            continue; // Re-evaluate the expression from start
+            qDebug() << "parseExpression: After builtin func replacement:" << currentExpr;
+            continue;
         }
 
-        if (!changed) {
-            break; // No more complex patterns found, exit loop
-        }
+        if (!changed) break;
     }
 
     if (iterationLimit <= 0) {
@@ -1027,40 +1355,22 @@ QVariant Obrabotka::parseExpression(const QString& expr)
         return QVariant();
     }
 
-    // After pre-processing, currentExpr should contain only simple literals,
-    // variables, and arithmetic/logical operators.
-
-    // 1. Array Literal: [1, 2, "hello"] or [] (kept at the top because it's a direct return)
-    if (currentExpr.startsWith('[') && currentExpr.endsWith(']')) {
-        QJsonParseError err;
-        QJsonDocument doc = QJsonDocument::fromJson(currentExpr.toUtf8(), &err);
-        if (err.error == QJsonParseError::NoError && doc.isArray()) {
-            return doc.array().toVariantList();
-        } else {
-            setError("Ошибка синтаксиса в определении массива: " + err.errorString());
-            return QVariant();
-        }
-    }
-    
-    // 2. Handle simple variable name or a bare literal directly
+    // Обработка простых литералов и переменных
     double num;
-    if (canConvertToNumber(currentExpr, num)) { // Numeric literal
+    if (canConvertToNumber(currentExpr, num)) {
         return QVariant(num);
     }
-    if (currentExpr.startsWith('"') && currentExpr.endsWith('"') && currentExpr.length() >= 2) { // String literal
+    if (currentExpr.startsWith('"') && currentExpr.endsWith('"') && currentExpr.length() >= 2) {
         return QVariant(currentExpr.mid(1, currentExpr.length() - 2));
     }
-    if (currentExpr.toLower() == "true") return QVariant(true); // Boolean literal
-    if (currentExpr.toLower() == "false") return QVariant(false); // Boolean literal
-    
-    // If it's a variable name
+    if (currentExpr.toLower() == "true") return QVariant(true);
+    if (currentExpr.toLower() == "false") return QVariant(false);
+
     if (peremennieMap.contains(currentExpr)) {
         return getValue(currentExpr);
     }
 
-    // If it's not a simple literal, variable, or array literal,
-    // then it must be a complex arithmetic/logical expression.
-    // Use tokenize and evaluateTokens for these.
+    qDebug() << "parseExpression: Before tokenize/evaluateTokens. Final currentExpr:" << currentExpr;
     QStringList tokens = tokenize(currentExpr);
     return evaluateTokens(tokens);
 }
@@ -1069,25 +1379,21 @@ QVariant Obrabotka::parseExpression(const QString& expr)
 // БЛОК ДЕЙСТВИЯ (ПРИСВАИВАНИЕ)
 // ============================================================================
 
-// Выполняет операцию присваивания: вычисляет правую часть и сохраняет в переменную
 void Obrabotka::deistvie(QString vvod)
 {
     clearError();
     qDebug() << "deistvie input:" << vvod;
     QString trimmedVvod = vvod.trimmed();
 
-    // 1. Check for method calls (e.g., a.append(2) or a[1].append(2))
-    // This regex matches: (variable_or_array_access).methodName(args)
     static QRegularExpression methodCallRegex(R"(^(.+?)\s*\.\s*(\w+)\s*\((.*)\)\s*$)");
     QRegularExpressionMatch methodCallMatch = methodCallRegex.match(trimmedVvod);
     if (methodCallMatch.hasMatch()) {
-        QString targetExpr = methodCallMatch.captured(1).trimmed(); // 'a' or 'a[1]'
-        QString methodName = methodCallMatch.captured(2).trimmed(); // 'append'
-        QString argsExpr = methodCallMatch.captured(3).trimmed();   // '2' or 'arg1, arg2'
+        QString targetExpr = methodCallMatch.captured(1).trimmed();
+        QString methodName = methodCallMatch.captured(2).trimmed();
+        QString argsExpr = methodCallMatch.captured(3).trimmed();
 
         QVariantList args;
         if (!argsExpr.isEmpty()) {
-            // Simple argument parsing: split by comma, evaluate each part
             QStringList argParts = argsExpr.split(',');
             for (const QString& part : argParts) {
                 QVariant argValue = parseExpression(part.trimmed());
@@ -1095,12 +1401,11 @@ void Obrabotka::deistvie(QString vvod)
                 args.append(argValue);
             }
         }
-        
+
         executeMethod(targetExpr, methodName, args);
-        return; // Method call handled, no further assignment processing
+        return;
     }
 
-    // 2. Proceed with assignment logic if not a method call
     int equalsPos = trimmedVvod.indexOf('=');
     if (equalsPos == -1) {
         setError("В действии отсутствует оператор присваивания '=' или неверный вызов метода.");
@@ -1118,22 +1423,21 @@ void Obrabotka::deistvie(QString vvod)
         return;
     }
 
-    // Check if left-hand side is an array access (e.g., myArray[0])
     static QRegularExpression arrayAccessRegex(R"(^(\w+)\s*\[(.+)\]$)");
     QRegularExpressionMatch arrayAccessMatch = arrayAccessRegex.match(left);
     if (arrayAccessMatch.hasMatch()) {
         QString varName = arrayAccessMatch.captured(1);
         QString indexExpr = arrayAccessMatch.captured(2);
 
-        QVariant arrayVar = getValue(varName); // Get the existing array
-        if (m_hasError) return; // Error if arrayVar was not found and getValue created a 0
-        
+        QVariant arrayVar = getValue(varName);
+        if (m_hasError) return;
+
         if (determineType(arrayVar) != Array) {
             setError("Переменная '" + varName + "' не является массивом. Невозможно присвоить элемент по индексу.");
             return;
         }
 
-        QVariant indexVal = parseExpression(indexExpr); // Evaluate the index expression
+        QVariant indexVal = parseExpression(indexExpr);
         if (m_hasError) return;
 
         if (determineType(indexVal) != Numeric) {
@@ -1144,7 +1448,6 @@ void Obrabotka::deistvie(QString vvod)
         QVariantList list = arrayVar.toList();
         int index = indexVal.toInt();
 
-        // Handle negative indexing (Python style)
         if (index < 0) {
             index = list.size() + index;
         }
@@ -1153,13 +1456,12 @@ void Obrabotka::deistvie(QString vvod)
             setError("Индекс массива '" + QString::number(index) + "' выходит за границы. Размер массива: " + QString::number(list.size()));
             return;
         }
-        
-        list[index] = result; // Update the element
-        setValue(varName, QVariant(list), "array"); // Store the modified list back
+
+        list[index] = result;
+        setValue(varName, QVariant(list), "array");
         qInfo() << "Присвоено элементу массива" << varName << "[" << index << "] значение:" << result;
 
     } else {
-        // Simple variable assignment
         setValue(left, result);
         qInfo() << "Присвоено переменной" << left << "значение:" << result;
     }
@@ -1169,13 +1471,11 @@ void Obrabotka::deistvie(QString vvod)
 // УСЛОВНЫЕ ВЫРАЖЕНИЯ
 // ============================================================================
 
-// Вычисляет условие: поддерживает переменные, логические литералы и сложные выражения
 bool Obrabotka::evaluateCondition(const QString& condition)
 {
     clearError();
     QString cond = condition.simplified();
 
-    // Проверка переменной как условия
     if (peremennieMap.contains(cond)) {
         QVariant value = peremennieMap[cond].value;
         VariableType type = determineType(value);
@@ -1185,7 +1485,6 @@ bool Obrabotka::evaluateCondition(const QString& condition)
         return false;
     }
 
-    // Логические литералы
     if (cond.toLower() == "true" || cond == "1") return true;
     if (cond.toLower() == "false" || cond == "0") return false;
 
@@ -1196,7 +1495,6 @@ bool Obrabotka::evaluateCondition(const QString& condition)
 // УСЛОВНЫЙ ОПЕРАТОР (ЕСЛИ)
 // ============================================================================
 
-// Выполняет условный оператор: проверяет условие и выполняет соответствующую ветку
 void Obrabotka::usl(QString usl, QVariantList trueBranch, QVariantList falseBranch)
 {
     clearError();
@@ -1218,7 +1516,6 @@ void Obrabotka::usl(QString usl, QVariantList trueBranch, QVariantList falseBran
 // ПАРСИНГ И ВЫЧИСЛЕНИЕ УСЛОВИЙ
 // ============================================================================
 
-// Парсит условие: заменяет русские ключевые слова на логические операторы и обрабатывает сложные выражения
 bool Obrabotka::parseCondition(const QString& cond)
 {
     clearError();
@@ -1233,7 +1530,6 @@ bool Obrabotka::parseCondition(const QString& cond)
     processedCondition = processedCondition.simplified();
     qDebug() << "Обработанное условие:" << processedCondition;
 
-    // Обработка сложных условий с логическими операторами и скобками
     if (processedCondition.contains("&&") || processedCondition.contains("||") || processedCondition.contains("!") ||
         processedCondition.contains("(") || processedCondition.contains(")")) {
         QStringList tokens;
@@ -1290,16 +1586,13 @@ bool Obrabotka::parseCondition(const QString& cond)
     }
 }
 
-// Вычисляет простое условие (без логических операторов И/ИЛИ)
 bool Obrabotka::evaluateSimpleCondition(const QString& cond)
 {
     QString condition = cond;
 
-    // Логические литералы
     if (condition == "1" || condition.toLower() == "true") return true;
     if (condition == "0" || condition.toLower() == "false") return false;
 
-    // Поиск оператора сравнения
     QVector<QString> operators = { ">=", "<=", "!=", "==", ">", "<" };
     QString foundOp;
     for (const QString& op : operators) {
@@ -1309,7 +1602,6 @@ bool Obrabotka::evaluateSimpleCondition(const QString& cond)
         }
     }
 
-    // Если нет оператора сравнения - проверяем значение переменной как условие
     if (foundOp.isEmpty()) {
         QVariant value = getValue(condition);
         VariableType type = determineType(value);
@@ -1319,7 +1611,6 @@ bool Obrabotka::evaluateSimpleCondition(const QString& cond)
         return false;
     }
 
-    // Сравнение двух значений
     QStringList parts = condition.split(foundOp);
     if (parts.size() != 2) return false;
     QVariant leftVal = parseExpression(parts[0]);
@@ -1328,12 +1619,10 @@ bool Obrabotka::evaluateSimpleCondition(const QString& cond)
     return compareValues(leftVal, rightVal, foundOp);
 }
 
-// Вычисляет сложное условие с логическими операторами И/ИЛИ/НЕ и вложенными скобками
 bool Obrabotka::evaluateComplexCondition(QStringList& tokens)
 {
     qDebug() << "Вычисляем сложное условие с токенами:" << tokens;
 
-    // Обработка оператора НЕ (!)
     for (int i = 0; i < tokens.size(); ) {
         if (tokens[i] == "!") {
             if (i + 1 >= tokens.size()) return false;
@@ -1362,7 +1651,6 @@ bool Obrabotka::evaluateComplexCondition(QStringList& tokens)
         }
     }
 
-    // Обработка вложенных скобок
     std::stack<int> bracketStack;
     for (int i = 0; i < tokens.size(); i++) {
         if (tokens[i] == "(") {
@@ -1386,7 +1674,6 @@ bool Obrabotka::evaluateComplexCondition(QStringList& tokens)
     }
     if (!bracketStack.empty()) return false;
 
-    // Замена простых условий на 0/1
     for (int i = 0; i < tokens.size(); i++) {
         if (tokens[i] != "&&" && tokens[i] != "||" && tokens[i] != "(" && tokens[i] != ")") {
             bool value = evaluateSimpleCondition(tokens[i]);
@@ -1395,7 +1682,6 @@ bool Obrabotka::evaluateComplexCondition(QStringList& tokens)
         }
     }
 
-    // Выполнение операций И (&&) - приоритет 1
     for (int i = 1; i < tokens.size() - 1; ) {
         if (tokens[i] == "&&") {
             bool leftVal = (tokens[i-1] == "1");
@@ -1409,7 +1695,6 @@ bool Obrabotka::evaluateComplexCondition(QStringList& tokens)
         }
     }
 
-    // Выполнение операций ИЛИ (||) - приоритет 2
     for (int i = 1; i < tokens.size() - 1; ) {
         if (tokens[i] == "||") {
             bool leftVal = (tokens[i-1] == "1");
@@ -1431,7 +1716,6 @@ bool Obrabotka::evaluateComplexCondition(QStringList& tokens)
 // ЦИКЛ С ПАРАМЕТРОМ (СЧЕТЧИК)
 // ============================================================================
 
-// Выполняет цикл for с заданным счетчиком и телом цикла
 void Obrabotka::schetchik(const QString& counterExpr, QVariantList loopBody)
 {
     clearError();
@@ -1447,26 +1731,20 @@ void Obrabotka::schetchik(const QString& counterExpr, QVariantList loopBody)
     qDebug() << "Цикл for:" << varName << "от" << startVal << "до" << endVal << "шаг" << stepVal;
     if (stepVal == 0) return;
 
-    // Цикл с положительным шагом
     if (stepVal > 0) {
         for (int i = startVal; i <= endVal; i += stepVal) {
             setValue(varName, QVariant(i), "int");
             if (!loopBody.isEmpty()) {
                 vipolnenie(loopBody);
                 if (m_hasError) return;
-            } else {
-                qDebug() << "Тело цикла пустое!";
             }
         }
     } else {
-        // Цикл с отрицательным шагом
         for (int i = startVal; i >= endVal; i += stepVal) {
             setValue(varName, QVariant(i), "int");
             if (!loopBody.isEmpty()) {
                 vipolnenie(loopBody);
                 if (m_hasError) return;
-            } else {
-                qDebug() << "Тело цикла пустое!";
             }
         }
     }
@@ -1474,7 +1752,6 @@ void Obrabotka::schetchik(const QString& counterExpr, QVariantList loopBody)
     qDebug() << "Цикл for завершен";
 }
 
-// Парсит выражение счетчика цикла (формат: переменная = начало до конец шаг шаг)
 bool Obrabotka::parseCounter(const QString& expr, QString& varName, int& startVal, int& endVal, int& stepVal)
 {
     QString expression = expr.simplified();
@@ -1514,7 +1791,6 @@ bool Obrabotka::parseCounter(const QString& expr, QString& varName, int& startVa
 // ЦИКЛ С ПРЕДУСЛОВИЕМ (WHILE)
 // ============================================================================
 
-// Выполняет цикл while: проверяет условие перед каждой итерацией
 void Obrabotka::predusl(const QString& condition, QVariantList loopBody)
 {
     clearError();
@@ -1553,7 +1829,6 @@ void Obrabotka::predusl(const QString& condition, QVariantList loopBody)
 // ЦИКЛ С ПОСТУСЛОВИЕМ (DO-WHILE)
 // ============================================================================
 
-// Выполняет цикл do-while: выполняет тело цикла, затем проверяет условие
 void Obrabotka::postusl(const QString& condition, QVariantList loopBody)
 {
     clearError();
@@ -1599,7 +1874,6 @@ void Obrabotka::postusl(const QString& condition, QVariantList loopBody)
 // ОСНОВНОЙ ИНТЕРПРЕТАТОР АЛГОРИТМА
 // ============================================================================
 
-// Выполняет алгоритм, представленный в виде списка блоков
 void Obrabotka::vipolnenie(QVariantList algorithm)
 {
     clearError();
@@ -1666,7 +1940,6 @@ void Obrabotka::vipolnenie(QVariantList algorithm)
 // ОТЛАДКА: СОХРАНЕНИЕ СОСТОЯНИЙ
 // ============================================================================
 
-// Сохраняет текущее состояние переменных и ID завершенного блока в историю отладки
 void Obrabotka::saveDebugState(int finishedBlockId)
 {
     m_debugHistory.push(convertToQmlVariantMap());
@@ -1676,13 +1949,11 @@ void Obrabotka::saveDebugState(int finishedBlockId)
              << "ID завершенного блока:" << finishedBlockId;
 }
 
-// Проверяет, есть ли следующие блоки для выполнения в режиме отладки
 bool Obrabotka::hasMoreBlocks()
 {
     return m_currentDebugBlockId != -1;
 }
 
-// Отправляет текущее состояние переменных и подсвечивает текущий блок в UI
 void Obrabotka::sendCurrentState(int highlightId)
 {
     QVariantMap currentState = convertToQmlVariantMap();
@@ -1695,7 +1966,6 @@ void Obrabotka::sendCurrentState(int highlightId)
 // ОТЛАДКА: ВЫПОЛНЕНИЕ ОДИНОЧНОГО БЛОКА
 // ============================================================================
 
-// Выполняет один блок алгоритма в режиме отладки (без вложенных структур)
 void Obrabotka::executeDebugBlock(const QVariantMap& block)
 {
     if (block.isEmpty()) {
@@ -1718,7 +1988,6 @@ void Obrabotka::executeDebugBlock(const QVariantMap& block)
 // ОТЛАДКА: ОЧИСТКА СОСТОЯНИЯ
 // ============================================================================
 
-// Полная очистка состояния отладчика и переменных
 void Obrabotka::internal_cleanup()
 {
     m_debugging = false;
@@ -1737,7 +2006,6 @@ void Obrabotka::internal_cleanup()
 // ОТЛАДКА: ПЛОСКАЯ СТРУКТУРА АЛГОРИТМА
 // ============================================================================
 
-// Преобразует древовидную структуру алгоритма в плоскую карту блоков для пошаговой отладки
 void Obrabotka::flattenAlgorithm(const QVariantList& algorithm, int& nextId)
 {
     for (int i = 0; i < algorithm.size(); ++i) {
@@ -1770,7 +2038,6 @@ void Obrabotka::flattenAlgorithm(const QVariantList& algorithm, int& nextId)
 // ОТЛАДКА: ПОИСК СЛЕДУЮЩЕГО БЛОКА
 // ============================================================================
 
-// Определяет следующий блок для выполнения с учетом логики ветвлений и циклов
 int Obrabotka::findNextBlockId(int currentId, bool& wasLoop)
 {
     wasLoop = false;
@@ -1836,7 +2103,6 @@ int Obrabotka::findNextBlockId(int currentId, bool& wasLoop)
 // ОТЛАДКА: ЗАПУСК И УПРАВЛЕНИЕ
 // ============================================================================
 
-// Запускает режим отладки с возможностью установки начальной точки выполнения
 void Obrabotka::startDebugging(QVariantList algorithm, int startBlockId)
 {
     QVariantList syntaxErrors = checkAlgorithmSyntax(algorithm);
@@ -1858,7 +2124,6 @@ void Obrabotka::startDebugging(QVariantList algorithm, int startBlockId)
                            ? -1
                            : m_currentAlgorithm.first().value<QVariantMap>()["uniqueId"].toInt();
 
-    // Бесшумное выполнение до указанной точки останова
     if (startBlockId != -1 && m_blockMap.contains(startBlockId) && startBlockId != firstBlockId) {
         qDebug() << "Бесшумный запуск до блока" << startBlockId;
         int blockToRun = firstBlockId;
@@ -1901,7 +2166,6 @@ void Obrabotka::startDebugging(QVariantList algorithm, int startBlockId)
 // ОТЛАДКА: ПОШАГОВОЕ ВЫПОЛНЕНИЕ
 // ============================================================================
 
-// Выполняет один шаг отладки: текущий блок -> сохранение состояния -> переход к следующему
 void Obrabotka::debugStep()
 {
     if (!m_debugging || m_currentDebugBlockId == -1) {
@@ -1923,7 +2187,6 @@ void Obrabotka::debugStep()
     bool wasLoop = false;
     int nextBlockId = findNextBlockId(idOfBlockToExecute, wasLoop);
 
-    // Специальная обработка цикла do-while при возврате к началу тела
     if (type == "постусл" && !wasLoop) {
         bool isLoopingBack = (m_blockIdHistory.size() > 1 &&
                               m_nextBlockIdMap.value(m_blockIdHistory.top(), -1) == idOfBlockToExecute);
@@ -1953,7 +2216,6 @@ void Obrabotka::debugStep()
 // ОТЛАДКА: ВОЗВРАТ НА ШАГ НАЗАД
 // ============================================================================
 
-// Откатывает выполнение на один шаг назад с восстановлением состояния переменных
 void Obrabotka::debugStepBack()
 {
     if (m_debugHistory.size() < 2) return;
@@ -1975,7 +2237,6 @@ void Obrabotka::debugStepBack()
 // ОТЛАДКА: ЗАВЕРШЕНИЕ
 // ============================================================================
 
-// Полностью останавливает режим отладки и очищает все состояния
 void Obrabotka::stopDebugging()
 {
     internal_cleanup();
@@ -1989,7 +2250,6 @@ void Obrabotka::stopDebugging()
 // ОСНОВНОЙ ЗАПУСК АЛГОРИТМА
 // ============================================================================
 
-// Запускает выполнение алгоритма с предварительной проверкой синтаксиса
 void Obrabotka::myPriem(QVariantList algoritm)
 {
     clearError();
@@ -2006,13 +2266,11 @@ void Obrabotka::myPriem(QVariantList algoritm)
 // РАБОТА С ФАЙЛАМИ
 // ============================================================================
 
-// Возвращает текущий путь к открытому файлу алгоритма
 QString Obrabotka::currentFilePath() const
 {
     return m_currentFilePath;
 }
 
-// Устанавливает текущий путь к файлу и уведомляет об изменении
 void Obrabotka::setCurrentFilePath(const QString &filePath)
 {
     if (m_currentFilePath != filePath) {
@@ -2021,14 +2279,12 @@ void Obrabotka::setCurrentFilePath(const QString &filePath)
     }
 }
 
-// Создает новый экземпляр приложения с загрузкой указанного файла
 void Obrabotka::createNewInstance(const QUrl &filePath)
 {
     QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList() << filePath.toLocalFile());
     QCoreApplication::quit();
 }
 
-// Сохраняет алгоритм в файл в формате JSON
 bool Obrabotka::saveAlgorithmToFile(const QVariantList& algorithm, const QUrl& filePath)
 {
     QString localPath = filePath.toLocalFile();
@@ -2052,7 +2308,6 @@ bool Obrabotka::saveAlgorithmToFile(const QVariantList& algorithm, const QUrl& f
     return true;
 }
 
-// Загружает алгоритм из файла в формате JSON
 QVariantList Obrabotka::loadAlgorithmFromFile(const QUrl& filePath)
 {
     QString localPath = filePath.toLocalFile();
@@ -2096,7 +2351,6 @@ QVariantList Obrabotka::loadAlgorithmFromFile(const QUrl& filePath)
 // РАБОТА С НАСТРОЙКАМИ
 // ============================================================================
 
-// Сохраняет настройки приложения в системное хранилище (QSettings)
 void Obrabotka::saveSettings(const QVariantMap &settings)
 {
     QSettings qSettings;
@@ -2107,7 +2361,6 @@ void Obrabotka::saveSettings(const QVariantMap &settings)
     qDebug() << "Настройки сохранены с помощью QSettings.";
 }
 
-// Загружает настройки приложения из системного хранилища
 QVariantMap Obrabotka::loadSettings()
 {
     QSettings qSettings;
@@ -2124,7 +2377,6 @@ QVariantMap Obrabotka::loadSettings()
 // ПРОВЕРКА СИНТАКСИСА АЛГОРИТМА
 // ============================================================================
 
-// Проверяет синтаксис всего алгоритма, включая вложенные блоки (ветки условий, тела циклов)
 QVariantList Obrabotka::checkAlgorithmSyntax(const QVariantList& algorithm)
 {
     QVariantList allErrors;
@@ -2144,7 +2396,6 @@ QVariantList Obrabotka::checkAlgorithmSyntax(const QVariantList& algorithm)
             QString trimmedContent = content.trimmed();
             int equalsPos = trimmedContent.indexOf('=');
             if (equalsPos == -1) {
-                // Check if it's a method call without assignment (e.g. a.append(1))
                 static QRegularExpression methodCallRegex(R"(^(.+?)\s*\.\s*(\w+)\s*\((.*)\)\s*$)");
                 if (!methodCallRegex.match(trimmedContent).hasMatch()) {
                     addSyntaxError("В действии отсутствует оператор присваивания '=' или неверный вызов метода.", blockId, allErrors);
@@ -2175,7 +2426,6 @@ QVariantList Obrabotka::checkAlgorithmSyntax(const QVariantList& algorithm)
             }
         }
 
-        // Рекурсивная проверка вложенных блоков
         if (block.contains("trueBranch")) {
             QVariantList subBlocks = block["trueBranch"].value<QVariantList>();
             QVariantList subErrors = checkAlgorithmSyntax(subBlocks);
